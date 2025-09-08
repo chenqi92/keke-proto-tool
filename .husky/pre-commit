@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run frontend linting and formatting
+echo "🔍 Running ESLint..."
+npm run lint
+
+echo "🎨 Running Prettier check..."
+npm run format:check
+
+echo "📝 Running TypeScript check..."
+npm run type-check
+
+# Run Rust formatting and linting
+echo "🦀 Running Rust formatting check..."
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+echo "📎 Running Clippy..."
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+echo "✅ All checks passed!"
