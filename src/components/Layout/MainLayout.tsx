@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { cn } from '@/utils';
+import React, { useState, useEffect } from 'react';
 import { MenuBar } from './MenuBar';
 import { ToolBar } from './ToolBar';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useLayoutConfig } from '@/hooks/useResponsive';
+import { useSession, getDefaultSessionConfig } from '@/contexts/SessionContext';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -17,6 +17,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onOpenModal
 }) => {
   const layoutConfig = useLayoutConfig();
+  const { setCurrentSession, setSessionId } = useSession();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true); // 默认隐藏检视器
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,6 +29,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       setMobileMenuOpen(false);
     }
   }, [layoutConfig.sidebar.shouldCollapse]);
+
+  // 会话选择处理
+  const handleSessionSelect = (sessionId: string, protocol: string) => {
+    const sessionConfig = getDefaultSessionConfig(protocol, sessionId);
+    setCurrentSession(sessionConfig);
+    setSessionId(sessionId);
+    console.log('Selected session:', sessionId, protocol, sessionConfig);
+  };
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground">
@@ -70,6 +79,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 >
                   <Sidebar
                     onCollapse={() => setSidebarCollapsed(true)}
+                    onSessionSelect={handleSessionSelect}
                   />
                 </Panel>
                 <PanelResizeHandle className="w-1 bg-border hover:bg-accent transition-colors" />
@@ -101,10 +111,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                             <h3 className="font-semibold text-sm">检视器</h3>
                             <button
                               onClick={() => setRightPanelCollapsed(true)}
-                              className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
+                              className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
+                              title="折叠检视器"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                               </svg>
                             </button>
                           </div>
@@ -142,9 +153,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           </div>
         )}
 
-        {/* 侧边栏控制按钮 */}
+        {/* 左侧面板边缘切换器 */}
         {(sidebarCollapsed || layoutConfig.isMobile) && (
-          <button
+          <div
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 group cursor-pointer"
             onClick={() => {
               if (layoutConfig.isMobile) {
                 setMobileMenuOpen(true);
@@ -152,24 +164,37 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 setSidebarCollapsed(false);
               }
             }}
-            className="absolute left-4 top-20 z-10 p-2 bg-card border border-border rounded-md shadow-sm hover:bg-accent"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+            <div className="flex items-center bg-card border border-border rounded-md rounded-l-none shadow-sm transition-all duration-200 hover:bg-accent group-hover:scale-105">
+              <div className="px-2 py-3">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground transition-all duration-200 group-hover:text-foreground">
+                会话
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* 右侧面板折叠时的展开按钮 */}
-        {rightPanelCollapsed && (
-          <button
+        {/* 右侧面板边缘切换器 */}
+        {rightPanelCollapsed && layoutConfig.mainContent.showThreeColumns && (
+          <div
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 group cursor-pointer"
             onClick={() => setRightPanelCollapsed(false)}
-            className="absolute right-4 top-20 z-10 p-2 bg-card border border-border rounded-md shadow-sm hover:bg-accent"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
+            <div className="flex items-center bg-card border border-border rounded-md rounded-r-none shadow-sm transition-all duration-200 hover:bg-accent group-hover:scale-105">
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground transition-all duration-200 group-hover:text-foreground">
+                检视器
+              </div>
+              <div className="px-2 py-3">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

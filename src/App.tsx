@@ -18,6 +18,9 @@ import { WelcomeDialog } from '@/components/WelcomeDialog'
 import { Modal } from '@/components/Modal'
 import { NewSessionModal, SessionData } from '@/components/NewSessionModal'
 
+// Context
+import { SessionProvider } from '@/contexts/SessionContext'
+
 function App() {
   const [showWelcome, setShowWelcome] = useState(false)
   const [activeModal, setActiveModal] = useState<string | null>(null)
@@ -126,7 +129,7 @@ function App() {
   }
 
   return (
-    <>
+    <SessionProvider>
       <MainLayout onOpenModal={openModal}>
         <SessionPage />
       </MainLayout>
@@ -138,7 +141,7 @@ function App() {
       />
 
       {activeModal && renderModal()}
-    </>
+    </SessionProvider>
   )
 }
 

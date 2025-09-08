@@ -5,7 +5,10 @@ import { HexEditor } from '@/components/HexEditor/HexEditor';
 import { ParseTree } from '@/components/ParseTree/ParseTree';
 import { Timeline } from '@/components/Timeline/Timeline';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
+import { TCPSessionContent } from '@/components/ProtocolSessions/TCPSessionContent';
+import { WebSocketSessionContent } from '@/components/ProtocolSessions/WebSocketSessionContent';
 import { useLayoutConfig } from '@/hooks/useResponsive';
+import { useSession } from '@/contexts/SessionContext';
 import {
   Play,
   Square,
@@ -32,8 +35,21 @@ interface Message {
   status: 'success' | 'error' | 'warning';
 }
 
+interface SessionConfig {
+  protocol: 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
+  connectionType: 'client' | 'server';
+  host?: string;
+  port?: number;
+  websocketSubprotocol?: string;
+  mqttTopic?: string;
+  sseEventTypes?: string[];
+}
+
 export const SessionPage: React.FC = () => {
   const layoutConfig = useLayoutConfig();
+  const { currentSession } = useSession();
+
+  // For backward compatibility with generic session content
   const [isConnected, setIsConnected] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [viewMode, setViewMode] = useState<'split' | 'hex' | 'tree' | 'timeline'>('split');
@@ -120,6 +136,57 @@ export const SessionPage: React.FC = () => {
     setSelectedMessage(message);
   };
 
+  // Protocol-specific content renderer
+  const renderProtocolSpecificContent = () => {
+    if (!currentSession) {
+      return (
+        <div className="h-full flex items-center justify-center text-muted-foreground">
+          <div className="text-center">
+            <h3 className="text-lg font-medium mb-2">欢迎使用 ProtoTool</h3>
+            <p className="text-sm">请从左侧会话管理中选择一个会话开始分析</p>
+          </div>
+        </div>
+      );
+    }
+
+    switch (currentSession.protocol) {
+      case 'TCP':
+        return <TCPSessionContent config={currentSession} />;
+      case 'WebSocket':
+        return <WebSocketSessionContent config={currentSession} />;
+      case 'UDP':
+      case 'MQTT':
+      case 'SSE':
+      default:
+        // Fall back to generic session content for protocols not yet implemented
+        return renderGenericSessionContent();
+    }
+  };
+
+  // Generic session content (original implementation)
+  const renderGenericSessionContent = () => {
+    return (
+      <div className="h-full flex flex-col">
+        {/* Generic toolbar */}
+        {renderToolbar()}
+
+        {/* Generic send panel */}
+        {renderSendPanel()}
+
+        {/* Generic receive panel */}
+        {renderReceivePanel()}
+
+        {/* Generic main content area */}
+        <div className="flex-1 overflow-hidden">
+          {layoutConfig.mainContent.showThreeColumns && viewMode === 'split'
+            ? renderSplitView()
+            : renderSingleView()
+          }
+        </div>
+      </div>
+    );
+  };
+
   const renderToolbar = () => (
     <div className="h-12 border-b border-border flex items-center justify-between px-4 bg-card">
       <div className="flex items-center space-x-2">
@@ -145,14 +212,7 @@ export const SessionPage: React.FC = () => {
           )}
         </button>
 
-        <button
-          onClick={handleSendMessage}
-          disabled={!isConnected}
-          className="flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Send className="w-4 h-4" />
-          <span>发送</span>
-        </button>
+
 
         <div className="h-6 w-px bg-border" />
 
@@ -326,35 +386,69 @@ export const SessionPage: React.FC = () => {
     <div className="h-32 border-b border-border bg-card p-4">
       <div className="flex items-start space-x-3 h-full">
         <div className="flex-1 flex flex-col space-y-2">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-medium text-muted-foreground">发送格式:</span>
-            <DataFormatSelector
-              value={sendFormat}
-              onChange={setSendFormat}
-              size="sm"
-            />
-            {formatError && (
-              <div className="flex items-center space-x-1 text-red-500">
-                <AlertCircle className="w-3 h-3" />
-                <span className="text-xs">{formatError}</span>
-              </div>
-            )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-medium text-muted-foreground">发送格式:</span>
+              <DataFormatSelector
+                value={sendFormat}
+                onChange={setSendFormat}
+                size="sm"
+              />
+            </div>
+            {/* Connection status indicator */}
+            <div className="flex items-center space-x-2">
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                isConnected ? "bg-green-500" : "bg-red-500"
+              )} />
+              <span className="text-xs text-muted-foreground">
+                {isConnected ? "已连接" : "未连接"}
+              </span>
+            </div>
           </div>
+
           <textarea
             value={sendData}
             onChange={(e) => handleSendDataChange(e.target.value)}
             placeholder={`输入${sendFormat.toUpperCase()}格式的数据...`}
             className="flex-1 w-full px-3 py-2 text-sm bg-background border border-border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
           />
+
+          {formatError && (
+            <div className="flex items-center space-x-1 text-red-500">
+              <AlertCircle className="w-3 h-3" />
+              <span className="text-xs">{formatError}</span>
+            </div>
+          )}
         </div>
-        <button
-          onClick={handleSendMessage}
-          disabled={!isConnected || !sendData.trim()}
-          className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-        >
-          <Send className="w-4 h-4" />
-          <span>发送</span>
-        </button>
+
+        {/* Enhanced send button */}
+        <div className="flex flex-col space-y-2">
+          <button
+            onClick={handleSendMessage}
+            disabled={!isConnected || !sendData.trim()}
+            className={cn(
+              "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
+              "flex items-center space-x-2 min-w-20",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              isConnected && sendData.trim()
+                ? "bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            <Send className="w-4 h-4" />
+            <span>发送</span>
+          </button>
+
+          {/* Quick actions */}
+          <button
+            onClick={() => setSendData('')}
+            className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+            title="清空"
+          >
+            清空
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -512,24 +606,5 @@ export const SessionPage: React.FC = () => {
   // }
 
   // 桌面端和平板端布局
-  return (
-    <div className="h-full flex flex-col">
-      {/* 桌面端工具栏 */}
-      {renderToolbar()}
-
-      {/* 发送面板 */}
-      {renderSendPanel()}
-
-      {/* 接收面板标题 */}
-      {renderReceivePanel()}
-
-      {/* 主内容区 */}
-      <div className="flex-1 overflow-hidden">
-        {layoutConfig.mainContent.showThreeColumns && viewMode === 'split'
-          ? renderSplitView()
-          : renderSingleView()
-        }
-      </div>
-    </div>
-  );
+  return renderProtocolSpecificContent();
 };

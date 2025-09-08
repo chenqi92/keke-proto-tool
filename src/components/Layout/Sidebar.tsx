@@ -20,6 +20,7 @@ import { NewSessionModal, SessionData } from '@/components/NewSessionModal';
 
 interface SidebarProps {
   onCollapse: () => void;
+  onSessionSelect?: (sessionId: string, protocol: string) => void;
 }
 
 interface TreeNode {
@@ -132,7 +133,8 @@ const TreeItem: React.FC<{
   node: TreeNode;
   level: number;
   onToggle: (id: string) => void;
-}> = ({ node, level, onToggle }) => {
+  onSessionSelect?: (sessionId: string, protocol: string) => void;
+}> = ({ node, level, onToggle, onSessionSelect }) => {
   const hasChildren = node.children && node.children.length > 0;
   const isExpanded = node.expanded;
 
@@ -144,6 +146,11 @@ const TreeItem: React.FC<{
           level > 0 && "ml-4"
         )}
         style={{ paddingLeft: `${8 + level * 16}px` }}
+        onClick={() => {
+          if (node.type === 'session' && node.protocol && onSessionSelect) {
+            onSessionSelect(node.id, node.protocol);
+          }
+        }}
       >
         {/* Expand/Collapse Icon */}
         <button
@@ -208,6 +215,7 @@ const TreeItem: React.FC<{
               node={child}
               level={level + 1}
               onToggle={onToggle}
+              onSessionSelect={onSessionSelect}
             />
           ))}
         </div>
@@ -216,7 +224,7 @@ const TreeItem: React.FC<{
   );
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ onCollapse }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [treeData, setTreeData] = useState(mockData);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
@@ -280,6 +288,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse }) => {
                   node={node}
                   level={0}
                   onToggle={handleToggle}
+                  onSessionSelect={onSessionSelect}
                 />
               ))}
             </div>
