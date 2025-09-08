@@ -63,9 +63,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             {!sidebarCollapsed && (
               <>
                 <Panel
-                  defaultSize={layoutConfig.isTablet ? 25 : 20}
-                  minSize={15}
-                  maxSize={layoutConfig.isTablet ? 35 : 30}
+                  defaultSize={layoutConfig.isTablet ? 35 : 28}
+                  minSize={20}
+                  maxSize={layoutConfig.isTablet ? 45 : 40}
                   className="bg-card border-r border-border"
                 >
                   <Sidebar

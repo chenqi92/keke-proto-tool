@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '@/utils';
 
-export type DataFormat = 'ascii' | 'binary' | 'hex' | 'base64' | 'json';
+export type DataFormat = 'ascii' | 'binary' | 'octal' | 'decimal' | 'hex' | 'base64' | 'json' | 'utf-8';
 
 interface DataFormatSelectorProps {
   value: DataFormat;
@@ -13,9 +13,12 @@ interface DataFormatSelectorProps {
 const formatOptions: { value: DataFormat; label: string; description: string }[] = [
   { value: 'ascii', label: 'ASCII', description: '纯文本格式' },
   { value: 'binary', label: 'Binary', description: '二进制格式' },
+  { value: 'octal', label: 'Octal', description: '八进制格式' },
+  { value: 'decimal', label: 'Decimal', description: '十进制格式' },
   { value: 'hex', label: 'Hex', description: '十六进制格式' },
   { value: 'base64', label: 'Base64', description: 'Base64编码' },
-  { value: 'json', label: 'JSON', description: 'JSON格式' }
+  { value: 'json', label: 'JSON', description: 'JSON格式' },
+  { value: 'utf-8', label: 'UTF-8', description: 'UTF-8编码' }
 ];
 
 export const DataFormatSelector: React.FC<DataFormatSelectorProps> = ({
@@ -56,7 +59,19 @@ export const formatData = {
         .map(byte => byte.toString(2).padStart(8, '0'))
         .join(' ');
     },
-    
+
+    octal: (data: Uint8Array): string => {
+      return Array.from(data)
+        .map(byte => byte.toString(8).padStart(3, '0'))
+        .join(' ');
+    },
+
+    decimal: (data: Uint8Array): string => {
+      return Array.from(data)
+        .map(byte => byte.toString(10))
+        .join(' ');
+    },
+
     hex: (data: Uint8Array): string => {
       return Array.from(data)
         .map(byte => byte.toString(16).padStart(2, '0').toUpperCase())
@@ -75,6 +90,10 @@ export const formatData = {
       } catch {
         return new TextDecoder().decode(data);
       }
+    },
+
+    'utf-8': (data: Uint8Array): string => {
+      return new TextDecoder('utf-8').decode(data);
     }
   },
   
@@ -90,7 +109,21 @@ export const formatData = {
         .map(bit => parseInt(bit, 2));
       return new Uint8Array(bytes);
     },
-    
+
+    octal: (text: string): Uint8Array => {
+      const bytes = text.split(/\s+/)
+        .filter(oct => oct.length > 0)
+        .map(oct => parseInt(oct, 8));
+      return new Uint8Array(bytes);
+    },
+
+    decimal: (text: string): Uint8Array => {
+      const bytes = text.split(/\s+/)
+        .filter(dec => dec.length > 0)
+        .map(dec => parseInt(dec, 10));
+      return new Uint8Array(bytes);
+    },
+
     hex: (text: string): Uint8Array => {
       const hex = text.replace(/\s+/g, '');
       const bytes = [];
@@ -111,6 +144,10 @@ export const formatData = {
     
     json: (text: string): Uint8Array => {
       return new TextEncoder().encode(text);
+    },
+
+    'utf-8': (text: string): Uint8Array => {
+      return new TextEncoder().encode(text);
     }
   }
 };
@@ -125,7 +162,17 @@ export const validateFormat = {
     const bits = text.split(/\s+/).filter(bit => bit.length > 0);
     return bits.every(bit => /^[01]+$/.test(bit) && bit.length <= 8);
   },
-  
+
+  octal: (text: string): boolean => {
+    const octals = text.split(/\s+/).filter(oct => oct.length > 0);
+    return octals.every(oct => /^[0-7]+$/.test(oct) && parseInt(oct, 8) <= 255);
+  },
+
+  decimal: (text: string): boolean => {
+    const decimals = text.split(/\s+/).filter(dec => dec.length > 0);
+    return decimals.every(dec => /^\d+$/.test(dec) && parseInt(dec, 10) <= 255);
+  },
+
   hex: (text: string): boolean => {
     const hex = text.replace(/\s+/g, '');
     return /^[0-9A-Fa-f]*$/.test(hex) && hex.length % 2 === 0;
@@ -146,5 +193,9 @@ export const validateFormat = {
     } catch {
       return false;
     }
+  },
+
+  'utf-8': (text: string): boolean => {
+    return true; // UTF-8 字符串总是有效的
   }
 };

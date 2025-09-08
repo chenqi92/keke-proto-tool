@@ -257,7 +257,7 @@ export const Timeline: React.FC<TimelineProps> = ({
       </div>
 
       {/* Statistics */}
-      <div className="border-t border-border p-2 bg-muted/30">
+      <div className="border-t border-border p-2 bg-muted/30 mb-6">
         <div className="grid grid-cols-4 gap-4 text-xs">
           <div className="text-center">
             <div className="font-medium">
