@@ -88,7 +88,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
 
   return (
     <div className={cn(
-      "h-6 bg-card border-t border-border flex items-center justify-between px-4 text-xs text-muted-foreground",
+      "h-5 bg-card border-t border-border flex items-center justify-between px-4 text-xs text-muted-foreground shrink-0",
       className
     )}>
       {/* Left Section */}
