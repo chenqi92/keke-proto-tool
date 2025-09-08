@@ -6,7 +6,6 @@ import './styles/globals.css'
 import { MainLayout } from '@/components/Layout/MainLayout'
 
 // Pages
-import { ConnectionPage } from '@/pages/ConnectionPage'
 import { SessionPage } from '@/pages/SessionPage'
 import { ToolboxPage } from '@/pages/ToolboxPage'
 import { LogsPage } from '@/pages/LogsPage'
@@ -16,10 +15,11 @@ import { SettingsPage } from '@/pages/SettingsPage'
 
 // Components
 import { WelcomeDialog } from '@/components/WelcomeDialog'
+import { Modal } from '@/components/Modal'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('sessions') // 默认显示连接页面
   const [showWelcome, setShowWelcome] = useState(false)
+  const [activeModal, setActiveModal] = useState<string | null>(null)
 
   useEffect(() => {
     // 获取应用版本信息
@@ -36,37 +36,84 @@ function App() {
     }
   }, [])
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'sessions':
-        return <ConnectionPage />
-      case 'toolbox':
-        return <ToolboxPage />
-      case 'logs':
-        return <LogsPage />
-      case 'playback':
-        return <PlaybackPage />
-      case 'plugins':
-        return <PluginsPage />
-      case 'settings':
-        return <SettingsPage />
-      default:
-        return <ConnectionPage />
-    }
-  }
-
   const handleWelcomeComplete = () => {
     setShowWelcome(false)
-    // 引导完成后可以跳转到特定页面或保持当前页面
+  }
+
+  const openModal = (modalType: string) => {
+    setActiveModal(modalType)
+  }
+
+  const closeModal = () => {
+    setActiveModal(null)
+  }
+
+  const renderModal = () => {
+    switch (activeModal) {
+      case 'toolbox':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="工具箱"
+            size="xl"
+          >
+            <ToolboxPage />
+          </Modal>
+        )
+      case 'logs':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="日志管理"
+            size="xl"
+          >
+            <LogsPage />
+          </Modal>
+        )
+      case 'playback':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="会话回放"
+            size="xl"
+          >
+            <PlaybackPage />
+          </Modal>
+        )
+      case 'plugins':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="插件管理"
+            size="xl"
+          >
+            <PluginsPage />
+          </Modal>
+        )
+      case 'settings':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="设置"
+            size="lg"
+          >
+            <SettingsPage />
+          </Modal>
+        )
+      default:
+        return null
+    }
   }
 
   return (
     <>
-      <MainLayout
-        activeView={currentPage}
-        onViewChange={setCurrentPage}
-      >
-        {renderPage()}
+      <MainLayout onOpenModal={openModal}>
+        <SessionPage />
       </MainLayout>
 
       <WelcomeDialog
@@ -74,6 +121,8 @@ function App() {
         onClose={() => setShowWelcome(false)}
         onComplete={handleWelcomeComplete}
       />
+
+      {activeModal && renderModal()}
     </>
   )
 }

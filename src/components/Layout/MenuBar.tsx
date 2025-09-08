@@ -3,6 +3,7 @@ import { cn } from '@/utils';
 
 interface MenuBarProps {
   className?: string;
+  onOpenModal: (modalType: string) => void;
 }
 
 interface MenuItem {
@@ -13,8 +14,8 @@ interface MenuItem {
   action?: () => void;
 }
 
-const menuStructure: { [key: string]: MenuItem[] } = {
-  File: [
+const createMenuStructure = (onOpenModal: (modalType: string) => void): { [key: string]: MenuItem[] } => ({
+  文件: [
     { label: '新建会话', shortcut: 'Ctrl+N', action: () => console.log('New Session') },
     { label: '新建工作区', action: () => console.log('New Workspace') },
     { separator: true },
@@ -32,11 +33,11 @@ const menuStructure: { [key: string]: MenuItem[] } = {
     ]},
     { label: '导出', shortcut: 'Ctrl+E', action: () => console.log('Export') },
     { separator: true },
-    { label: '设置', action: () => console.log('Settings') },
+    { label: '设置', action: () => onOpenModal('settings') },
     { separator: true },
     { label: '关闭窗口', shortcut: 'Ctrl+W', action: () => console.log('Close Window') },
   ],
-  Edit: [
+  编辑: [
     { label: '撤销', shortcut: 'Ctrl+Z', action: () => console.log('Undo') },
     { label: '重做', shortcut: 'Ctrl+Y', action: () => console.log('Redo') },
     { separator: true },
@@ -56,7 +57,7 @@ const menuStructure: { [key: string]: MenuItem[] } = {
     { separator: true },
     { label: '全选', shortcut: 'Ctrl+A', action: () => console.log('Select All') },
   ],
-  View: [
+  视图: [
     { label: '命令面板', shortcut: 'Ctrl+K', action: () => console.log('Command Palette') },
     { separator: true },
     { label: '切换深色模式', shortcut: 'Ctrl+J', action: () => console.log('Toggle Dark Mode') },
@@ -84,7 +85,7 @@ const menuStructure: { [key: string]: MenuItem[] } = {
     { separator: true },
     { label: '全屏', shortcut: 'F11', action: () => console.log('Full Screen') },
   ],
-  Session: [
+  会话: [
     { label: '连接', shortcut: 'Ctrl+Enter', action: () => console.log('Connect') },
     { label: '断开连接', action: () => console.log('Disconnect') },
     { separator: true },
@@ -96,11 +97,13 @@ const menuStructure: { [key: string]: MenuItem[] } = {
     { label: '绑定协议', action: () => console.log('Bind Protocol') },
     { separator: true },
     { label: '快照和标记', action: () => console.log('Snapshot') },
-    { label: '在回放中打开', action: () => console.log('Open in Playback') },
+    { label: '在回放中打开', action: () => onOpenModal('playback') },
     { separator: true },
     { label: '会话设置', action: () => console.log('Session Settings') },
   ],
-  Tools: [
+  工具: [
+    { label: '打开工具箱', action: () => onOpenModal('toolbox') },
+    { separator: true },
     { label: '报文生成器', action: () => console.log('Message Generator') },
     { label: '协议解析器', submenu: [
       { label: '离线解析', action: () => console.log('Offline Parser') },
@@ -126,7 +129,9 @@ const menuStructure: { [key: string]: MenuItem[] } = {
       { label: '规则生成/修复', action: () => console.log('Rule Generation') },
     ]},
   ],
-  Logs: [
+  日志: [
+    { label: '打开日志管理', action: () => onOpenModal('logs') },
+    { separator: true },
     { label: '搜索日志', shortcut: 'Ctrl+L', action: () => console.log('Search Logs') },
     { label: '已保存视图', action: () => console.log('Saved Views') },
     { separator: true },
@@ -137,7 +142,9 @@ const menuStructure: { [key: string]: MenuItem[] } = {
     { label: '打开日志文件夹', action: () => console.log('Open Logs Folder') },
     { label: '清理日志', action: () => console.log('Clean Logs') },
   ],
-  Plugins: [
+  插件: [
+    { label: '打开插件管理', action: () => onOpenModal('plugins') },
+    { separator: true },
     { label: '已安装插件', action: () => console.log('Installed Plugins') },
     { label: '插件市场', action: () => console.log('Plugin Marketplace') },
     { separator: true },
@@ -146,14 +153,14 @@ const menuStructure: { [key: string]: MenuItem[] } = {
     { separator: true },
     { label: '插件诊断', action: () => console.log('Plugin Diagnostics') },
   ],
-  Window: [
+  窗口: [
     { label: '最小化', action: () => console.log('Minimize') },
     { label: '最大化', action: () => console.log('Maximize') },
     { separator: true },
     { label: '下一个标签', shortcut: 'Ctrl+Tab', action: () => console.log('Next Tab') },
     { label: '上一个标签', shortcut: 'Shift+Ctrl+Tab', action: () => console.log('Previous Tab') },
   ],
-  Help: [
+  帮助: [
     { label: '命令面板', shortcut: 'Ctrl+K', action: () => console.log('Command Palette') },
     { label: '键盘快捷键', action: () => console.log('Keyboard Shortcuts') },
     { separator: true },
@@ -165,11 +172,12 @@ const menuStructure: { [key: string]: MenuItem[] } = {
     { label: '关于', action: () => console.log('About') },
     { label: '检查更新', action: () => console.log('Check for Updates') },
   ],
-};
+});
 
-export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
+export const MenuBar: React.FC<MenuBarProps> = ({ className, onOpenModal }) => {
   const [activeMenu, setActiveMenu] = React.useState<string | null>(null);
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
+  const menuStructure = createMenuStructure(onOpenModal);
 
   const handleMenuClick = (menuName: string) => {
     setActiveMenu(activeMenu === menuName ? null : menuName);

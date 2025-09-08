@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
 import { cn } from '@/utils';
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Search, 
-  Plus, 
+import {
+  ChevronDown,
+  ChevronRight,
+  Search,
+  Plus,
   MoreHorizontal,
   Wifi,
   WifiOff,
   Circle,
   Play,
   Square,
-  Filter
+  Filter,
+  MessageSquare,
+  Globe,
+  Radio
 } from 'lucide-react';
+import { NewSessionModal, SessionData } from '@/components/NewSessionModal';
 
 interface SidebarProps {
-  activeView: string;
   onCollapse: () => void;
 }
 
@@ -23,6 +26,7 @@ interface TreeNode {
   id: string;
   label: string;
   type: 'workspace' | 'session' | 'connection' | 'filter';
+  protocol?: 'TCP' | 'UDP' | 'MQTT' | 'WebSocket' | 'SSE';
   status?: 'connected' | 'disconnected' | 'connecting';
   children?: TreeNode[];
   expanded?: boolean;
@@ -39,6 +43,7 @@ const mockData: TreeNode[] = [
         id: 'session-1',
         label: 'TCP 客户端',
         type: 'session',
+        protocol: 'TCP',
         status: 'connected',
         expanded: true,
         children: [
@@ -46,6 +51,7 @@ const mockData: TreeNode[] = [
             id: 'conn-1',
             label: '192.168.1.100:8080',
             type: 'connection',
+            protocol: 'TCP',
             status: 'connected'
           }
         ]
@@ -54,15 +60,41 @@ const mockData: TreeNode[] = [
         id: 'session-2',
         label: 'UDP 服务端',
         type: 'session',
+        protocol: 'UDP',
         status: 'disconnected',
         children: [
           {
             id: 'conn-2',
             label: '0.0.0.0:9090',
             type: 'connection',
+            protocol: 'UDP',
             status: 'disconnected'
           }
         ]
+      },
+      {
+        id: 'session-3',
+        label: 'MQTT 客户端',
+        type: 'session',
+        protocol: 'MQTT',
+        status: 'connecting',
+        children: []
+      },
+      {
+        id: 'session-4',
+        label: 'WebSocket 服务端',
+        type: 'session',
+        protocol: 'WebSocket',
+        status: 'disconnected',
+        children: []
+      },
+      {
+        id: 'session-5',
+        label: 'SSE 客户端',
+        type: 'session',
+        protocol: 'SSE',
+        status: 'disconnected',
+        children: []
       }
     ]
   }
@@ -77,6 +109,22 @@ const getStatusIcon = (status?: string) => {
     case 'disconnected':
     default:
       return <Circle className="w-3 h-3 fill-gray-400 text-gray-400" />;
+  }
+};
+
+const getProtocolIcon = (protocol?: string) => {
+  switch (protocol) {
+    case 'TCP':
+    case 'UDP':
+      return <Wifi className="w-4 h-4" />;
+    case 'MQTT':
+      return <MessageSquare className="w-4 h-4" />;
+    case 'WebSocket':
+      return <Globe className="w-4 h-4" />;
+    case 'SSE':
+      return <Radio className="w-4 h-4" />;
+    default:
+      return <Wifi className="w-4 h-4" />;
   }
 };
 
@@ -112,6 +160,13 @@ const TreeItem: React.FC<{
             <div className="w-3 h-3" />
           )}
         </button>
+
+        {/* Protocol Icon */}
+        {node.type === 'session' && (
+          <div className="mr-2">
+            {getProtocolIcon(node.protocol)}
+          </div>
+        )}
 
         {/* Status Icon */}
         {node.status && (
@@ -161,9 +216,10 @@ const TreeItem: React.FC<{
   );
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, onCollapse }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onCollapse }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [treeData, setTreeData] = useState(mockData);
+  const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
 
   const handleToggle = (id: string) => {
     const toggleNode = (nodes: TreeNode[]): TreeNode[] => {
@@ -180,17 +236,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onCollapse }) => {
     setTreeData(toggleNode(treeData));
   };
 
+  // 按钮事件处理函数
+  const handleNewSession = () => {
+    setIsNewSessionModalOpen(true);
+  };
+
+  const handleCreateSession = (sessionData: SessionData) => {
+    console.log('创建新会话:', sessionData);
+    // TODO: 实际创建会话的逻辑
+    // 这里可以调用API或更新状态来创建新的会话
+  };
+
   const getSidebarContent = () => {
-    switch (activeView) {
-      case 'sessions':
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm">会话管理</h3>
-              <button className="p-1 hover:bg-accent rounded" title="新建会话">
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={handleNewSession}
+            className="p-1 hover:bg-accent rounded"
+            title="新建会话"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
             
             {/* Search */}
             <div className="relative">
@@ -217,72 +285,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onCollapse }) => {
             </div>
           </div>
         );
-
-      case 'toolbox':
-        return (
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm">工具箱</h3>
-            <div className="space-y-2">
-              <div className="p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                <h4 className="font-medium text-sm">报文生成器</h4>
-                <p className="text-xs text-muted-foreground mt-1">生成测试报文</p>
-              </div>
-              <div className="p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                <h4 className="font-medium text-sm">CRC 校验</h4>
-                <p className="text-xs text-muted-foreground mt-1">计算和验证校验和</p>
-              </div>
-              <div className="p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                <h4 className="font-medium text-sm">时间戳转换</h4>
-                <p className="text-xs text-muted-foreground mt-1">时间格式转换</p>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'logs':
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm">日志检索</h3>
-              <button className="p-1 hover:bg-accent rounded" title="过滤器">
-                <Filter className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <div className="space-y-2">
-              <button className="w-full text-left p-2 hover:bg-accent rounded-md text-sm">
-                今日日志
-              </button>
-              <button className="w-full text-left p-2 hover:bg-accent rounded-md text-sm">
-                24小时内
-              </button>
-              <button className="w-full text-left p-2 hover:bg-accent rounded-md text-sm">
-                7天内
-              </button>
-              <button className="w-full text-left p-2 hover:bg-accent rounded-md text-sm">
-                已保存视图
-              </button>
-            </div>
-          </div>
-        );
-
-      default:
-        return (
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm">工作台</h3>
-            <div className="space-y-2">
-              <div className="p-3 border rounded-lg">
-                <h4 className="font-medium text-sm">快速开始</h4>
-                <p className="text-xs text-muted-foreground mt-1">创建第一个连接</p>
-              </div>
-              <div className="p-3 border rounded-lg">
-                <h4 className="font-medium text-sm">最近项目</h4>
-                <p className="text-xs text-muted-foreground mt-1">查看最近使用的项目</p>
-              </div>
-            </div>
-          </div>
-        );
-    }
   };
 
   return (
@@ -290,11 +292,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onCollapse }) => {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <h2 className="font-semibold text-sm">
-          {activeView === 'sessions' && '会话'}
-          {activeView === 'toolbox' && '工具箱'}
-          {activeView === 'logs' && '日志'}
-          {activeView === 'workbench' && '工作台'}
-          {!['sessions', 'toolbox', 'logs', 'workbench'].includes(activeView) && '侧边栏'}
+          会话管理
         </h2>
         <button
           onClick={onCollapse}
@@ -308,6 +306,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, onCollapse }) => {
       <div className="flex-1 p-4 overflow-auto">
         {getSidebarContent()}
       </div>
+
+      {/* New Session Modal */}
+      <NewSessionModal
+        isOpen={isNewSessionModalOpen}
+        onClose={() => setIsNewSessionModalOpen(false)}
+        onConfirm={handleCreateSession}
+      />
     </div>
   );
 };

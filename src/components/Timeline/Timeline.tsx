@@ -28,6 +28,7 @@ interface TimelineProps {
   onMessageSelect?: (message: Message) => void;
   filter?: string;
   className?: string;
+  formatData?: (message: Message) => string;
 }
 
 const getDirectionIcon = (direction: string) => {
@@ -90,7 +91,8 @@ export const Timeline: React.FC<TimelineProps> = ({
   selectedMessage,
   onMessageSelect,
   filter = '',
-  className
+  className,
+  formatData
 }) => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFilter, setShowFilter] = useState(false);
@@ -195,12 +197,12 @@ export const Timeline: React.FC<TimelineProps> = ({
 
       {/* Message List */}
       <div className="flex-1 overflow-auto">
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border pb-4">
           {filteredMessages.map((message) => (
             <div
               key={message.id}
               className={cn(
-                "grid grid-cols-12 gap-2 p-2 text-sm hover:bg-accent cursor-pointer transition-colors",
+                "grid grid-cols-12 gap-2 p-2 text-sm hover:bg-accent transition-colors",
                 selectedMessage?.id === message.id && "bg-primary/10 border-l-2 border-l-primary"
               )}
               onClick={() => onMessageSelect?.(message)}

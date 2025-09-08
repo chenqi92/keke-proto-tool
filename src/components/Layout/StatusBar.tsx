@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils';
-import { 
-  Wifi, 
-  WifiOff, 
-  Activity, 
-  HardDrive, 
-  Clock, 
+import {
+  Wifi,
+  WifiOff,
+  Activity,
+  HardDrive,
+  Clock,
   AlertCircle,
   CheckCircle,
   Download,
   Upload
 } from 'lucide-react';
+import { useLayoutConfig } from '@/hooks/useResponsive';
 
 interface StatusBarProps {
   className?: string;
@@ -43,12 +44,13 @@ interface StatusInfo {
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
+  const layoutConfig = useLayoutConfig();
   const [status, setStatus] = useState<StatusInfo>({
     connections: { active: 2, total: 5 },
-    performance: { 
-      cpu: 15, 
-      memory: 45, 
-      throughput: { rx: 1024, tx: 512 } 
+    performance: {
+      cpu: 15,
+      memory: 45,
+      throughput: { rx: 1024, tx: 512 }
     },
     parsing: { success: 1250, error: 3, rate: 99.8 },
     storage: { used: '2.3 GB', available: '15.7 GB' },
@@ -88,77 +90,103 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
 
   return (
     <div className={cn(
-      "h-5 bg-card border-t border-border flex items-center justify-between px-4 text-xs text-muted-foreground shrink-0",
+      "h-5 bg-card border-t border-border flex items-center justify-between text-xs text-muted-foreground shrink-0",
+      layoutConfig.isMobile ? "px-2" : "px-4",
       className
     )}>
       {/* Left Section */}
-      <div className="flex items-center space-x-4">
-        {/* Connection Status */}
+      <div className={cn(
+        "flex items-center",
+        layoutConfig.isMobile ? "space-x-2" : "space-x-4"
+      )}>
+        {/* Connection Status - 始终显示 */}
         <div className="flex items-center space-x-1">
           <ConnectionIcon className={cn("w-3 h-3", connectionStatus.color)} />
-          <span>{connectionStatus.text}</span>
+          <span className={layoutConfig.isMobile ? "hidden sm:inline" : ""}>
+            {layoutConfig.isMobile ? `${status.connections.active}/${status.connections.total}` : connectionStatus.text}
+          </span>
         </div>
 
-        {/* Performance */}
-        <div className="flex items-center space-x-1">
-          <Activity className="w-3 h-3" />
-          <span>CPU: {status.performance.cpu}%</span>
-          <span>内存: {status.performance.memory}%</span>
-        </div>
-
-        {/* Throughput */}
-        <div className="flex items-center space-x-2">
+        {/* Performance - 桌面和平板显示 */}
+        {layoutConfig.statusBar.showEssentialInfo && (
           <div className="flex items-center space-x-1">
-            <Download className="w-3 h-3 text-blue-500" />
-            <span>{formatThroughput(status.performance.throughput.rx)}</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Upload className="w-3 h-3 text-green-500" />
-            <span>{formatThroughput(status.performance.throughput.tx)}</span>
-          </div>
-        </div>
-
-        {/* Parsing Status */}
-        <div className="flex items-center space-x-1">
-          <CheckCircle className="w-3 h-3 text-green-500" />
-          <span>解析成功率: {status.parsing.rate}%</span>
-          {status.parsing.error > 0 && (
-            <>
-              <AlertCircle className="w-3 h-3 text-yellow-500" />
-              <span>{status.parsing.error} 错误</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Right Section */}
-      <div className="flex items-center space-x-4">
-        {/* Recording Status */}
-        {status.recording && (
-          <div className="flex items-center space-x-1">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span>录制中</span>
+            <Activity className="w-3 h-3" />
+            <span>CPU: {status.performance.cpu}%</span>
+            {!layoutConfig.isMobile && <span>内存: {status.performance.memory}%</span>}
           </div>
         )}
 
-        {/* Storage */}
-        <div className="flex items-center space-x-1">
-          <HardDrive className="w-3 h-3" />
-          <span>存储: {status.storage.used} / {status.storage.available}</span>
-        </div>
+        {/* Throughput - 仅桌面显示 */}
+        {layoutConfig.statusBar.showAllInfo && (
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
+              <Download className="w-3 h-3 text-blue-500" />
+              <span>{formatThroughput(status.performance.throughput.rx)}</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Upload className="w-3 h-3 text-green-500" />
+              <span>{formatThroughput(status.performance.throughput.tx)}</span>
+            </div>
+          </div>
+        )}
 
-        {/* Updates */}
-        {status.hasUpdates && (
+        {/* Parsing Status - 仅桌面显示 */}
+        {layoutConfig.statusBar.showAllInfo && (
+          <div className="flex items-center space-x-1">
+            <CheckCircle className="w-3 h-3 text-green-500" />
+            <span>解析成功率: {status.parsing.rate}%</span>
+            {status.parsing.error > 0 && (
+              <>
+                <AlertCircle className="w-3 h-3 text-yellow-500" />
+                <span>{status.parsing.error} 错误</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Right Section */}
+      <div className={cn(
+        "flex items-center",
+        layoutConfig.isMobile ? "space-x-2" : "space-x-4"
+      )}>
+        {/* Recording Status - 始终显示（如果正在录制） */}
+        {status.recording && (
+          <div className="flex items-center space-x-1">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            {!layoutConfig.isMobile && <span>录制中</span>}
+          </div>
+        )}
+
+        {/* Storage - 桌面和平板显示 */}
+        {layoutConfig.statusBar.showEssentialInfo && (
+          <div className="flex items-center space-x-1">
+            <HardDrive className="w-3 h-3" />
+            <span>
+              {layoutConfig.isMobile
+                ? status.storage.used
+                : `存储: ${status.storage.used} / ${status.storage.available}`
+              }
+            </span>
+          </div>
+        )}
+
+        {/* Updates - 仅桌面显示 */}
+        {status.hasUpdates && layoutConfig.statusBar.showAllInfo && (
           <button className="flex items-center space-x-1 hover:text-foreground transition-colors">
             <Download className="w-3 h-3" />
             <span>有更新</span>
           </button>
         )}
 
-        {/* Current Time */}
+        {/* Current Time - 始终显示 */}
         <div className="flex items-center space-x-1">
           <Clock className="w-3 h-3" />
-          <span>{currentTime.toLocaleTimeString()}</span>
+          <span>{currentTime.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            ...(layoutConfig.statusBar.showAllInfo && { second: '2-digit' })
+          })}</span>
         </div>
       </div>
     </div>
