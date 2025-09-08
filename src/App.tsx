@@ -16,6 +16,7 @@ import { SettingsPage } from '@/pages/SettingsPage'
 // Components
 import { WelcomeDialog } from '@/components/WelcomeDialog'
 import { Modal } from '@/components/Modal'
+import { NewSessionModal, SessionData } from '@/components/NewSessionModal'
 
 function App() {
   const [showWelcome, setShowWelcome] = useState(false)
@@ -48,8 +49,22 @@ function App() {
     setActiveModal(null)
   }
 
+  const handleNewSession = (sessionData: SessionData) => {
+    console.log('Creating new session:', sessionData)
+    // TODO: 实际创建会话的逻辑
+    closeModal()
+  }
+
   const renderModal = () => {
     switch (activeModal) {
+      case 'new-session':
+        return (
+          <NewSessionModal
+            isOpen={true}
+            onClose={closeModal}
+            onConfirm={handleNewSession}
+          />
+        )
       case 'toolbox':
         return (
           <Modal

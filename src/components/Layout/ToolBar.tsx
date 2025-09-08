@@ -33,7 +33,7 @@ const createToolBarItems = (onOpenModal: (modalType: string) => void): ToolBarIt
     label: '新建会话',
     icon: Plus,
     shortcut: 'Ctrl+N',
-    action: () => console.log('New Session')
+    action: () => onOpenModal('new-session')
   },
   {
     id: 'connect',
