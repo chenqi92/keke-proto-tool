@@ -14,13 +14,15 @@ import {
   Filter,
   MessageSquare,
   Globe,
-  Radio
+  Radio,
+  RefreshCw
 } from 'lucide-react';
 import { NewSessionModal, SessionData } from '@/components/NewSessionModal';
 
 interface SidebarProps {
   onCollapse: () => void;
   onSessionSelect?: (sessionId: string, protocol: string) => void;
+  onNodeSelect?: (nodeId: string, nodeType: 'workspace' | 'session' | 'connection', nodeData: any) => void;
 }
 
 interface TreeNode {
@@ -134,7 +136,28 @@ const TreeItem: React.FC<{
   level: number;
   onToggle: (id: string) => void;
   onSessionSelect?: (sessionId: string, protocol: string) => void;
-}> = ({ node, level, onToggle, onSessionSelect }) => {
+  onNodeSelect?: (node: TreeNode) => void;
+  selectedNodeId?: string | null;
+  onConnect?: (nodeId: string, e: React.MouseEvent) => void;
+  onDisconnect?: (nodeId: string, e: React.MouseEvent) => void;
+  onToggleRecording?: (nodeId: string, e: React.MouseEvent) => void;
+  onMoreActions?: (nodeId: string, e: React.MouseEvent) => void;
+  connectingNodes?: Set<string>;
+  recordingNodes?: Set<string>;
+}> = ({
+  node,
+  level,
+  onToggle,
+  onSessionSelect,
+  onNodeSelect,
+  selectedNodeId,
+  onConnect,
+  onDisconnect,
+  onToggleRecording,
+  onMoreActions,
+  connectingNodes = new Set(),
+  recordingNodes = new Set()
+}) => {
   const hasChildren = node.children && node.children.length > 0;
   const isExpanded = node.expanded;
 
@@ -142,11 +165,15 @@ const TreeItem: React.FC<{
     <div>
       <div
         className={cn(
-          "flex items-center px-2 py-1 text-sm hover:bg-accent rounded-md cursor-pointer group",
-          level > 0 && "ml-4"
+          "flex items-center px-2 py-1 text-sm hover:bg-accent rounded-md cursor-auto group",
+          level > 0 && "ml-4",
+          selectedNodeId === node.id && "bg-primary/20 border border-primary/30"
         )}
         style={{ paddingLeft: `${8 + level * 16}px` }}
         onClick={() => {
+          if (onNodeSelect) {
+            onNodeSelect(node);
+          }
           if (node.type === 'session' && node.protocol && onSessionSelect) {
             onSessionSelect(node.id, node.protocol);
           }
@@ -189,18 +216,50 @@ const TreeItem: React.FC<{
         <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1">
           {node.type === 'session' && (
             <>
-              {node.status === 'connected' ? (
-                <button className="p-1 hover:bg-accent rounded" title="断开连接">
+              {connectingNodes.has(node.id) ? (
+                <button className="p-1 hover:bg-accent rounded" title="连接中..." disabled>
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                </button>
+              ) : node.status === 'connected' ? (
+                <button
+                  className="p-1 hover:bg-accent rounded text-red-500"
+                  title="断开连接"
+                  onClick={(e) => onDisconnect?.(node.id, e)}
+                >
                   <Square className="w-3 h-3" />
                 </button>
               ) : (
-                <button className="p-1 hover:bg-accent rounded" title="开始连接">
+                <button
+                  className="p-1 hover:bg-accent rounded text-green-500"
+                  title="开始连接"
+                  onClick={(e) => onConnect?.(node.id, e)}
+                >
                   <Play className="w-3 h-3" />
                 </button>
               )}
+
+              {/* Recording toggle */}
+              <button
+                className={cn(
+                  "p-1 hover:bg-accent rounded",
+                  recordingNodes.has(node.id) ? "text-red-500" : "text-muted-foreground"
+                )}
+                title={recordingNodes.has(node.id) ? "停止录制" : "开始录制"}
+                onClick={(e) => onToggleRecording?.(node.id, e)}
+              >
+                {recordingNodes.has(node.id) ? (
+                  <Square className="w-3 h-3" />
+                ) : (
+                  <Circle className="w-3 h-3" />
+                )}
+              </button>
             </>
           )}
-          <button className="p-1 hover:bg-accent rounded" title="更多操作">
+          <button
+            className="p-1 hover:bg-accent rounded"
+            title="更多操作"
+            onClick={(e) => onMoreActions?.(node.id, e)}
+          >
             <MoreHorizontal className="w-3 h-3" />
           </button>
         </div>
@@ -216,6 +275,14 @@ const TreeItem: React.FC<{
               level={level + 1}
               onToggle={onToggle}
               onSessionSelect={onSessionSelect}
+              onNodeSelect={onNodeSelect}
+              selectedNodeId={selectedNodeId}
+              onConnect={onConnect}
+              onDisconnect={onDisconnect}
+              onToggleRecording={onToggleRecording}
+              onMoreActions={onMoreActions}
+              connectingNodes={connectingNodes}
+              recordingNodes={recordingNodes}
             />
           ))}
         </div>
@@ -224,10 +291,13 @@ const TreeItem: React.FC<{
   );
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, onNodeSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [treeData, setTreeData] = useState(mockData);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [connectingNodes, setConnectingNodes] = useState<Set<string>>(new Set());
+  const [recordingNodes, setRecordingNodes] = useState<Set<string>>(new Set());
 
   const handleToggle = (id: string) => {
     const toggleNode = (nodes: TreeNode[]): TreeNode[] => {
@@ -242,6 +312,116 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect })
       });
     };
     setTreeData(toggleNode(treeData));
+  };
+
+  const handleNodeSelect = (node: TreeNode) => {
+    setSelectedNodeId(node.id);
+
+    // Determine node type based on node properties
+    let nodeType: 'workspace' | 'session' | 'connection' = 'workspace';
+    if (node.type === 'session') {
+      nodeType = 'session';
+    } else if (node.type === 'connection') {
+      nodeType = 'connection';
+    }
+
+    // Call the callback with node information
+    if (onNodeSelect) {
+      onNodeSelect(node.id, nodeType, {
+        label: node.label,
+        protocol: node.protocol,
+        type: node.type,
+        status: node.status
+      });
+    }
+
+    // Also call the legacy session select callback if it's a session node
+    if (node.type === 'session' && onSessionSelect && node.protocol) {
+      onSessionSelect(node.id, node.protocol);
+    }
+  };
+
+  const handleConnect = async (nodeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConnectingNodes(prev => new Set(prev).add(nodeId));
+
+    try {
+      // Simulate connection process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Update node status to connected
+      const updateNodeStatus = (nodes: TreeNode[]): TreeNode[] => {
+        return nodes.map(node => {
+          if (node.id === nodeId) {
+            return { ...node, status: 'connected' as const };
+          }
+          if (node.children) {
+            return { ...node, children: updateNodeStatus(node.children) };
+          }
+          return node;
+        });
+      };
+
+      setTreeData(updateNodeStatus(treeData));
+    } catch (error) {
+      console.error('Connection failed:', error);
+    } finally {
+      setConnectingNodes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(nodeId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDisconnect = (nodeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Update node status to disconnected
+    const updateNodeStatus = (nodes: TreeNode[]): TreeNode[] => {
+      return nodes.map(node => {
+        if (node.id === nodeId) {
+          return { ...node, status: 'disconnected' as const };
+        }
+        if (node.children) {
+          return { ...node, children: updateNodeStatus(node.children) };
+        }
+        return node;
+      });
+    };
+
+    setTreeData(updateNodeStatus(treeData));
+  };
+
+  const handleToggleRecording = (nodeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (recordingNodes.has(nodeId)) {
+      // Stop recording
+      setRecordingNodes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(nodeId);
+        return newSet;
+      });
+    } else {
+      // Start recording
+      setRecordingNodes(prev => new Set(prev).add(nodeId));
+    }
+  };
+
+  const handleMoreActions = (nodeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Show context menu with additional options
+    // For now, just log the action
+    console.log('More actions for node:', nodeId);
+
+    // In a real implementation, you would show a context menu with options like:
+    // - Edit configuration
+    // - Duplicate session
+    // - Export data
+    // - Delete session
+    // - View logs
   };
 
   // 按钮事件处理函数
@@ -289,6 +469,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect })
                   level={0}
                   onToggle={handleToggle}
                   onSessionSelect={onSessionSelect}
+                  onNodeSelect={handleNodeSelect}
+                  selectedNodeId={selectedNodeId}
+                  onConnect={handleConnect}
+                  onDisconnect={handleDisconnect}
+                  onToggleRecording={handleToggleRecording}
+                  onMoreActions={handleMoreActions}
+                  connectingNodes={connectingNodes}
+                  recordingNodes={recordingNodes}
                 />
               ))}
             </div>

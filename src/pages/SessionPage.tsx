@@ -9,6 +9,8 @@ import { TCPSessionContent } from '@/components/ProtocolSessions/TCPSessionConte
 import { WebSocketSessionContent } from '@/components/ProtocolSessions/WebSocketSessionContent';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession } from '@/contexts/SessionContext';
+import { WorkspacePage } from './WorkspacePage';
+import { ConnectionPage } from './ConnectionPage';
 import {
   Play,
   Square,
@@ -47,7 +49,7 @@ interface SessionConfig {
 
 export const SessionPage: React.FC = () => {
   const layoutConfig = useLayoutConfig();
-  const { currentSession } = useSession();
+  const { currentSession, selectedNode } = useSession();
 
   // For backward compatibility with generic session content
   const [isConnected, setIsConnected] = useState(false);
@@ -606,5 +608,18 @@ export const SessionPage: React.FC = () => {
   // }
 
   // 桌面端和平板端布局
+  // Check if a specific node is selected and render appropriate content
+  if (selectedNode) {
+    switch (selectedNode.type) {
+      case 'workspace':
+        return <WorkspacePage />;
+      case 'connection':
+        return <ConnectionPage />;
+      case 'session':
+      default:
+        return renderProtocolSpecificContent();
+    }
+  }
+
   return renderProtocolSpecificContent();
 };

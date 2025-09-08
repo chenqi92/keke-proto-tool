@@ -10,11 +10,21 @@ export interface SessionConfig {
   sseEventTypes?: string[];
 }
 
+export interface SelectedNode {
+  id: string;
+  type: 'workspace' | 'session' | 'connection';
+  protocol?: 'TCP' | 'UDP' | 'MQTT' | 'WebSocket' | 'SSE';
+  label: string;
+  config?: SessionConfig;
+}
+
 interface SessionContextType {
   currentSession: SessionConfig | null;
   setCurrentSession: (session: SessionConfig | null) => void;
   sessionId: string | null;
   setSessionId: (id: string | null) => void;
+  selectedNode: SelectedNode | null;
+  setSelectedNode: (node: SelectedNode | null) => void;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -34,12 +44,15 @@ interface SessionProviderProps {
 export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) => {
   const [currentSession, setCurrentSession] = useState<SessionConfig | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
 
   const value: SessionContextType = {
     currentSession,
     setCurrentSession,
     sessionId,
     setSessionId,
+    selectedNode,
+    setSelectedNode,
   };
 
   return (

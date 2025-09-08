@@ -242,7 +242,7 @@ export const LogsPage: React.FC = () => {
                 <div
                   key={log.id}
                   className={cn(
-                    "p-4 hover:bg-accent cursor-pointer transition-colors",
+                    "p-4 hover:bg-accent cursor-auto transition-colors",
                     selectedLog?.id === log.id && "bg-primary/10 border-l-2 border-l-primary"
                   )}
                   onClick={() => setSelectedLog(log)}

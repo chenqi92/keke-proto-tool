@@ -5,7 +5,7 @@ import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useLayoutConfig } from '@/hooks/useResponsive';
-import { useSession, getDefaultSessionConfig } from '@/contexts/SessionContext';
+import { useSession, getDefaultSessionConfig, SelectedNode } from '@/contexts/SessionContext';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -17,7 +17,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onOpenModal
 }) => {
   const layoutConfig = useLayoutConfig();
-  const { setCurrentSession, setSessionId } = useSession();
+  const { setCurrentSession, setSessionId, setSelectedNode } = useSession();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true); // 默认隐藏检视器
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -36,6 +36,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     setCurrentSession(sessionConfig);
     setSessionId(sessionId);
     console.log('Selected session:', sessionId, protocol, sessionConfig);
+  };
+
+  const handleNodeSelect = (nodeId: string, nodeType: 'workspace' | 'session' | 'connection', nodeData: any) => {
+    const selectedNode: SelectedNode = {
+      id: nodeId,
+      type: nodeType,
+      protocol: nodeData.protocol,
+      label: nodeData.label,
+      config: nodeData.config
+    };
+    setSelectedNode(selectedNode);
   };
 
   return (
@@ -61,6 +72,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           <div className="fixed left-0 top-0 bottom-0 w-80 bg-card border-r border-border z-50 transform transition-transform">
             <Sidebar
               onCollapse={() => setMobileMenuOpen(false)}
+              onSessionSelect={handleSessionSelect}
+              onNodeSelect={handleNodeSelect}
             />
           </div>
         )}
@@ -80,6 +93,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   <Sidebar
                     onCollapse={() => setSidebarCollapsed(true)}
                     onSessionSelect={handleSessionSelect}
+                    onNodeSelect={handleNodeSelect}
                   />
                 </Panel>
                 <PanelResizeHandle className="w-1 bg-border hover:bg-accent transition-colors" />
@@ -156,7 +170,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         {/* 左侧面板边缘切换器 */}
         {(sidebarCollapsed || layoutConfig.isMobile) && (
           <div
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 group cursor-pointer"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 group cursor-auto"
             onClick={() => {
               if (layoutConfig.isMobile) {
                 setMobileMenuOpen(true);
@@ -171,9 +185,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </div>
-              <div className="px-2 py-1 text-xs font-medium text-muted-foreground transition-all duration-200 group-hover:text-foreground">
-                会话
-              </div>
             </div>
           </div>
         )}
@@ -181,13 +192,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         {/* 右侧面板边缘切换器 */}
         {rightPanelCollapsed && layoutConfig.mainContent.showThreeColumns && (
           <div
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 group cursor-pointer"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 group cursor-auto"
             onClick={() => setRightPanelCollapsed(false)}
           >
             <div className="flex items-center bg-card border border-border rounded-md rounded-r-none shadow-sm transition-all duration-200 hover:bg-accent group-hover:scale-105">
-              <div className="px-2 py-1 text-xs font-medium text-muted-foreground transition-all duration-200 group-hover:text-foreground">
-                检视器
-              </div>
               <div className="px-2 py-3">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

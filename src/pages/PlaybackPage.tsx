@@ -212,7 +212,7 @@ export const PlaybackPage: React.FC = () => {
                         max={selectedSession.duration}
                         value={currentTime}
                         onChange={(e) => handleSeek(Number(e.target.value))}
-                        className="absolute inset-0 w-full h-1 opacity-0 cursor-pointer"
+                        className="absolute inset-0 w-full h-1 opacity-0 cursor-auto"
                       />
                     </div>
                     <span>{formatDuration(selectedSession.duration)}</span>

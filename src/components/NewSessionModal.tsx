@@ -80,12 +80,18 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
 
   const [errors, setErrors] = useState<Partial<Record<keyof SessionData, string>>>({});
 
+  const generateSessionName = (data: SessionData): string => {
+    const protocolName = data.protocol;
+    const connectionType = data.connectionType === 'client' ? '客户端' : '服务端';
+    const address = `${data.host}:${data.port}`;
+
+    return `${protocolName} ${connectionType} - ${address}`;
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof SessionData, string>> = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = '会话名称不能为空';
-    }
+    // Session name is now optional - will be auto-generated if empty
 
     if (!formData.host.trim()) {
       newErrors.host = '主机地址不能为空';
@@ -102,7 +108,13 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onConfirm(formData);
+      // Generate session name if not provided
+      const finalData = {
+        ...formData,
+        name: formData.name.trim() || generateSessionName(formData)
+      };
+
+      onConfirm(finalData);
       handleClose();
     }
   };
@@ -167,7 +179,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
           {/* Session Name */}
           <div>
             <label className="block text-sm font-medium mb-1">
-              会话名称 <span className="text-red-500">*</span>
+              会话名称 <span className="text-muted-foreground text-xs">(可选)</span>
             </label>
             <input
               type="text"
@@ -177,7 +189,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                 "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
                 errors.name ? "border-red-500" : "border-border"
               )}
-              placeholder="输入会话名称"
+              placeholder="留空将自动生成名称"
             />
             {errors.name && (
               <p className="text-red-500 text-xs mt-1">{errors.name}</p>

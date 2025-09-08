@@ -155,7 +155,7 @@ export const ConnectionPage: React.FC = () => {
       <div
         key={connection.id}
         className={cn(
-          "p-4 border border-border rounded-lg hover:bg-accent transition-colors cursor-pointer",
+          "p-4 border border-border rounded-lg hover:bg-accent transition-colors cursor-auto",
           selectedConnection?.id === connection.id && "border-primary bg-primary/10"
         )}
         onClick={() => setSelectedConnection(connection)}

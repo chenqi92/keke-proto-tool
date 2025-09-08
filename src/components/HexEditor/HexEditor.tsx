@@ -143,7 +143,7 @@ export const HexEditor: React.FC<HexEditorProps> = ({
             <span
               key={col}
               className={cn(
-                "inline-block w-6 h-5 text-center text-xs font-mono cursor-pointer hover:bg-accent rounded",
+                "inline-block w-6 h-5 text-center text-xs font-mono cursor-auto hover:bg-accent rounded",
                 isSelected && "bg-primary text-primary-foreground",
                 isHighlighted && !isSelected && "bg-yellow-200 dark:bg-yellow-800"
               )}
@@ -192,7 +192,7 @@ export const HexEditor: React.FC<HexEditorProps> = ({
             <span
               key={col}
               className={cn(
-                "inline-block w-3 h-5 text-center text-xs font-mono cursor-pointer hover:bg-accent",
+                "inline-block w-3 h-5 text-center text-xs font-mono cursor-auto hover:bg-accent",
                 isSelected && "bg-primary text-primary-foreground",
                 isHighlighted && !isSelected && "bg-yellow-200 dark:bg-yellow-800"
               )}
@@ -263,7 +263,7 @@ export const HexEditor: React.FC<HexEditorProps> = ({
       {totalRows > visibleRows && (
         <div className="absolute right-0 top-0 bottom-0 w-4 bg-muted/50">
           <div
-            className="bg-accent rounded cursor-pointer"
+            className="bg-accent rounded cursor-auto"
             style={{
               height: `${(visibleRows / totalRows) * 100}%`,
               top: `${(viewOffset / totalRows) * 100}%`,

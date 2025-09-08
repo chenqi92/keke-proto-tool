@@ -154,7 +154,7 @@ const TreeNode: React.FC<{
     <div>
       <div
         className={cn(
-          "flex items-center px-2 py-1 text-sm hover:bg-accent rounded-md cursor-pointer group",
+          "flex items-center px-2 py-1 text-sm hover:bg-accent rounded-md cursor-auto group",
           level > 0 && "ml-4"
         )}
         style={{ paddingLeft: `${8 + level * 16}px` }}

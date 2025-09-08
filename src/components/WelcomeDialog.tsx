@@ -192,7 +192,7 @@ const welcomeSteps = [
         </p>
         
         <div className="space-y-3">
-          <div className="p-4 border border-border rounded-lg hover:bg-accent cursor-pointer transition-colors">
+          <div className="p-4 border border-border rounded-lg hover:bg-accent cursor-auto transition-colors">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium">Modbus TCP 调试</h4>
@@ -204,7 +204,7 @@ const welcomeSteps = [
             </div>
           </div>
           
-          <div className="p-4 border border-border rounded-lg hover:bg-accent cursor-pointer transition-colors">
+          <div className="p-4 border border-border rounded-lg hover:bg-accent cursor-auto transition-colors">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium">HTTP API 测试</h4>
@@ -216,7 +216,7 @@ const welcomeSteps = [
             </div>
           </div>
           
-          <div className="p-4 border border-border rounded-lg hover:bg-accent cursor-pointer transition-colors">
+          <div className="p-4 border border-border rounded-lg hover:bg-accent cursor-auto transition-colors">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium">UDP 广播监听</h4>

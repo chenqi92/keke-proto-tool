@@ -31,7 +31,14 @@
         height: 100vh;
         font-family: system-ui, -apple-system, sans-serif;
       }
-      
+
+      .loading-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
       .spinner {
         width: 40px;
         height: 40px;
@@ -39,6 +46,7 @@
         border-top: 4px solid #3498db;
         border-radius: 50%;
         animation: spin 1s linear infinite;
+        margin-bottom: 16px;
       }
       
       @keyframes spin {
@@ -50,9 +58,9 @@
   <body>
     <div id="root">
       <div class="loading">
-        <div>
+        <div class="loading-content">
           <div class="spinner"></div>
-          <p style="margin-top: 16px; color: #666;">正在加载 ProtoTool...</p>
+          <p style="margin: 0; color: #666;">正在加载 ProtoTool...</p>
         </div>
       </div>
     </div>
