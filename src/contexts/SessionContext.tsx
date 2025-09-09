@@ -1,19 +1,11 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-export interface SessionConfig {
-  protocol: 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
-  connectionType: 'client' | 'server';
-  host?: string;
-  port?: number;
-  websocketSubprotocol?: string;
-  mqttTopic?: string;
-  sseEventTypes?: string[];
-}
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useAppStore } from '@/stores/AppStore';
+import { SessionConfig, ProtocolType } from '@/types';
 
 export interface SelectedNode {
   id: string;
   type: 'workspace' | 'session' | 'connection';
-  protocol?: 'TCP' | 'UDP' | 'MQTT' | 'WebSocket' | 'SSE';
+  protocol?: ProtocolType;
   label: string;
   config?: SessionConfig;
 }
@@ -42,17 +34,42 @@ interface SessionProviderProps {
 }
 
 export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) => {
-  const [currentSession, setCurrentSession] = useState<SessionConfig | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
+  const activeSessionId = useAppStore(state => state.activeSessionId);
+  const selectedNodeId = useAppStore(state => state.selectedNodeId);
+  const selectedNodeType = useAppStore(state => state.selectedNodeType);
+  const setActiveSession = useAppStore(state => state.setActiveSession);
+  const setSelectedNode = useAppStore(state => state.setSelectedNode);
+  const getSession = useAppStore(state => state.getSession);
+
+  const currentSession = activeSessionId ? getSession(activeSessionId)?.config || null : null;
+
+  const selectedNode: SelectedNode | null = selectedNodeId ? {
+    id: selectedNodeId,
+    type: selectedNodeType || 'workspace',
+    label: selectedNodeId,
+    protocol: currentSession?.protocol,
+    config: currentSession || undefined,
+  } : null;
 
   const value: SessionContextType = {
     currentSession,
-    setCurrentSession,
-    sessionId,
-    setSessionId,
+    setCurrentSession: (session: SessionConfig | null) => {
+      if (session) {
+        setActiveSession(session.id);
+      } else {
+        setActiveSession(null);
+      }
+    },
+    sessionId: activeSessionId,
+    setSessionId: setActiveSession,
     selectedNode,
-    setSelectedNode,
+    setSelectedNode: (node: SelectedNode | null) => {
+      if (node) {
+        setSelectedNode(node.id, node.type);
+      } else {
+        setSelectedNode(null, null);
+      }
+    },
   };
 
   return (
@@ -63,52 +80,64 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
 };
 
 // Default session configurations for different protocols
-export const getDefaultSessionConfig = (protocol: string, sessionId: string): SessionConfig => {
+export const getDefaultSessionConfig = (protocol: string, sessionId?: string): SessionConfig => {
+  const id = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const isClient = !sessionId || sessionId.includes('客户端') || sessionId.includes('Client');
+
+  const baseConfig: SessionConfig = {
+    id,
+    name: '',
+    protocol: protocol as ProtocolType,
+    connectionType: isClient ? 'client' : 'server',
+    host: isClient ? 'localhost' : '0.0.0.0',
+    port: 8080,
+    autoReconnect: false,
+    keepAlive: true,
+    timeout: 30000,
+    retryAttempts: 3,
+  };
+
   switch (protocol) {
     case 'TCP':
       return {
-        protocol: 'TCP',
-        connectionType: sessionId.includes('客户端') ? 'client' : 'server',
-        host: sessionId.includes('客户端') ? '192.168.1.100' : '0.0.0.0',
-        port: 8080
+        ...baseConfig,
+        port: 8080,
+        name: `TCP ${isClient ? 'Client' : 'Server'} - ${baseConfig.host}:8080`
       };
     case 'UDP':
       return {
-        protocol: 'UDP',
-        connectionType: sessionId.includes('客户端') ? 'client' : 'server',
-        host: sessionId.includes('客户端') ? '192.168.1.100' : '0.0.0.0',
-        port: 9090
+        ...baseConfig,
+        port: 9090,
+        name: `UDP ${isClient ? 'Client' : 'Server'} - ${baseConfig.host}:9090`
       };
     case 'WebSocket':
       return {
-        protocol: 'WebSocket',
-        connectionType: sessionId.includes('客户端') ? 'client' : 'server',
-        host: sessionId.includes('客户端') ? 'localhost' : '0.0.0.0',
+        ...baseConfig,
         port: 8080,
+        name: `WebSocket ${isClient ? 'Client' : 'Server'} - ${baseConfig.host}:8080`,
         websocketSubprotocol: 'chat'
       };
     case 'MQTT':
       return {
-        protocol: 'MQTT',
+        ...baseConfig,
         connectionType: 'client',
         host: 'broker.hivemq.com',
         port: 1883,
+        name: 'MQTT Client - broker.hivemq.com:1883',
         mqttTopic: 'test/topic'
       };
     case 'SSE':
       return {
-        protocol: 'SSE',
+        ...baseConfig,
         connectionType: 'client',
-        host: 'localhost',
         port: 3000,
+        name: `SSE Client - ${baseConfig.host}:3000`,
         sseEventTypes: ['message', 'update', 'notification']
       };
     default:
       return {
-        protocol: 'TCP',
-        connectionType: 'client',
-        host: 'localhost',
-        port: 8080
+        ...baseConfig,
+        name: `TCP Client - ${baseConfig.host}:8080`
       };
   }
 };

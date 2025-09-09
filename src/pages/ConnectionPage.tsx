@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { cn } from '@/utils';
-import { 
-  Network, 
-  Plus, 
-  Play, 
-  Square, 
-  Settings, 
+import {
+  Network,
+  Plus,
+  Play,
+  Square,
+  Settings,
   Trash2,
   Edit3,
   Copy,
@@ -19,6 +19,9 @@ import {
   XCircle,
   AlertCircle
 } from 'lucide-react';
+import { useActiveSession, useAppStore } from '@/stores/AppStore';
+import { networkService } from '@/services/NetworkService';
+import { useSession } from '@/contexts/SessionContext';
 
 interface Connection {
   id: string;
@@ -129,19 +132,53 @@ const formatBytes = (bytes: number): string => {
 };
 
 export const ConnectionPage: React.FC = () => {
-  const [connections, setConnections] = useState<Connection[]>(mockConnections);
+  // Get real session data
+  const activeSession = useActiveSession();
+  const { selectedNode } = useSession();
+  const updateSessionConfig = useAppStore(state => state.updateSessionConfig);
+
+  // UI state
   const [showNewConnectionDialog, setShowNewConnectionDialog] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
   const [newConnectionType, setNewConnectionType] = useState<string>('tcp-client');
 
-  const handleConnect = (connection: Connection) => {
-    console.log('Connect to:', connection.name);
-    // 这里会调用 Tauri 命令来建立连接
+  // Convert session data to connection format
+  const connections = useMemo<Connection[]>(() => {
+    if (!activeSession) return [];
+
+    const connection: Connection = {
+      id: activeSession.config.id,
+      name: activeSession.config.name,
+      type: `${activeSession.config.protocol.toLowerCase()}-${activeSession.config.connectionType}` as any,
+      host: activeSession.config.host || 'localhost',
+      port: activeSession.config.port || 8080,
+      status: activeSession.status,
+      lastConnected: activeSession.connectedAt,
+      messageCount: activeSession.statistics.messagesReceived + activeSession.statistics.messagesSent,
+      bytesTransferred: activeSession.statistics.bytesReceived + activeSession.statistics.bytesSent
+    };
+
+    return [connection];
+  }, [activeSession]);
+
+  const handleConnect = async (connection: Connection) => {
+    if (!activeSession) return;
+
+    try {
+      await networkService.connect(activeSession.config.id);
+    } catch (error) {
+      console.error('Connection failed:', error);
+    }
   };
 
-  const handleDisconnect = (connection: Connection) => {
-    console.log('Disconnect from:', connection.name);
-    // 这里会调用 Tauri 命令来断开连接
+  const handleDisconnect = async (connection: Connection) => {
+    if (!activeSession) return;
+
+    try {
+      await networkService.disconnect(activeSession.config.id);
+    } catch (error) {
+      console.error('Disconnect failed:', error);
+    }
   };
 
   const handleCreateConnection = () => {

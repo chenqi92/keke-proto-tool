@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { cn } from '@/utils';
 import {
   ChevronDown,
@@ -15,9 +15,14 @@ import {
   MessageSquare,
   Globe,
   Radio,
-  RefreshCw
+  RefreshCw,
+  Folder,
+  FolderOpen
 } from 'lucide-react';
 import { NewSessionModal, SessionData } from '@/components/NewSessionModal';
+import { useAppStore, useAllSessions } from '@/stores/AppStore';
+import { networkService } from '@/services/NetworkService';
+import { SessionConfig } from '@/types';
 
 interface SidebarProps {
   onCollapse: () => void;
@@ -35,73 +40,32 @@ interface TreeNode {
   expanded?: boolean;
 }
 
-const mockData: TreeNode[] = [
-  {
+// Helper function to create tree data from real sessions
+const createTreeDataFromSessions = (sessions: any[]): TreeNode[] => {
+  const workspaceNode: TreeNode = {
     id: 'workspace-1',
     label: '默认工作区',
     type: 'workspace',
     expanded: true,
-    children: [
-      {
-        id: 'session-1',
-        label: 'TCP 客户端',
-        type: 'session',
-        protocol: 'TCP',
-        status: 'connected',
-        expanded: true,
-        children: [
-          {
-            id: 'conn-1',
-            label: '192.168.1.100:8080',
-            type: 'connection',
-            protocol: 'TCP',
-            status: 'connected'
-          }
-        ]
-      },
-      {
-        id: 'session-2',
-        label: 'UDP 服务端',
-        type: 'session',
-        protocol: 'UDP',
-        status: 'disconnected',
-        children: [
-          {
-            id: 'conn-2',
-            label: '0.0.0.0:9090',
-            type: 'connection',
-            protocol: 'UDP',
-            status: 'disconnected'
-          }
-        ]
-      },
-      {
-        id: 'session-3',
-        label: 'MQTT 客户端',
-        type: 'session',
-        protocol: 'MQTT',
-        status: 'connecting',
-        children: []
-      },
-      {
-        id: 'session-4',
-        label: 'WebSocket 服务端',
-        type: 'session',
-        protocol: 'WebSocket',
-        status: 'disconnected',
-        children: []
-      },
-      {
-        id: 'session-5',
-        label: 'SSE 客户端',
-        type: 'session',
-        protocol: 'SSE',
-        status: 'disconnected',
-        children: []
-      }
-    ]
-  }
-];
+    children: sessions.map(session => ({
+      id: session.config.id,
+      label: session.config.name,
+      type: 'session' as const,
+      protocol: session.config.protocol,
+      status: session.status,
+      expanded: false,
+      children: session.status === 'connected' ? [{
+        id: `conn-${session.config.id}`,
+        label: `${session.config.host}:${session.config.port}`,
+        type: 'connection' as const,
+        protocol: session.config.protocol,
+        status: session.status
+      }] : []
+    }))
+  };
+
+  return [workspaceNode];
+};
 
 const getStatusIcon = (status?: string) => {
   switch (status) {
@@ -144,6 +108,7 @@ const TreeItem: React.FC<{
   onMoreActions?: (nodeId: string, e: React.MouseEvent) => void;
   connectingNodes?: Set<string>;
   recordingNodes?: Set<string>;
+  expandedNodes?: Set<string>;
 }> = ({
   node,
   level,
@@ -156,10 +121,11 @@ const TreeItem: React.FC<{
   onToggleRecording,
   onMoreActions,
   connectingNodes = new Set(),
-  recordingNodes = new Set()
+  recordingNodes = new Set(),
+  expandedNodes = new Set()
 }) => {
   const hasChildren = node.children && node.children.length > 0;
-  const isExpanded = node.expanded;
+  const isExpanded = expandedNodes.has(node.id);
 
   return (
     <div>
@@ -283,6 +249,7 @@ const TreeItem: React.FC<{
               onMoreActions={onMoreActions}
               connectingNodes={connectingNodes}
               recordingNodes={recordingNodes}
+              expandedNodes={expandedNodes}
             />
           ))}
         </div>
@@ -293,25 +260,33 @@ const TreeItem: React.FC<{
 
 export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, onNodeSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [treeData, setTreeData] = useState(mockData);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [connectingNodes, setConnectingNodes] = useState<Set<string>>(new Set());
   const [recordingNodes, setRecordingNodes] = useState<Set<string>>(new Set());
 
+  // Get real session data from store
+  const sessions = useAllSessions();
+  const createSession = useAppStore(state => state.createSession);
+  const deleteSession = useAppStore(state => state.deleteSession);
+  const startRecording = useAppStore(state => state.startRecording);
+  const stopRecording = useAppStore(state => state.stopRecording);
+
+  // Generate tree data from real sessions
+  const treeData = useMemo(() => createTreeDataFromSessions(sessions), [sessions]);
+
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['workspace-1']));
+
   const handleToggle = (id: string) => {
-    const toggleNode = (nodes: TreeNode[]): TreeNode[] => {
-      return nodes.map(node => {
-        if (node.id === id) {
-          return { ...node, expanded: !node.expanded };
-        }
-        if (node.children) {
-          return { ...node, children: toggleNode(node.children) };
-        }
-        return node;
-      });
-    };
-    setTreeData(toggleNode(treeData));
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   const handleNodeSelect = (node: TreeNode) => {
@@ -346,23 +321,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
     setConnectingNodes(prev => new Set(prev).add(nodeId));
 
     try {
-      // Simulate connection process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Update node status to connected
-      const updateNodeStatus = (nodes: TreeNode[]): TreeNode[] => {
-        return nodes.map(node => {
-          if (node.id === nodeId) {
-            return { ...node, status: 'connected' as const };
-          }
-          if (node.children) {
-            return { ...node, children: updateNodeStatus(node.children) };
-          }
-          return node;
-        });
-      };
-
-      setTreeData(updateNodeStatus(treeData));
+      const success = await networkService.connect(nodeId);
+      if (!success) {
+        console.error('Connection failed for session:', nodeId);
+      }
     } catch (error) {
       console.error('Connection failed:', error);
     } finally {
@@ -374,23 +336,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
     }
   };
 
-  const handleDisconnect = (nodeId: string, e: React.MouseEvent) => {
+  const handleDisconnect = async (nodeId: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    // Update node status to disconnected
-    const updateNodeStatus = (nodes: TreeNode[]): TreeNode[] => {
-      return nodes.map(node => {
-        if (node.id === nodeId) {
-          return { ...node, status: 'disconnected' as const };
-        }
-        if (node.children) {
-          return { ...node, children: updateNodeStatus(node.children) };
-        }
-        return node;
-      });
-    };
-
-    setTreeData(updateNodeStatus(treeData));
+    try {
+      await networkService.disconnect(nodeId);
+    } catch (error) {
+      console.error('Disconnect failed:', error);
+    }
   };
 
   const handleToggleRecording = (nodeId: string, e: React.MouseEvent) => {
@@ -398,6 +351,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
 
     if (recordingNodes.has(nodeId)) {
       // Stop recording
+      stopRecording(nodeId);
       setRecordingNodes(prev => {
         const newSet = new Set(prev);
         newSet.delete(nodeId);
@@ -405,6 +359,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
       });
     } else {
       // Start recording
+      startRecording(nodeId);
       setRecordingNodes(prev => new Set(prev).add(nodeId));
     }
   };
@@ -430,9 +385,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   };
 
   const handleCreateSession = (sessionData: SessionData) => {
-    console.log('创建新会话:', sessionData);
-    // TODO: 实际创建会话的逻辑
-    // 这里可以调用API或更新状态来创建新的会话
+    const sessionConfig: SessionConfig = {
+      id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: sessionData.name,
+      protocol: sessionData.protocol,
+      connectionType: sessionData.connectionType,
+      host: sessionData.host,
+      port: sessionData.port,
+      autoReconnect: false,
+      keepAlive: true,
+      timeout: 30000,
+      retryAttempts: 3,
+      websocketSubprotocol: sessionData.websocketSubprotocol,
+      mqttTopic: sessionData.mqttTopic,
+      sseEventTypes: sessionData.sseEventTypes,
+    };
+
+    createSession(sessionConfig);
+    setIsNewSessionModalOpen(false);
   };
 
   const getSidebarContent = () => {
@@ -477,6 +447,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
                   onMoreActions={handleMoreActions}
                   connectingNodes={connectingNodes}
                   recordingNodes={recordingNodes}
+                  expandedNodes={expandedNodes}
                 />
               ))}
             </div>

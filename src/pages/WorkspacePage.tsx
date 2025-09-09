@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { cn } from '@/utils';
 import {
   Folder,
@@ -21,6 +21,8 @@ import {
   Search,
   MoreHorizontal
 } from 'lucide-react';
+import { useAllSessions, useConnectedSessions, useAppStore } from '@/stores/AppStore';
+import { networkService } from '@/services/NetworkService';
 
 interface WorkspaceStats {
   totalSessions: number;
@@ -43,63 +45,57 @@ interface SessionSummary {
 }
 
 export const WorkspacePage: React.FC = () => {
-  const [stats] = useState<WorkspaceStats>({
-    totalSessions: 5,
-    activeSessions: 2,
-    totalConnections: 8,
-    activeConnections: 3,
-    totalMessages: 1247,
-    totalBytes: 2048576,
-    uptime: '2h 34m'
-  });
+  // Get real data from store
+  const allSessions = useAllSessions();
+  const connectedSessions = useConnectedSessions();
+  const setActiveSession = useAppStore(state => state.setActiveSession);
+  const deleteSession = useAppStore(state => state.deleteSession);
 
-  const [sessions] = useState<SessionSummary[]>([
-    {
-      id: 'session-1',
-      name: 'TCP 客户端',
-      protocol: 'TCP',
-      status: 'connected',
-      lastActivity: new Date(Date.now() - 30000),
-      messageCount: 156,
-      bytesTransferred: 32768
-    },
-    {
-      id: 'session-2',
-      name: 'UDP 服务端',
-      protocol: 'UDP',
-      status: 'disconnected',
-      lastActivity: new Date(Date.now() - 300000),
-      messageCount: 89,
-      bytesTransferred: 16384
-    },
-    {
-      id: 'session-3',
-      name: 'WebSocket 服务端',
-      protocol: 'WebSocket',
-      status: 'connected',
-      lastActivity: new Date(Date.now() - 5000),
-      messageCount: 234,
-      bytesTransferred: 65536
-    },
-    {
-      id: 'session-4',
-      name: 'MQTT 客户端',
-      protocol: 'MQTT',
-      status: 'connecting',
-      lastActivity: new Date(Date.now() - 120000),
-      messageCount: 45,
-      bytesTransferred: 8192
-    },
-    {
-      id: 'session-5',
-      name: 'SSE 客户端',
-      protocol: 'SSE',
-      status: 'disconnected',
-      lastActivity: new Date(Date.now() - 600000),
-      messageCount: 12,
-      bytesTransferred: 4096
-    }
-  ]);
+  // Calculate real statistics
+  const stats = useMemo<WorkspaceStats>(() => {
+    const totalMessages = allSessions.reduce((sum, session) =>
+      sum + session.statistics.messagesReceived + session.statistics.messagesSent, 0);
+    const totalBytes = allSessions.reduce((sum, session) =>
+      sum + session.statistics.bytesReceived + session.statistics.bytesSent, 0);
+    const totalConnections = allSessions.length;
+    const activeConnections = connectedSessions.length;
+
+    // Calculate uptime (time since first session was created)
+    const oldestSession = allSessions.reduce((oldest, session) => {
+      return session.connectedAt && (!oldest.connectedAt || session.connectedAt < oldest.connectedAt)
+        ? session : oldest;
+    }, allSessions[0]);
+
+    const uptimeMs = oldestSession?.connectedAt
+      ? Date.now() - oldestSession.connectedAt.getTime()
+      : 0;
+    const uptimeHours = Math.floor(uptimeMs / (1000 * 60 * 60));
+    const uptimeMinutes = Math.floor((uptimeMs % (1000 * 60 * 60)) / (1000 * 60));
+    const uptime = uptimeHours > 0 ? `${uptimeHours}h ${uptimeMinutes}m` : `${uptimeMinutes}m`;
+
+    return {
+      totalSessions: allSessions.length,
+      activeSessions: connectedSessions.length,
+      totalConnections,
+      activeConnections,
+      totalMessages,
+      totalBytes,
+      uptime
+    };
+  }, [allSessions, connectedSessions]);
+
+  // Convert sessions to display format
+  const sessions = useMemo<SessionSummary[]>(() => {
+    return allSessions.map(session => ({
+      id: session.config.id,
+      name: session.config.name,
+      protocol: session.config.protocol,
+      status: session.status,
+      lastActivity: session.lastActivity || new Date(),
+      messageCount: session.statistics.messagesReceived + session.statistics.messagesSent,
+      bytesTransferred: session.statistics.bytesReceived + session.statistics.bytesSent
+    }));
+  }, [allSessions]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'connected' | 'disconnected' | 'connecting'>('all');
@@ -316,15 +312,33 @@ export const WorkspacePage: React.FC = () => {
                     <td className="p-4">
                       <div className="flex items-center space-x-1">
                         {session.status === 'connected' ? (
-                          <button className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground" title="断开连接">
+                          <button
+                            onClick={() => networkService.disconnect(session.id)}
+                            className="p-1 hover:bg-accent rounded text-red-500 hover:text-red-600"
+                            title="断开连接"
+                          >
                             <Square className="w-4 h-4" />
                           </button>
                         ) : (
-                          <button className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground" title="开始连接">
+                          <button
+                            onClick={() => networkService.connect(session.id)}
+                            className="p-1 hover:bg-accent rounded text-green-500 hover:text-green-600"
+                            title="开始连接"
+                          >
                             <Play className="w-4 h-4" />
                           </button>
                         )}
-                        <button className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground" title="更多操作">
+                        <button
+                          onClick={() => {
+                            // Show context menu or perform more actions
+                            const action = confirm('删除此会话？');
+                            if (action) {
+                              deleteSession(session.id);
+                            }
+                          }}
+                          className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
+                          title="更多操作"
+                        >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </div>

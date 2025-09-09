@@ -97,3 +97,77 @@ export interface ExportOptions {
   connectionIds?: string[]
   protocols?: string[]
 }
+
+// Enhanced types for real functionality
+export type DataFormat = 'ascii' | 'binary' | 'octal' | 'decimal' | 'hex' | 'base64' | 'json' | 'utf8';
+export type ProtocolType = 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
+export type ConnectionType = 'client' | 'server';
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+
+export interface Message {
+  id: string;
+  timestamp: Date;
+  direction: 'in' | 'out';
+  protocol: ProtocolType;
+  size: number;
+  data: Uint8Array;
+  status: 'success' | 'error' | 'pending';
+  raw?: string;
+  parsed?: any;
+}
+
+export interface SessionConfig {
+  id: string;
+  name: string;
+  protocol: ProtocolType;
+  connectionType: ConnectionType;
+  host: string;
+  port: number;
+  autoReconnect: boolean;
+  keepAlive: boolean;
+  timeout: number;
+  retryAttempts: number;
+  // Protocol-specific configs
+  websocketSubprotocol?: string;
+  mqttTopic?: string;
+  sseEventTypes?: string[];
+}
+
+export interface SessionState {
+  config: SessionConfig;
+  status: ConnectionStatus;
+  connectedAt?: Date;
+  lastActivity?: Date;
+  isRecording: boolean;
+  messages: Message[];
+  statistics: SessionStatistics;
+  error?: string;
+}
+
+export interface SessionStatistics {
+  messagesReceived: number;
+  messagesSent: number;
+  bytesReceived: number;
+  bytesSent: number;
+  errors: number;
+  uptime: number; // in seconds
+  connectionCount: number;
+  lastError?: string;
+}
+
+export interface WorkspaceState {
+  sessions: Record<string, SessionState>;
+  activeSessionId: string | null;
+  selectedNodeId: string | null;
+  selectedNodeType: 'workspace' | 'session' | 'connection' | null;
+}
+
+export interface NetworkConnection {
+  id: string;
+  sessionId: string;
+  socket?: any; // Will be WebSocket, net.Socket, or dgram.Socket
+  isConnected: boolean;
+  lastPing?: Date;
+  remoteAddress?: string;
+  remotePort?: number;
+}

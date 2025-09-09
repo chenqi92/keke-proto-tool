@@ -11,6 +11,8 @@ import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession } from '@/contexts/SessionContext';
 import { WorkspacePage } from './WorkspacePage';
 import { ConnectionPage } from './ConnectionPage';
+import { useActiveSession, useAppStore } from '@/stores/AppStore';
+import { networkService } from '@/services/NetworkService';
 import {
   Play,
   Square,
@@ -51,8 +53,11 @@ export const SessionPage: React.FC = () => {
   const layoutConfig = useLayoutConfig();
   const { currentSession, selectedNode } = useSession();
 
-  // For backward compatibility with generic session content
-  const [isConnected, setIsConnected] = useState(false);
+  // Get real session data
+  const activeSession = useActiveSession();
+  const clearMessages = useAppStore(state => state.clearMessages);
+
+  // UI state
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [viewMode, setViewMode] = useState<'split' | 'hex' | 'tree' | 'timeline'>('split');
   const [filterText, setFilterText] = useState('');
@@ -64,33 +69,23 @@ export const SessionPage: React.FC = () => {
   const [sendData, setSendData] = useState('');
   const [formatError, setFormatError] = useState<string | null>(null);
 
-  // Mock data
-  const [messages] = useState<Message[]>([
-    {
-      id: '1',
-      timestamp: new Date(),
-      direction: 'out',
-      protocol: 'TCP',
-      size: 64,
-      data: new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64]),
-      status: 'success'
-    },
-    {
-      id: '2',
-      timestamp: new Date(Date.now() - 1000),
-      direction: 'in',
-      protocol: 'TCP',
-      size: 32,
-      data: new Uint8Array([0x4f, 0x4b, 0x0d, 0x0a]),
-      status: 'success'
-    }
-  ]);
+  // Get real messages from active session
+  const messages = activeSession?.messages || [];
+  const isConnected = activeSession?.status === 'connected';
 
-  const handleConnect = () => {
-    setIsConnected(!isConnected);
+  const handleConnect = async () => {
+    if (!activeSession) return;
+
+    if (isConnected) {
+      await networkService.disconnect(activeSession.config.id);
+    } else {
+      await networkService.connect(activeSession.config.id);
+    }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
+    if (!activeSession || !isConnected) return;
+
     // 验证数据格式
     if (!validateFormat[sendFormat](sendData)) {
       setFormatError(`无效的${sendFormat.toUpperCase()}格式`);
@@ -102,12 +97,17 @@ export const SessionPage: React.FC = () => {
     try {
       // 转换数据为字节数组
       const dataBytes = formatData.from[sendFormat](sendData);
-      console.log('Send message:', dataBytes);
 
-      // 清空发送框
-      setSendData('');
+      // 发送数据
+      const success = await networkService.sendMessage(activeSession.config.id, dataBytes);
+
+      if (success) {
+        setSendData('');
+      } else {
+        setFormatError('发送失败');
+      }
     } catch (error) {
-      setFormatError('数据转换失败');
+      setFormatError('发送失败: ' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
 

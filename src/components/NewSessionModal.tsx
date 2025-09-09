@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils';
 import { X, Server, Wifi, MessageSquare, Globe, Radio } from 'lucide-react';
+import { ProtocolType, ConnectionType } from '@/types';
 
 interface NewSessionModalProps {
   isOpen: boolean;
@@ -10,11 +11,13 @@ interface NewSessionModalProps {
 
 export interface SessionData {
   name: string;
-  type: 'client' | 'server';
-  protocol: 'TCP' | 'UDP' | 'MQTT' | 'WebSocket' | 'SSE';
+  connectionType: ConnectionType;
+  protocol: ProtocolType;
   host: string;
   port: number;
-  version?: string;
+  websocketSubprotocol?: string;
+  mqttTopic?: string;
+  sseEventTypes?: string[];
 }
 
 const protocolOptions = [
@@ -37,16 +40,18 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
 }) => {
   const [formData, setFormData] = useState<SessionData>({
     name: '',
-    type: 'client',
+    connectionType: 'client',
     protocol: 'TCP',
     host: 'localhost',
     port: 8080,
-    version: ''
+    websocketSubprotocol: '',
+    mqttTopic: '',
+    sseEventTypes: []
   });
 
   // 根据连接类型获取默认配置
-  const getDefaultConfig = (type: 'client' | 'server') => {
-    if (type === 'client') {
+  const getDefaultConfig = (connectionType: ConnectionType) => {
+    if (connectionType === 'client') {
       return {
         host: 'localhost',
         port: 8080
@@ -60,8 +65,8 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
   };
 
   // 根据连接类型获取字段标签和占位符
-  const getFieldLabels = (type: 'client' | 'server') => {
-    if (type === 'client') {
+  const getFieldLabels = (connectionType: ConnectionType) => {
+    if (connectionType === 'client') {
       return {
         hostLabel: '目标服务器地址',
         hostPlaceholder: 'localhost',
@@ -133,15 +138,47 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
     onClose();
   };
 
+
+
   // 处理连接类型变化
-  const handleTypeChange = (newType: 'client' | 'server') => {
+  const handleTypeChange = (newType: ConnectionType) => {
     const defaultConfig = getDefaultConfig(newType);
-    setFormData({
+    const newFormData = {
       ...formData,
-      type: newType,
+      connectionType: newType,
       host: defaultConfig.host,
       port: defaultConfig.port
-    });
+    };
+
+    // 如果名称为空或者是自动生成的，则更新名称
+    if (!formData.name || formData.name === generateSessionName(formData)) {
+      newFormData.name = generateSessionName({
+        ...newFormData,
+        connectionType: newType,
+        host: defaultConfig.host,
+        port: defaultConfig.port
+      });
+    }
+
+    setFormData(newFormData);
+  };
+
+  // 处理协议变化
+  const handleProtocolChange = (newProtocol: ProtocolType) => {
+    const newFormData = {
+      ...formData,
+      protocol: newProtocol
+    };
+
+    // 如果名称为空或者是自动生成的，则更新名称
+    if (!formData.name || formData.name === generateSessionName(formData)) {
+      newFormData.name = generateSessionName({
+        ...newFormData,
+        protocol: newProtocol
+      });
+    }
+
+    setFormData(newFormData);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -206,7 +243,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setFormData({ ...formData, protocol: option.value })}
+                    onClick={() => handleProtocolChange(option.value as ProtocolType)}
                     className={cn(
                       "flex flex-col items-center p-2 sm:p-3 border rounded-md text-xs transition-colors min-h-[60px]",
                       formData.protocol === option.value
@@ -235,7 +272,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                     onClick={() => handleTypeChange(option.value)}
                     className={cn(
                       "flex items-center justify-center p-2 sm:p-3 border rounded-md text-sm transition-colors min-h-[48px]",
-                      formData.type === option.value
+                      formData.connectionType === option.value
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border hover:bg-accent"
                     )}
@@ -250,7 +287,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
 
           {/* Host and Port */}
           {(() => {
-            const labels = getFieldLabels(formData.type);
+            const labels = getFieldLabels(formData.connectionType);
             return (
               <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3">
                 <div>
@@ -260,7 +297,20 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                   <input
                     type="text"
                     value={formData.host}
-                    onChange={(e) => setFormData({ ...formData, host: e.target.value })}
+                    onChange={(e) => {
+                      const newHost = e.target.value;
+                      const newFormData = { ...formData, host: newHost };
+
+                      // 如果名称为空或者是自动生成的，则更新名称
+                      if (!formData.name || formData.name === generateSessionName(formData)) {
+                        newFormData.name = generateSessionName({
+                          ...newFormData,
+                          host: newHost
+                        });
+                      }
+
+                      setFormData(newFormData);
+                    }}
                     className={cn(
                       "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
                       errors.host ? "border-red-500" : "border-border"
@@ -280,7 +330,20 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                     min="1"
                     max="65535"
                     value={formData.port}
-                    onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const newPort = parseInt(e.target.value) || 0;
+                      const newFormData = { ...formData, port: newPort };
+
+                      // 如果名称为空或者是自动生成的，则更新名称
+                      if (!formData.name || formData.name === generateSessionName(formData)) {
+                        newFormData.name = generateSessionName({
+                          ...newFormData,
+                          port: newPort
+                        });
+                      }
+
+                      setFormData(newFormData);
+                    }}
                     className={cn(
                       "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
                       errors.port ? "border-red-500" : "border-border"
