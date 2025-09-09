@@ -7,7 +7,7 @@ interface MenuBarProps {
 }
 
 interface MenuItem {
-  label: string;
+  label?: string;
   shortcut?: string;
   separator?: boolean;
   submenu?: MenuItem[];
@@ -206,8 +206,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className, onOpenModal }) => {
             "w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent rounded-sm",
             isSubmenu && "pl-6"
           )}
-          onClick={() => hasSubmenu ? setOpenSubmenu(openSubmenu === item.label ? null : item.label) : handleItemClick(item)}
-          onMouseEnter={() => hasSubmenu && setOpenSubmenu(item.label)}
+          onClick={() => hasSubmenu ? setOpenSubmenu(openSubmenu === item.label ? null : item.label || null) : handleItemClick(item)}
+          onMouseEnter={() => hasSubmenu && item.label && setOpenSubmenu(item.label)}
         >
           <span>{item.label}</span>
           <div className="flex items-center space-x-2">

@@ -51,7 +51,7 @@ Object.defineProperty(window, '__VITEST__', {
 });
 
 // Mock console methods to avoid noise in tests
-global.console = {
+(globalThis as any).console = {
   ...console,
   warn: vi.fn(),
   error: vi.fn(),

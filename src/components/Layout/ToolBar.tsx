@@ -19,9 +19,9 @@ interface ToolBarProps {
 }
 
 interface ToolBarItem {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  id?: string;
+  label?: string;
+  icon?: React.ComponentType<{ className?: string }>;
   shortcut?: string;
   action?: () => void;
   separator?: boolean;
