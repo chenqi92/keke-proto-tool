@@ -83,27 +83,39 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: pnpm install --frozen-lockfile
 
       - name: Run linting
-        run: npm run lint || echo "Linting completed with issues - continuing build"
+        run: pnpm lint || echo "Linting completed with issues - continuing build"
 
       - name: Run type checking
-        run: npm run type-check || echo "Type checking failed but continuing..."
+        run: pnpm type-check || echo "Type checking failed but continuing..."
 
       - name: Run tests
-        run: npm test
+        run: pnpm test:run
 
       - name: Build frontend
-        run: npm run build || echo "Frontend build failed but continuing..."
+        run: pnpm build || echo "Frontend build failed but continuing..."
 
   # Cross-platform build and packaging
   build-and-package:
@@ -153,7 +165,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -171,15 +200,10 @@ jobs:
           fi
 
       - name: Install frontend dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: pnpm install --frozen-lockfile
 
       - name: Build frontend
-        run: npm run build
+        run: pnpm build
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
