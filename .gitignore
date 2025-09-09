@@ -209,7 +209,7 @@ cache/
 # OS generated files
 .DS_Store?
 ehthumbs.db
-Icon?
+Icon\r
 Thumbs.db
 
 # Plugin development (exclude built plugins, not source components)
