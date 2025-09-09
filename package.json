@@ -31,7 +31,9 @@
   "scripts": {
     "dev": "vite",
     "dev:tauri": "tauri dev",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "build:strict": "tsc && vite build",
+    "build:with-check": "tsc --project tsconfig.build.json && vite build",
     "build:tauri": "node scripts/build.js",
     "build:clean": "node scripts/build.js --clean",
     "preview": "vite preview",
