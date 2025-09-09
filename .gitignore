@@ -293,7 +293,7 @@ local/
 # Package managers
 # package-lock.json  # Commented out - needed for GitHub Actions caching
 yarn.lock
-pnpm-lock.yaml
+# pnpm-lock.yaml  # Commented out - needed for GitHub Actions caching
 
 # Rust analyzer
 rust-project.json
