@@ -212,8 +212,8 @@ ehthumbs.db
 Icon?
 Thumbs.db
 
-# Plugin development
-plugins/
+# Plugin development (exclude built plugins, not source components)
+/plugins/
 *.kkpplug
 
 # Test data
