@@ -3,10 +3,16 @@ name: 'Release & Package'
 on:
   push:
     branches: [main]
-    paths: ['package.json']
+    paths: ['package.json', '.github/workflows/release.yml']
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      skip_release:
+        description: 'Skip release creation (for testing)'
+        required: false
+        default: 'false'
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -78,6 +84,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -143,6 +150,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -189,7 +197,7 @@ jobs:
   # Create GitHub release with all platform packages
   create-release:
     needs: [version-check, build-and-package]
-    if: needs.version-check.outputs.should-release == 'true'
+    if: needs.version-check.outputs.should-release == 'true' && github.event.inputs.skip_release != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
