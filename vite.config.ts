@@ -46,5 +46,6 @@ export default defineConfig({
       "@/assets": path.resolve(__dirname, "./src/assets"),
       "@/styles": path.resolve(__dirname, "./src/styles"),
     },
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
   },
 })

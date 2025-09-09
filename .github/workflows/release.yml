@@ -125,12 +125,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Windows builds
+          # Windows builds - MSI installer
           - platform: 'windows-latest'
-            args: '--target x86_64-pc-windows-msvc'
+            args: '--target x86_64-pc-windows-msvc --bundles msi'
             target: 'x86_64-pc-windows-msvc'
             arch: 'x64'
             os: 'windows'
+            bundle: 'msi'
+
+          # Windows builds - NSIS installer
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-msvc --bundles nsis'
+            target: 'x86_64-pc-windows-msvc'
+            arch: 'x64'
+            os: 'windows'
+            bundle: 'nsis'
 
           # macOS builds
           - platform: 'macos-latest'
@@ -220,7 +229,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-${{ matrix.arch }}-artifacts
+          name: ${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bundle || 'all' }}-artifacts
           path: |
             src-tauri/target/*/release/bundle/
             !src-tauri/target/*/release/bundle/**/*.dSYM/
