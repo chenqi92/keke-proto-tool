@@ -8,10 +8,10 @@ import {
   Wrench,
   FileText,
   Settings,
-  Puzzle,
-  MoreHorizontal
+  Puzzle
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
+import { getVersionDisplayText } from '@/constants/version';
 
 interface ToolBarProps {
   className?: string;
@@ -212,7 +212,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             <span>就绪</span>
           </div>
-          <div>版本 0.0.1</div>
+          <div>{getVersionDisplayText()}</div>
         </div>
       )}
 

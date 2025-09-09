@@ -123,6 +123,17 @@ function App() {
             <SettingsPage />
           </Modal>
         )
+      case 'settings-about':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="关于"
+            size="lg"
+          >
+            <SettingsPage defaultSection="about" />
+          </Modal>
+        )
       default:
         return null
     }

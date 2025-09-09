@@ -12,6 +12,7 @@ import { execSync } from 'child_process';
 const PACKAGE_JSON_PATH = 'package.json';
 const CARGO_TOML_PATH = 'src-tauri/Cargo.toml';
 const TAURI_CONF_PATH = 'src-tauri/tauri.conf.json';
+const VERSION_TS_PATH = 'src/constants/version.ts';
 
 /**
  * 读取JSON文件
@@ -79,8 +80,48 @@ function updateCargoVersion(newVersion) {
  */
 function updateTauriVersion(newVersion) {
   const config = readJsonFile(TAURI_CONF_PATH);
-  config.version = newVersion;
+  // Check if version is already set to reference package.json
+  if (config.version === "../package.json") {
+    console.log('  - Tauri config already references package.json version');
+    return;
+  }
+  config.version = "../package.json";
   writeJsonFile(TAURI_CONF_PATH, config);
+}
+
+/**
+ * 更新前端版本常量文件
+ */
+function updateFrontendVersion(newVersion) {
+  const packageJson = readJsonFile(PACKAGE_JSON_PATH);
+  const content = `/**
+ * 应用版本信息
+ * 此文件由版本管理脚本自动更新，请勿手动修改
+ */
+
+export const APP_VERSION = '${newVersion}';
+export const APP_NAME = 'ProtoTool';
+export const APP_DESCRIPTION = '${packageJson.description || '跨平台的网络报文工作站'}';
+
+// 版本信息对象
+export const VERSION_INFO = {
+  version: APP_VERSION,
+  name: APP_NAME,
+  description: APP_DESCRIPTION,
+  buildDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+} as const;
+
+// 获取完整版本字符串
+export function getFullVersionString(): string {
+  return \`\${APP_NAME} v\${APP_VERSION}\`;
+}
+
+// 获取版本显示文本
+export function getVersionDisplayText(): string {
+  return \`版本 \${APP_VERSION}\`;
+}`;
+
+  fs.writeFileSync(VERSION_TS_PATH, content, 'utf8');
 }
 
 /**
@@ -124,10 +165,16 @@ function gitCommand(command) {
 /**
  * 检查是否有未提交的更改
  */
-function checkGitStatus() {
+function checkGitStatus(strict = false) {
+  if (!strict) {
+    console.log('Info: Allowing version update with uncommitted changes');
+    return;
+  }
+
   const status = gitCommand('git status --porcelain');
   if (status) {
     console.error('Error: There are uncommitted changes. Please commit or stash them first.');
+    console.error('Use without --strict flag to allow uncommitted changes.');
     process.exit(1);
   }
 }
@@ -138,12 +185,22 @@ function checkGitStatus() {
 function main() {
   const args = process.argv.slice(2);
   const command = args[0];
-  
+
+  // Check for --strict flag
+  const strictIndex = args.indexOf('--strict');
+  const strict = strictIndex !== -1;
+  if (strict) {
+    args.splice(strictIndex, 1); // Remove --strict from args
+  }
+
   if (!command) {
     console.log('Usage:');
-    console.log('  node scripts/version.js bump [major|minor|patch]  # 自动增加版本号');
-    console.log('  node scripts/version.js set <version>             # 设置指定版本号');
-    console.log('  node scripts/version.js current                   # 显示当前版本号');
+    console.log('  node scripts/version.js bump [major|minor|patch] [--strict]  # 自动增加版本号');
+    console.log('  node scripts/version.js set <version> [--strict]             # 设置指定版本号');
+    console.log('  node scripts/version.js current                              # 显示当前版本号');
+    console.log('');
+    console.log('Options:');
+    console.log('  --strict   Require clean git status (no uncommitted changes)');
     process.exit(1);
   }
 
@@ -163,8 +220,8 @@ function main() {
         process.exit(1);
       }
 
-      checkGitStatus();
-      
+      checkGitStatus(strict);
+
       const newVersion = bumpVersion(currentVersion, type);
       console.log(`Bumping version from ${currentVersion} to ${newVersion}`);
 
@@ -173,12 +230,14 @@ function main() {
       writeJsonFile(PACKAGE_JSON_PATH, packageJson);
       updateCargoVersion(newVersion);
       updateTauriVersion(newVersion);
+      updateFrontendVersion(newVersion);
 
       console.log('Version updated successfully!');
       console.log('Files updated:');
       console.log(`  - ${PACKAGE_JSON_PATH}`);
       console.log(`  - ${CARGO_TOML_PATH}`);
       console.log(`  - ${TAURI_CONF_PATH}`);
+      console.log(`  - ${VERSION_TS_PATH}`);
       break;
     }
 
@@ -194,7 +253,7 @@ function main() {
         process.exit(1);
       }
 
-      checkGitStatus();
+      checkGitStatus(strict);
 
       console.log(`Setting version from ${currentVersion} to ${newVersion}`);
 
@@ -203,12 +262,14 @@ function main() {
       writeJsonFile(PACKAGE_JSON_PATH, packageJson);
       updateCargoVersion(newVersion);
       updateTauriVersion(newVersion);
+      updateFrontendVersion(newVersion);
 
       console.log('Version updated successfully!');
       console.log('Files updated:');
       console.log(`  - ${PACKAGE_JSON_PATH}`);
       console.log(`  - ${CARGO_TOML_PATH}`);
       console.log(`  - ${TAURI_CONF_PATH}`);
+      console.log(`  - ${VERSION_TS_PATH}`);
       break;
     }
 

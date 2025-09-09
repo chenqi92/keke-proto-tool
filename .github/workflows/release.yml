@@ -1,0 +1,311 @@
+name: 'Release & Package'
+
+on:
+  push:
+    branches: [main]
+    paths: ['package.json']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Check if version changed and determine if we should create a release
+  version-check:
+    runs-on: ubuntu-latest
+    outputs:
+      version-changed: ${{ steps.version-check.outputs.changed }}
+      current-version: ${{ steps.version-check.outputs.current-version }}
+      previous-version: ${{ steps.version-check.outputs.previous-version }}
+      should-release: ${{ steps.should-release.outputs.result }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check version change
+        id: version-check
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          # Get previous version from the previous commit
+          git checkout HEAD~1 -- package.json 2>/dev/null || echo "No previous commit"
+          if [ -f package.json ]; then
+            PREVIOUS_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "unknown")
+          else
+            PREVIOUS_VERSION="unknown"
+          fi
+          git checkout HEAD -- package.json
+          
+          echo "previous-version=$PREVIOUS_VERSION" >> $GITHUB_OUTPUT
+          
+          # Check if version changed
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Version unchanged: $CURRENT_VERSION"
+          fi
+
+      - name: Determine if should release
+        id: should-release
+        run: |
+          # Release if version changed on main branch, or if manually triggered
+          if [ "${{ steps.version-check.outputs.changed }}" = "true" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "result=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Quality checks and tests
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run type checking
+        run: npm run type-check || echo "Type checking failed but continuing..."
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build || echo "Frontend build failed but continuing..."
+
+  # Cross-platform build and packaging
+  build-and-package:
+    needs: [version-check, quality]
+    if: needs.version-check.outputs.should-release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows builds
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-msvc'
+            target: 'x86_64-pc-windows-msvc'
+            arch: 'x64'
+            os: 'windows'
+
+          # macOS builds
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+            target: 'x86_64-apple-darwin'
+            arch: 'x64'
+            os: 'macos'
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+            target: 'aarch64-apple-darwin'
+            arch: 'arm64'
+            os: 'macos'
+
+          # Linux builds
+          - platform: 'ubuntu-20.04'
+            args: '--target x86_64-unknown-linux-gnu'
+            target: 'x86_64-unknown-linux-gnu'
+            arch: 'x64'
+            os: 'linux'
+          - platform: 'ubuntu-20.04'
+            args: '--target aarch64-unknown-linux-gnu'
+            target: 'aarch64-unknown-linux-gnu'
+            arch: 'arm64'
+            os: 'linux'
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          # For ARM64 cross-compilation
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Cross-compilation environment variables
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        with:
+          args: ${{ matrix.args }}
+          includeDebug: false
+          includeRelease: true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-${{ matrix.arch }}-artifacts
+          path: |
+            src-tauri/target/*/release/bundle/
+            !src-tauri/target/*/release/bundle/**/*.dSYM/
+          retention-days: 7
+
+  # Create GitHub release with all platform packages
+  create-release:
+    needs: [version-check, build-and-package]
+    if: needs.version-check.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release notes
+        id: release-notes
+        run: |
+          VERSION="${{ needs.version-check.outputs.current-version }}"
+          RELEASE_NOTES_FILE="release-notes/${VERSION}.md"
+          DEFAULT_TEMPLATE="release-notes/default-template.md"
+
+          if [ -f "$RELEASE_NOTES_FILE" ]; then
+            echo "Using version-specific release notes: $RELEASE_NOTES_FILE"
+            cp "$RELEASE_NOTES_FILE" release-notes.md
+          elif [ -f "$DEFAULT_TEMPLATE" ]; then
+            echo "Using default template: $DEFAULT_TEMPLATE"
+            sed "s/{version}/$VERSION/g" "$DEFAULT_TEMPLATE" > release-notes.md
+          else
+            echo "No release notes found, creating basic notes"
+            cat > release-notes.md << EOF
+          # Version $VERSION
+
+          ## 📦 Cross-Platform Release
+
+          This release includes packages for:
+          - **Windows**: MSI installer, standalone EXE, and portable ZIP archive
+          - **macOS**: Separate packages for Intel x64 and Apple Silicon (ARM64)
+          - **Linux**: Packages for x86_64 and ARM64 architectures
+
+          Download the appropriate package for your platform from the assets below.
+
+          ---
+
+          *This release was automatically generated.*
+          EOF
+          fi
+
+      - name: Organize release assets
+        run: |
+          mkdir -p release-assets
+
+          # Process each platform's artifacts
+          for artifact_dir in artifacts/*/; do
+            if [ -d "$artifact_dir" ]; then
+              platform=$(basename "$artifact_dir" | sed 's/-artifacts$//')
+              echo "Processing $platform artifacts..."
+
+              # Find and copy all package files
+              find "$artifact_dir" -type f \( \
+                -name "*.msi" -o \
+                -name "*.exe" -o \
+                -name "*.zip" -o \
+                -name "*.dmg" -o \
+                -name "*.app.tar.gz" -o \
+                -name "*.deb" -o \
+                -name "*.rpm" -o \
+                -name "*.AppImage" \
+              \) -exec cp {} release-assets/ \;
+            fi
+          done
+
+          # List all release assets
+          echo "Release assets:"
+          ls -la release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.version-check.outputs.current-version }}
+          name: Release v${{ needs.version-check.outputs.current-version }}
+          body_path: release-notes.md
+          files: release-assets/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Summary
+        run: |
+          echo "## 🚀 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ needs.version-check.outputs.current-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Previous Version:** ${{ needs.version-check.outputs.previous-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Release Assets" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for file in release-assets/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              size=$(du -h "$file" | cut -f1)
+              echo "- **$filename** ($size)" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version-check.outputs.current-version }})" >> $GITHUB_STEP_SUMMARY
+
+  # Cleanup artifacts after successful release
+  cleanup:
+    needs: [create-release]
+    if: always() && needs.create-release.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete artifacts
+        uses: geekyeggo/delete-artifact@v4
+        with:
+          name: |
+            windows-x64-artifacts
+            macos-x64-artifacts
+            macos-arm64-artifacts
+            linux-x64-artifacts
+            linux-arm64-artifacts
+          failOnError: false

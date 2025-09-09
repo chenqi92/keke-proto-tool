@@ -169,7 +169,7 @@ const createMenuStructure = (onOpenModal: (modalType: string) => void): { [key: 
     { separator: true },
     { label: '报告问题', action: () => console.log('Report Issue') },
     { separator: true },
-    { label: '关于', action: () => console.log('About') },
+    { label: '关于', action: () => onOpenModal('settings-about') },
     { label: '检查更新', action: () => console.log('Check for Updates') },
   ],
 });

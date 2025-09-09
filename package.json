@@ -1,7 +1,7 @@
 {
   "name": "keke-proto-tool",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "description": "跨平台的网络报文工作站，集连接调试、协议解析、规则/插件扩展、数据筛选存储、AI 辅助与批量导出为一体",
   "author": {
@@ -47,6 +47,10 @@
     "version:minor": "node scripts/version.js bump minor",
     "version:major": "node scripts/version.js bump major",
     "version:set": "node scripts/version.js set",
+    "version:patch:strict": "node scripts/version.js bump patch --strict",
+    "version:minor:strict": "node scripts/version.js bump minor --strict",
+    "version:major:strict": "node scripts/version.js bump major --strict",
+    "version:set:strict": "node scripts/version.js set --strict",
     "release": "node scripts/release.js",
     "release:dry": "node scripts/release.js --dry-run"
   },

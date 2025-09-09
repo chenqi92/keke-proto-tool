@@ -1,23 +1,29 @@
 import React, { useState } from 'react';
 import { cn } from '@/utils';
-import { 
-  Settings, 
-  Palette, 
-  Network, 
-  Shield, 
-  Database, 
-  Keyboard, 
+import {
+  Settings,
+  Palette,
+  Network,
+  Shield,
+  Database,
+  Keyboard,
   Bell,
   Monitor,
   Moon,
   Sun,
-  Laptop
+  Laptop,
+  Info
 } from 'lucide-react';
+import { VERSION_INFO, getFullVersionString } from '@/constants/version';
 
 interface SettingsSection {
   id: string;
   name: string;
   icon: React.ComponentType<{ className?: string }>;
+}
+
+interface SettingsPageProps {
+  defaultSection?: string;
 }
 
 const settingsSections: SettingsSection[] = [
@@ -27,10 +33,11 @@ const settingsSections: SettingsSection[] = [
   { id: 'storage', name: '存储', icon: Database },
   { id: 'shortcuts', name: '快捷键', icon: Keyboard },
   { id: 'notifications', name: '通知', icon: Bell },
+  { id: 'about', name: '关于', icon: Info },
 ];
 
-export const SettingsPage: React.FC = () => {
-  const [activeSection, setActiveSection] = useState('appearance');
+export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'appearance' }) => {
+  const [activeSection, setActiveSection] = useState(defaultSection);
   const [theme, setTheme] = useState('system');
   const [fontSize, setFontSize] = useState(14);
   const [language, setLanguage] = useState('zh-CN');
@@ -327,6 +334,69 @@ export const SettingsPage: React.FC = () => {
     </div>
   );
 
+  const renderAboutSettings = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-4">关于 ProtoTool</h3>
+
+        <div className="space-y-4">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-16 h-16 bg-primary/20 rounded-lg flex items-center justify-center">
+                <Network className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h4 className="text-xl font-semibold">{VERSION_INFO.name}</h4>
+                <p className="text-muted-foreground">{getFullVersionString()}</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              {VERSION_INFO.description}
+            </p>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium">版本:</span>
+                <span className="ml-2 text-muted-foreground">{VERSION_INFO.version}</span>
+              </div>
+              <div>
+                <span className="font-medium">构建日期:</span>
+                <span className="ml-2 text-muted-foreground">{VERSION_INFO.buildDate}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 border border-border rounded-lg">
+            <h5 className="font-medium mb-2">开发团队</h5>
+            <p className="text-sm text-muted-foreground">
+              ProtoTool 由 programApe 开发和维护
+            </p>
+          </div>
+
+          <div className="p-4 border border-border rounded-lg">
+            <h5 className="font-medium mb-2">开源许可</h5>
+            <p className="text-sm text-muted-foreground">
+              本软件基于 MIT 许可证开源，您可以自由使用、修改和分发。
+            </p>
+          </div>
+
+          <div className="flex space-x-2">
+            <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
+              检查更新
+            </button>
+            <button className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors">
+              查看源码
+            </button>
+            <button className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors">
+              报告问题
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
     switch (activeSection) {
       case 'appearance':
@@ -341,6 +411,8 @@ export const SettingsPage: React.FC = () => {
         return renderShortcutsSettings();
       case 'notifications':
         return renderNotificationsSettings();
+      case 'about':
+        return renderAboutSettings();
       default:
         return renderAppearanceSettings();
     }
