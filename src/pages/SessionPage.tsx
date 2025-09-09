@@ -6,6 +6,7 @@ import { ParseTree } from '@/components/ParseTree/ParseTree';
 import { Timeline } from '@/components/Timeline/Timeline';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
 import { TCPSessionContent } from '@/components/ProtocolSessions/TCPSessionContent';
+import { UDPSessionContent } from '@/components/ProtocolSessions/UDPSessionContent';
 import { WebSocketSessionContent } from '@/components/ProtocolSessions/WebSocketSessionContent';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession } from '@/contexts/SessionContext';
@@ -152,9 +153,10 @@ export const SessionPage: React.FC = () => {
     switch (currentSession.protocol) {
       case 'TCP':
         return <TCPSessionContent sessionId={currentSession.id} />;
+      case 'UDP':
+        return <UDPSessionContent sessionId={currentSession.id} />;
       case 'WebSocket':
         return <WebSocketSessionContent config={currentSession} />;
-      case 'UDP':
       case 'MQTT':
       case 'SSE':
       default:

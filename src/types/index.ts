@@ -104,6 +104,11 @@ export type ProtocolType = 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
 export type ConnectionType = 'client' | 'server';
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+export interface NetworkAddress {
+  host: string;
+  port: number;
+}
+
 export interface Message {
   id: string;
   timestamp: Date;
@@ -114,6 +119,9 @@ export interface Message {
   status: 'success' | 'error' | 'pending';
   raw?: string;
   parsed?: any;
+  // UDP特有字段：来源/目标地址
+  sourceAddress?: NetworkAddress;
+  targetAddress?: NetworkAddress;
 }
 
 export interface SessionConfig {

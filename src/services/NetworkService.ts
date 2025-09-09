@@ -351,6 +351,49 @@ class NetworkService {
     }
   }
 
+  // UDP特定方法：发送UDP数据报到指定地址
+  async sendUDPMessage(sessionId: string, data: Uint8Array, targetHost: string, targetPort: number): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.protocol !== 'UDP') {
+        throw new Error('Session is not a UDP session or not found');
+      }
+
+      // Call Tauri backend to send UDP message
+      const result = await invoke<boolean>('send_udp_message', {
+        sessionId,
+        data: Array.from(data),
+        targetHost,
+        targetPort,
+      });
+
+      if (result) {
+        // Add outgoing message to store
+        this.handleIncomingMessage(sessionId, data, 'out');
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Send UDP message failed:', error);
+
+      // Add failed message to store
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: 'UDP',
+        size: data.length,
+        data,
+        status: 'error',
+        raw: this.uint8ArrayToString(data),
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+      return false;
+    }
+  }
+
   getConnection(sessionId: string): NetworkConnection | undefined {
     return this.connections.get(sessionId);
   }
