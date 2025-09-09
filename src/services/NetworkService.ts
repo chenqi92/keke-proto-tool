@@ -394,6 +394,55 @@ class NetworkService {
     }
   }
 
+  // WebSocket特定方法：发送WebSocket消息
+  async sendWebSocketMessage(sessionId: string, data: string | Uint8Array, messageType: 'text' | 'binary'): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.protocol !== 'WebSocket') {
+        throw new Error('Session is not a WebSocket session or not found');
+      }
+
+      // Call Tauri backend to send WebSocket message
+      const result = await invoke<boolean>('send_websocket_message', {
+        sessionId,
+        data: messageType === 'text' ? data : Array.from(data as Uint8Array),
+        messageType,
+      });
+
+      if (result) {
+        // Add outgoing message to store
+        const messageData = messageType === 'text'
+          ? new TextEncoder().encode(data as string)
+          : data as Uint8Array;
+        this.handleIncomingMessage(sessionId, messageData, 'out');
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Send WebSocket message failed:', error);
+
+      // Add failed message to store
+      const messageData = messageType === 'text'
+        ? new TextEncoder().encode(data as string)
+        : data as Uint8Array;
+
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: 'WebSocket',
+        size: messageData.length,
+        data: messageData,
+        status: 'error',
+        raw: this.uint8ArrayToString(messageData),
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+      return false;
+    }
+  }
+
   getConnection(sessionId: string): NetworkConnection | undefined {
     return this.connections.get(sessionId);
   }

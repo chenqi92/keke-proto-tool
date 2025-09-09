@@ -156,7 +156,7 @@ export const SessionPage: React.FC = () => {
       case 'UDP':
         return <UDPSessionContent sessionId={currentSession.id} />;
       case 'WebSocket':
-        return <WebSocketSessionContent config={currentSession} />;
+        return <WebSocketSessionContent sessionId={currentSession.id} />;
       case 'MQTT':
       case 'SSE':
       default:

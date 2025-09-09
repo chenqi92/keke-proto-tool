@@ -1,129 +1,173 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { cn } from '@/utils';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
-import { HexEditor } from '@/components/HexEditor/HexEditor';
-import { ParseTree } from '@/components/ParseTree/ParseTree';
-import { Timeline } from '@/components/Timeline/Timeline';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { useLayoutConfig } from '@/hooks/useResponsive';
+import { useSessionById } from '@/stores/AppStore';
+import { networkService } from '@/services/NetworkService';
+import { Message } from '@/types';
 import {
-  Globe,
   Send,
   AlertCircle,
   Play,
   Square,
   Settings,
-  Download,
-  Filter,
-  Zap
+  WifiOff,
+  Loader2,
+  Activity
 } from 'lucide-react';
 
-interface SessionConfig {
-  protocol: 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
-  connectionType: 'client' | 'server';
-  host?: string;
-  port?: number;
-  websocketSubprotocol?: string;
-}
-
-interface Message {
-  id: string;
-  timestamp: Date;
-  direction: 'in' | 'out';
-  protocol: string;
-  size: number;
-  data: Uint8Array;
-  status: 'success' | 'error' | 'warning';
-  frameType?: 'text' | 'binary' | 'ping' | 'pong' | 'close';
-}
-
 interface WebSocketSessionContentProps {
-  config: SessionConfig;
+  sessionId: string;
 }
 
-export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = ({ config }) => {
-  const layoutConfig = useLayoutConfig();
-  const [isConnected, setIsConnected] = useState(false);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [viewMode, setViewMode] = useState<'split' | 'hex' | 'tree' | 'timeline'>('split');
-  const [filterText, setFilterText] = useState('');
-  
-  // WebSocket-specific states
+export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = ({ sessionId }) => {
+  // 从全局状态获取会话数据
+  const session = useSessionById(sessionId);
+
+  // 本地UI状态
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
-  const [receiveFormat, setReceiveFormat] = useState<DataFormat>('ascii');
+  const [receiveFormat] = useState<DataFormat>('ascii');
   const [sendData, setSendData] = useState('');
   const [formatError, setFormatError] = useState<string | null>(null);
-  const [messageType, setMessageType] = useState<'text' | 'binary' | 'ping' | 'pong'>('text');
-  const [autoReconnect, setAutoReconnect] = useState(true);
-  const [_pingInterval, _setPingInterval] = useState(30);
+  const [isConnectingLocal, setIsConnectingLocal] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [showAdvancedStats, setShowAdvancedStats] = useState(false);
 
-  // Mock WebSocket statistics
-  const [wsStats] = useState({
-    textFrames: 15,
-    binaryFrames: 3,
-    controlFrames: 8,
-    totalFrames: 26,
-    bytesReceived: 4096,
-    bytesSent: 2048,
-    connectionTime: '00:05:23'
-  });
+  // WebSocket特定状态
+  const [messageType, setMessageType] = useState<'text' | 'binary'>('text');
+  const [subprotocol, setSubprotocol] = useState('');
 
-  // Mock messages with frame types
-  const [messages] = useState<Message[]>([
-    {
-      id: '1',
-      timestamp: new Date(),
-      direction: 'out',
-      protocol: 'WebSocket',
-      size: 64,
-      data: new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64]),
-      status: 'success',
-      frameType: 'text'
-    },
-    {
-      id: '2',
-      timestamp: new Date(Date.now() - 1000),
-      direction: 'in',
-      protocol: 'WebSocket',
-      size: 32,
-      data: new Uint8Array([0x4f, 0x4b, 0x0d, 0x0a]),
-      status: 'success',
-      frameType: 'text'
-    },
-    {
-      id: '3',
-      timestamp: new Date(Date.now() - 2000),
-      direction: 'out',
-      protocol: 'WebSocket',
-      size: 0,
-      data: new Uint8Array([]),
-      status: 'success',
-      frameType: 'ping'
+  // 从会话状态获取数据
+  const config = session?.config;
+  const connectionStatus = session?.status || 'disconnected';
+  const messages = session?.messages || [];
+  const statistics = session?.statistics;
+  const connectionError = session?.error;
+
+  // 计算WebSocket特定统计信息
+  const wsStats = useMemo(() => {
+    const baseStats = {
+      messagesReceived: messages.filter(m => m.direction === 'in').length,
+      messagesSent: messages.filter(m => m.direction === 'out').length,
+      bytesReceived: statistics?.bytesReceived || 0,
+      bytesSent: statistics?.bytesSent || 0,
+      errors: statistics?.errors || 0,
+      connectionTime: 0, // 连接持续时间（秒）
+      avgMessageSize: 0,
+      messageRate: 0, // 消息/秒
+      lastMessageTime: messages.length > 0 ? messages[messages.length - 1].timestamp : null,
+      // WebSocket特有统计
+      textMessages: 0,
+      binaryMessages: 0,
+      pingPongMessages: 0,
+      connectionUptime: 0,
+    };
+
+    // 计算平均消息大小
+    const totalMessages = baseStats.messagesReceived + baseStats.messagesSent;
+    if (totalMessages > 0) {
+      baseStats.avgMessageSize = Math.round((baseStats.bytesReceived + baseStats.bytesSent) / totalMessages);
     }
-  ]);
 
-  const handleConnect = () => {
-    setIsConnected(!isConnected);
+    // 计算消息速率 (简化计算，基于最近的消息)
+    if (messages.length > 1) {
+      const recentMessages = messages.slice(-10); // 最近10条消息
+      const timeSpan = recentMessages[recentMessages.length - 1].timestamp.getTime() - recentMessages[0].timestamp.getTime();
+      if (timeSpan > 0) {
+        baseStats.messageRate = Math.round((recentMessages.length * 1000) / timeSpan); // 消息/秒
+      }
+    }
+
+    // WebSocket特有统计：按消息类型分类
+    messages.forEach(message => {
+      // 这里需要根据实际的消息类型字段来判断
+      // 暂时使用简化逻辑
+      if (message.raw && message.raw.includes('ping') || message.raw && message.raw.includes('pong')) {
+        baseStats.pingPongMessages++;
+      } else if (message.size > 0) {
+        // 简化判断：假设小于1KB的是文本消息，大于1KB的是二进制消息
+        if (message.size < 1024) {
+          baseStats.textMessages++;
+        } else {
+          baseStats.binaryMessages++;
+        }
+      }
+    });
+
+    // 计算连接时长（如果已连接）
+    if (connectionStatus === 'connected' && session?.connectedAt) {
+      baseStats.connectionUptime = Math.round((Date.now() - session.connectedAt.getTime()) / 1000);
+    }
+
+    return baseStats;
+  }, [statistics, messages, connectionStatus, session?.connectedAt]);
+
+  // WebSocket连接状态检查
+  const isConnected = connectionStatus === 'connected';
+  const isConnecting = connectionStatus === 'connecting';
+
+  // 处理WebSocket连接
+  const handleConnect = async () => {
+    if (!config) return;
+
+    try {
+      if (isConnected) {
+        // 断开连接
+        setIsConnectingLocal(true);
+        const success = await networkService.disconnect(sessionId);
+        if (!success) {
+          console.error('Failed to disconnect WebSocket');
+        }
+      } else {
+        // 建立连接
+        setIsConnectingLocal(true);
+        const success = await networkService.connect(sessionId);
+        if (!success) {
+          console.error('Failed to connect WebSocket');
+        }
+      }
+    } catch (error) {
+      console.error('WebSocket connection operation failed:', error);
+    } finally {
+      setIsConnectingLocal(false);
+    }
   };
 
-  const handleSendMessage = () => {
-    if (messageType === 'text' && !validateFormat[sendFormat](sendData)) {
+  // 处理发送WebSocket消息
+  const handleSendMessage = async () => {
+    if (!config || isSending || !isConnected) return;
+
+    if (!validateFormat[sendFormat](sendData)) {
       setFormatError(`无效的${sendFormat.toUpperCase()}格式`);
       return;
     }
 
     setFormatError(null);
+    setIsSending(true);
 
     try {
-      if (messageType === 'ping' || messageType === 'pong') {
-        console.log(`Send WebSocket ${messageType} frame`);
+      const dataBytes = formatData.from[sendFormat](sendData);
+
+      // WebSocket支持文本和二进制消息
+      let success = false;
+      if (messageType === 'text') {
+        // 发送文本消息
+        const textData = new TextDecoder().decode(dataBytes);
+        success = await networkService.sendWebSocketMessage(sessionId, textData, 'text');
       } else {
-        const dataBytes = formatData.from[sendFormat](sendData);
-        console.log(`Send WebSocket ${messageType} message:`, dataBytes);
+        // 发送二进制消息
+        success = await networkService.sendWebSocketMessage(sessionId, dataBytes, 'binary');
       }
-      setSendData('');
+
+      if (success) {
+        setSendData('');
+        setFormatError(null);
+      } else {
+        setFormatError('发送失败：WebSocket连接错误');
+      }
     } catch (error) {
-      setFormatError('数据转换失败');
+      setFormatError(`发送失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -140,382 +184,324 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
     }
   };
 
-  const handleMessageSelect = (message: Message) => {
-    setSelectedMessage(message);
-  };
+  // 如果没有会话数据，显示错误信息
+  if (!session || !config) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-muted-foreground mb-2">会话未找到</h3>
+          <p className="text-sm text-muted-foreground">
+            会话ID: {sessionId} 不存在或已被删除
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  const getFrameTypeColor = (frameType?: string) => {
-    switch (frameType) {
-      case 'text': return 'text-blue-500';
-      case 'binary': return 'text-purple-500';
-      case 'ping': return 'text-green-500';
-      case 'pong': return 'text-yellow-500';
-      case 'close': return 'text-red-500';
-      default: return 'text-muted-foreground';
-    }
-  };
+  return (
+    <div className="h-full flex flex-col">
+      {/* WebSocket工具栏 */}
+      <div className="h-12 border-b border-border flex items-center justify-between px-4 bg-card">
+        <div className="flex items-center space-x-2">
+          {/* 状态图标 */}
+          {connectionStatus === 'connected' && <Activity className="w-4 h-4 text-green-500" />}
+          {connectionStatus === 'connecting' && <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" />}
+          {connectionStatus === 'disconnected' && <WifiOff className="w-4 h-4 text-gray-500" />}
+          {connectionStatus === 'error' && <AlertCircle className="w-4 h-4 text-red-500" />}
 
-  const renderWebSocketToolbar = () => (
-    <div className="h-12 border-b border-border flex items-center justify-between px-4 bg-card">
-      <div className="flex items-center space-x-2">
-        <Globe className="w-4 h-4 text-green-500" />
-        <span className="text-sm font-medium">WebSocket</span>
-        <span className="text-xs text-muted-foreground">
-          ws://{config.host}:{config.port}
-        </span>
-        {config.websocketSubprotocol && (
+          <span className="text-sm font-medium">WebSocket {config.connectionType}</span>
           <span className="text-xs text-muted-foreground">
-            ({config.websocketSubprotocol})
+            {config.host}:{config.port}
           </span>
-        )}
-        
-        <button
-          onClick={handleConnect}
-          className={cn(
-            "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors ml-4",
-            isConnected
-              ? "bg-red-500 hover:bg-red-600 text-white"
-              : "bg-green-500 hover:bg-green-600 text-white"
+
+          {/* 连接错误信息 */}
+          {connectionError && (
+            <span className="text-xs text-red-500 max-w-48 truncate" title={connectionError}>
+              {connectionError}
+            </span>
           )}
-        >
-          {isConnected ? (
-            <>
-              <Square className="w-3 h-3" />
-              <span>断开</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-3 h-3" />
-              <span>连接</span>
-            </>
-          )}
-        </button>
-      </div>
-      
-      <div className="flex items-center space-x-2">
-        {/* WebSocket-specific controls */}
-        <button 
-          onClick={() => setAutoReconnect(!autoReconnect)}
-          className={cn(
-            "px-2 py-1 text-xs rounded transition-colors",
-            autoReconnect ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent"
-          )}
-        >
-          自动重连
-        </button>
-        
-        <button 
-          onClick={() => {
-            if (isConnected) {
-              console.log('Send ping frame');
-            }
-          }}
-          disabled={!isConnected}
-          className="px-2 py-1 text-xs bg-muted hover:bg-accent rounded transition-colors disabled:opacity-50"
-        >
-          Ping/Pong
-        </button>
-        
-        {/* View mode buttons */}
-        <div className="flex items-center space-x-1 ml-4">
+
           <button
-            onClick={() => setViewMode('split')}
+            onClick={handleConnect}
+            disabled={isConnecting || isConnectingLocal}
             className={cn(
-              "px-2 py-1 text-xs rounded transition-colors",
-              viewMode === 'split' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors ml-4",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              isConnected
+                ? "bg-red-500 hover:bg-red-600 text-white"
+                : "bg-green-500 hover:bg-green-600 text-white"
             )}
           >
-            分栏
-          </button>
-          <button
-            onClick={() => setViewMode('hex')}
-            className={cn(
-              "px-2 py-1 text-xs rounded transition-colors",
-              viewMode === 'hex' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            {(isConnecting || isConnectingLocal) ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>{isConnected ? '断开中...' : '连接中...'}</span>
+              </>
+            ) : isConnected ? (
+              <>
+                <Square className="w-3 h-3" />
+                <span>断开</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3 h-3" />
+                <span>连接</span>
+              </>
             )}
-          >
-            Hex
-          </button>
-          <button
-            onClick={() => setViewMode('tree')}
-            className={cn(
-              "px-2 py-1 text-xs rounded transition-colors",
-              viewMode === 'tree' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            )}
-          >
-            解析树
-          </button>
-          <button
-            onClick={() => setViewMode('timeline')}
-            className={cn(
-              "px-2 py-1 text-xs rounded transition-colors",
-              viewMode === 'timeline' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            )}
-          >
-            时间线
           </button>
         </div>
 
-        <div className="flex items-center space-x-1 ml-4">
-          <div className="relative">
-            <Filter className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="过滤消息..."
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-              className="pl-7 pr-3 py-1 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary w-32"
-            />
-          </div>
-          <button className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground">
-            <Download className="w-4 h-4" />
+        {/* 统计信息控制 */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowAdvancedStats(!showAdvancedStats)}
+            className={cn(
+              "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors",
+              showAdvancedStats
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            )}
+          >
+            <Settings className="w-3 h-3" />
+            <span>统计</span>
           </button>
-          <button className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground">
-            <Settings className="w-4 h-4" />
-          </button>
+
+          <span className="text-xs text-muted-foreground">
+            {isConnected ? '已连接' : '未连接'}
+          </span>
         </div>
       </div>
-    </div>
-  );
 
-  const renderWebSocketSendPanel = () => (
-    <div className="h-32 border-b border-border bg-card p-4">
-      <div className="flex items-start space-x-3 h-full">
-        <div className="flex-1 flex flex-col space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-medium text-muted-foreground">消息类型:</span>
-                <select 
-                  value={messageType}
-                  onChange={(e) => setMessageType(e.target.value as 'text' | 'binary' | 'ping' | 'pong')}
-                  className="px-2 py-1 text-xs bg-background border border-border rounded"
-                >
-                  <option value="text">文本消息</option>
-                  <option value="binary">二进制消息</option>
-                  <option value="ping">Ping帧</option>
-                  <option value="pong">Pong帧</option>
-                </select>
-              </div>
-              {(messageType === 'text' || messageType === 'binary') && (
+      {/* 发送面板 */}
+      <div className="h-40 border-b border-border bg-card p-4">
+        <div className="flex items-start space-x-3 h-full">
+          <div className="flex-1 flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <span className="text-xs font-medium text-muted-foreground">数据格式:</span>
                   <DataFormatSelector value={sendFormat} onChange={setSendFormat} size="sm" />
                 </div>
-              )}
+
+                {/* WebSocket消息类型选择 */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-medium text-muted-foreground">消息类型:</span>
+                  <select
+                    value={messageType}
+                    onChange={(e) => setMessageType(e.target.value as 'text' | 'binary')}
+                    className="px-2 py-1 text-xs bg-background border border-border rounded"
+                  >
+                    <option value="text">文本</option>
+                    <option value="binary">二进制</option>
+                  </select>
+                </div>
+
+                {/* 子协议设置 */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-medium text-muted-foreground">子协议:</span>
+                  <input
+                    type="text"
+                    value={subprotocol}
+                    onChange={(e) => setSubprotocol(e.target.value)}
+                    placeholder="可选"
+                    className="px-2 py-1 text-xs bg-background border border-border rounded w-20"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  connectionStatus === 'connected' ? "bg-green-500" :
+                  connectionStatus === 'connecting' ? "bg-yellow-500 animate-pulse" :
+                  connectionStatus === 'error' ? "bg-red-500" : "bg-gray-500"
+                )} />
+                <span className="text-xs text-muted-foreground">
+                  {connectionStatus === 'connected' ? "已连接" :
+                   connectionStatus === 'connecting' ? "连接中" :
+                   connectionStatus === 'error' ? "连接错误" : "未连接"}
+                </span>
+              </div>
             </div>
-            
-            {/* Connection status indicator */}
-            <div className="flex items-center space-x-2">
-              <div className={cn(
-                "w-2 h-2 rounded-full",
-                isConnected ? "bg-green-500" : "bg-red-500"
-              )} />
-              <span className="text-xs text-muted-foreground">
-                {isConnected ? "已连接" : "未连接"}
-              </span>
-            </div>
-          </div>
-          
-          {(messageType === 'text' || messageType === 'binary') ? (
+
             <textarea
               value={sendData}
               onChange={(e) => handleSendDataChange(e.target.value)}
               placeholder="输入WebSocket消息内容..."
-              className="flex-1 w-full px-3 py-2 text-sm bg-background border border-border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+              className="flex-1 resize-none bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground bg-muted/30 rounded-md">
-              {messageType === 'ping' ? 'Ping帧不需要载荷数据' : 'Pong帧不需要载荷数据'}
-            </div>
-          )}
-          
-          {formatError && (
-            <div className="flex items-center space-x-1 text-red-500">
-              <AlertCircle className="w-3 h-3" />
-              <span className="text-xs">{formatError}</span>
-            </div>
-          )}
-        </div>
-        
-        <div className="flex flex-col space-y-2">
-          <button
-            onClick={handleSendMessage}
-            disabled={!isConnected || (messageType !== 'ping' && messageType !== 'pong' && !sendData.trim())}
-            className={cn(
-              "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
-              "flex items-center space-x-2 min-w-20",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-              isConnected && (messageType === 'ping' || messageType === 'pong' || sendData.trim())
-                ? "bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105"
-                : "bg-muted text-muted-foreground"
-            )}
-          >
-            {messageType === 'ping' || messageType === 'pong' ? (
-              <Zap className="w-4 h-4" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            <span>
-              {messageType === 'ping' ? 'Ping' : messageType === 'pong' ? 'Pong' : '发送'}
-            </span>
-          </button>
-          
-          <button
-            onClick={() => setSendData('')}
-            className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
-            title="清空"
-          >
-            清空
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
-  const renderReceivePanel = () => (
-    <div className="h-8 border-b border-border flex items-center justify-between px-3 bg-muted/50">
-      <h3 className="text-sm font-medium">数据接收</h3>
-      <div className="flex items-center space-x-2">
-        <span className="text-xs text-muted-foreground">显示格式:</span>
-        <DataFormatSelector
-          value={receiveFormat}
-          onChange={setReceiveFormat}
-          size="sm"
-        />
-      </div>
-    </div>
-  );
-
-  const renderWebSocketStats = () => (
-    <div className="h-8 border-b border-border flex items-center px-3 bg-muted/30">
-      <div className="flex items-center space-x-4 text-xs">
-        <span>帧类型统计</span>
-        <span className={getFrameTypeColor('text')}>文本: {wsStats.textFrames}</span>
-        <span className={getFrameTypeColor('binary')}>二进制: {wsStats.binaryFrames}</span>
-        <span className={getFrameTypeColor('ping')}>控制帧: {wsStats.controlFrames}</span>
-        <span>总计: {wsStats.totalFrames}</span>
-        <span>接收: {wsStats.bytesReceived}B</span>
-        <span>发送: {wsStats.bytesSent}B</span>
-        <span>连接时长: {wsStats.connectionTime}</span>
-      </div>
-    </div>
-  );
-
-  const renderContent = () => {
-    if (viewMode === 'split' && layoutConfig.mainContent.showThreeColumns) {
-      return (
-        <PanelGroup direction="horizontal">
-          {/* Left Panel - Hex Editor */}
-          <Panel defaultSize={40} minSize={25}>
-            <div className="h-full border-r border-border">
-              <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
-                <h3 className="text-sm font-medium">Hex 编辑器</h3>
+            {formatError && (
+              <div className={cn(
+                "text-xs px-2 py-1 rounded",
+                formatError.includes('成功')
+                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+              )}>
+                {formatError}
               </div>
-              <HexEditor 
-                data={selectedMessage?.data || new Uint8Array()} 
-                readOnly={true}
-              />
-            </div>
-          </Panel>
+            )}
+          </div>
 
-          <PanelResizeHandle className="w-1 bg-border hover:bg-accent transition-colors" />
+          <div className="flex flex-col space-y-2">
+            <button
+              onClick={handleSendMessage}
+              disabled={isSending || !isConnected || !sendData.trim()}
+              className={cn(
+                "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
+                "flex items-center space-x-2 min-w-20",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+                !isSending && sendData.trim() && isConnected
+                  ? "bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              {isSending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>发送中...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  <span>发送</span>
+                </>
+              )}
+            </button>
 
-          {/* Right Panel */}
-          <Panel minSize={25}>
-            <PanelGroup direction="vertical">
-              {/* Parse Tree */}
-              <Panel defaultSize={50} minSize={30}>
-                <div className="h-full border-b border-border">
-                  <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
-                    <h3 className="text-sm font-medium">解析树</h3>
-                  </div>
-                  <ParseTree message={selectedMessage} />
+            {/* 连接状态提示 */}
+            {!isConnected && (
+              <div className="text-xs text-muted-foreground text-center">
+                请先建立连接
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 统计信息面板 */}
+      {showAdvancedStats && (
+        <div className="h-32 border-b border-border bg-card p-4">
+          <div className="h-full">
+            <h3 className="text-sm font-medium mb-3">WebSocket统计</h3>
+            <div className="grid grid-cols-8 gap-4 h-20">
+              {/* 基础统计 */}
+              <div className="text-center">
+                <div className="text-lg font-bold text-primary">
+                  {wsStats.messagesReceived}
                 </div>
-              </Panel>
-
-              <PanelResizeHandle className="h-1 bg-border hover:bg-accent transition-colors" />
-
-              {/* Timeline */}
-              <Panel minSize={30}>
-                <div className="h-full">
-                  <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
-                    <h3 className="text-sm font-medium">消息时间线</h3>
-                  </div>
-                  <Timeline
-                    messages={messages}
-                    selectedMessage={selectedMessage}
-                    onMessageSelect={handleMessageSelect}
-                    filter={filterText}
-                    formatData={formatMessageData}
-                  />
+                <div className="text-xs text-muted-foreground">接收消息</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-primary">
+                  {wsStats.messagesSent}
                 </div>
-              </Panel>
-            </PanelGroup>
-          </Panel>
-        </PanelGroup>
-      );
-    }
-
-    // Single view modes
-    switch (viewMode) {
-      case 'hex':
-        return (
-          <div className="h-full">
-            <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
-              <h3 className="text-sm font-medium">Hex 编辑器</h3>
+                <div className="text-xs text-muted-foreground">发送消息</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-green-500">
+                  {wsStats.bytesReceived}
+                </div>
+                <div className="text-xs text-muted-foreground">接收字节</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-blue-500">
+                  {wsStats.bytesSent}
+                </div>
+                <div className="text-xs text-muted-foreground">发送字节</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-purple-500">
+                  {wsStats.avgMessageSize}B
+                </div>
+                <div className="text-xs text-muted-foreground">平均消息大小</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-orange-500">
+                  {wsStats.messageRate}/s
+                </div>
+                <div className="text-xs text-muted-foreground">消息速率</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-cyan-500">
+                  {wsStats.textMessages}
+                </div>
+                <div className="text-xs text-muted-foreground">文本消息</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-indigo-500">
+                  {wsStats.connectionUptime}s
+                </div>
+                <div className="text-xs text-muted-foreground">连接时长</div>
+              </div>
             </div>
-            <HexEditor 
-              data={selectedMessage?.data || new Uint8Array()} 
-              readOnly={true}
-            />
           </div>
-        );
-      case 'tree':
-        return (
-          <div className="h-full">
-            <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
-              <h3 className="text-sm font-medium">解析树</h3>
-            </div>
-            <ParseTree message={selectedMessage} />
-          </div>
-        );
-      case 'timeline':
-      default:
-        return (
-          <div className="h-full">
-            <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
-              <h3 className="text-sm font-medium">消息时间线</h3>
-            </div>
-            <Timeline
-              messages={messages}
-              selectedMessage={selectedMessage}
-              onMessageSelect={handleMessageSelect}
-              filter={filterText}
-              formatData={formatMessageData}
-            />
-          </div>
-        );
-    }
-  };
+        </div>
+      )}
 
-  return (
-    <div className="h-full flex flex-col">
-      {/* WebSocket-specific toolbar */}
-      {renderWebSocketToolbar()}
-
-      {/* WebSocket-specific send panel */}
-      {renderWebSocketSendPanel()}
-
-      {/* Receive panel header */}
-      {renderReceivePanel()}
-
-      {/* WebSocket frame statistics */}
-      {renderWebSocketStats()}
-
-      {/* Main content area */}
+      {/* 主内容区域 */}
       <div className="flex-1 overflow-hidden">
-        {renderContent()}
+        <div className="h-full flex flex-col">
+          <div className="h-10 border-b border-border flex items-center px-3 bg-muted/50">
+            <h3 className="text-sm font-medium">WebSocket消息流 ({messages.length})</h3>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {messages.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                暂无WebSocket消息
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={cn(
+                      "p-3 rounded-lg border",
+                      message.direction === 'in'
+                        ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
+                        : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className={cn(
+                          "text-xs px-2 py-1 rounded",
+                          message.direction === 'in'
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                            : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                        )}>
+                          {message.direction === 'in' ? '接收' : '发送'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {message.timestamp.toLocaleTimeString()}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {message.size} 字节
+                        </span>
+                        <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                          WebSocket
+                        </span>
+                        {/* 消息类型标识 */}
+                        <span className={cn(
+                          "text-xs px-2 py-1 rounded",
+                          message.size < 1024
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+                        )}>
+                          {message.size < 1024 ? '文本' : '二进制'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-sm font-mono bg-background/50 p-2 rounded border">
+                      {formatMessageData(message)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
