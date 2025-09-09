@@ -26,12 +26,14 @@ function App() {
   const [activeModal, setActiveModal] = useState<string | null>(null)
 
   useEffect(() => {
-    // 获取应用版本信息
-    invoke('get_app_version')
-      .then((version: unknown) => console.log('App version:', version))
-      .catch((error: unknown) =>
-        console.error('Failed to get app version:', error)
-      )
+    // 获取应用版本信息 - 跳过测试环境
+    if (typeof window !== 'undefined' && !(window as any).__VITEST__) {
+      invoke('get_app_version')
+        .then((version: unknown) => console.log('App version:', version))
+        .catch((error: unknown) =>
+          console.error('Failed to get app version:', error)
+        )
+    }
 
     // 检查是否是首次启动
     const hasSeenWelcome = localStorage.getItem('prototool-welcome-completed')

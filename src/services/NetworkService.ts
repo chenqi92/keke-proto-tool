@@ -19,6 +19,11 @@ class NetworkService {
   }
 
   private async initializeEventListeners() {
+    // Skip initialization in test environment
+    if (typeof window !== 'undefined' && (window as any).__VITEST__) {
+      return;
+    }
+
     try {
       // Listen for network events from Tauri backend
       await listen<NetworkEvent>('network-event', (event) => {
