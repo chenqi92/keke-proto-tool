@@ -177,7 +177,7 @@ const TreeItem: React.FC<{
     <div>
       <div
         className={cn(
-          "flex items-center px-2 py-1 text-sm hover:bg-accent rounded-md cursor-auto group",
+          "flex items-center px-2 py-1 text-sm hover:bg-accent rounded-md cursor-pointer group",
           level > 0 && "ml-4",
           selectedNodeId === node.id && "bg-primary/20 border border-primary/30"
         )}
@@ -478,16 +478,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   const getSidebarContent = () => {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={handleNewSession}
-            className="p-1 hover:bg-accent rounded"
-            title="新建会话"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-            
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

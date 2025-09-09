@@ -20,10 +20,13 @@ import { NewSessionModal, SessionData } from '@/components/NewSessionModal'
 
 // Context
 import { SessionProvider } from '@/contexts/SessionContext'
+import { useAppStore } from '@/stores/AppStore'
+import { SessionConfig } from '@/types'
 
 function App() {
   const [showWelcome, setShowWelcome] = useState(false)
   const [activeModal, setActiveModal] = useState<string | null>(null)
+  const createSession = useAppStore(state => state.createSession)
 
   useEffect(() => {
     // 获取应用版本信息 - 跳过测试环境
@@ -56,7 +59,27 @@ function App() {
 
   const handleNewSession = (sessionData: SessionData) => {
     console.log('Creating new session:', sessionData)
-    // TODO: 实际创建会话的逻辑
+
+    // Create session config from session data
+    const sessionConfig = {
+      id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: sessionData.name,
+      protocol: sessionData.protocol,
+      connectionType: sessionData.connectionType,
+      host: sessionData.host,
+      port: sessionData.port,
+      autoReconnect: sessionData.autoReconnect || false,
+      keepAlive: sessionData.keepAlive || true,
+      timeout: sessionData.timeout || 30000,
+      retryAttempts: sessionData.retryAttempts || 3,
+      // Protocol-specific properties
+      ...(sessionData.protocol === 'WebSocket' && { websocketSubprotocol: sessionData.websocketSubprotocol }),
+      ...(sessionData.protocol === 'MQTT' && { mqttTopic: sessionData.mqttTopic }),
+      ...(sessionData.protocol === 'SSE' && { sseEventTypes: sessionData.sseEventTypes })
+    }
+
+    // Create the session in the store
+    createSession(sessionConfig)
     closeModal()
   }
 

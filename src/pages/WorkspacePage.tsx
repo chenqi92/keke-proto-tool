@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAllSessions, useConnectedSessions, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
+import { NewSessionModal } from '@/components/NewSessionModal';
 
 interface WorkspaceStats {
   totalSessions: number;
@@ -60,6 +61,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const connectedSessions = useConnectedSessions();
   const setActiveSession = useAppStore(state => state.setActiveSession);
   const deleteSession = useAppStore(state => state.deleteSession);
+  const createSession = useAppStore(state => state.createSession);
+
+  // New session modal state
+  const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
 
   // Automated data sending state (only for client types)
   const [isAutomatedSending, setIsAutomatedSending] = useState(false);
@@ -253,6 +258,37 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     }));
   };
 
+  // New session handlers
+  const handleNewSession = () => {
+    setIsNewSessionModalOpen(true);
+  };
+
+  const handleCreateSession = (sessionData: any) => {
+    console.log('Creating new session:', sessionData)
+
+    // Create session config from session data
+    const sessionConfig = {
+      id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: sessionData.name,
+      protocol: sessionData.protocol,
+      connectionType: sessionData.connectionType,
+      host: sessionData.host,
+      port: sessionData.port,
+      autoReconnect: sessionData.autoReconnect || false,
+      keepAlive: sessionData.keepAlive || true,
+      timeout: sessionData.timeout || 30000,
+      retryAttempts: sessionData.retryAttempts || 3,
+      // Protocol-specific properties
+      ...(sessionData.protocol === 'WebSocket' && { websocketSubprotocol: sessionData.websocketSubprotocol }),
+      ...(sessionData.protocol === 'MQTT' && { mqttTopic: sessionData.mqttTopic }),
+      ...(sessionData.protocol === 'SSE' && { sseEventTypes: sessionData.sseEventTypes })
+    }
+
+    // Create the session in the store
+    createSession(sessionConfig)
+    setIsNewSessionModalOpen(false);
+  };
+
   const filteredSessions = sessions.filter(session => {
     const matchesSearch = session.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          session.protocol.toLowerCase().includes(searchQuery.toLowerCase());
@@ -282,7 +318,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <button className="flex items-center space-x-2 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors">
+            <button
+              onClick={handleNewSession}
+              className="flex items-center space-x-2 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors"
+            >
               <Plus className="w-4 h-4" />
               <span>新建会话</span>
             </button>
@@ -670,6 +709,13 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           </div>
         )}
       </div>
+
+      {/* New Session Modal */}
+      <NewSessionModal
+        isOpen={isNewSessionModalOpen}
+        onClose={() => setIsNewSessionModalOpen(false)}
+        onCreateSession={handleCreateSession}
+      />
     </div>
   );
 };
