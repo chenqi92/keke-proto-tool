@@ -610,12 +610,21 @@ export const SessionPage: React.FC = () => {
   // 桌面端和平板端布局
   // Check if a specific node is selected and render appropriate content
   if (selectedNode) {
-    switch (selectedNode.type) {
-      case 'workspace':
-        return <WorkspacePage />;
-      case 'connection':
+    // Handle different view types based on node selection
+    switch (selectedNode.viewType) {
+      case 'workspace-overview':
+        return <WorkspacePage viewType="workspace-overview" />;
+      case 'protocol-overview':
+        return <WorkspacePage viewType="protocol-overview" protocol={selectedNode.protocol} />;
+      case 'protocol-type-overview':
+        return <WorkspacePage
+          viewType="protocol-type-overview"
+          protocol={selectedNode.protocol}
+          connectionType={selectedNode.connectionType}
+        />;
+      case 'connection-detail':
         return <ConnectionPage />;
-      case 'session':
+      case 'session-detail':
       default:
         return renderProtocolSpecificContent();
     }

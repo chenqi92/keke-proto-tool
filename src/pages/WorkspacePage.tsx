@@ -44,7 +44,17 @@ interface SessionSummary {
   bytesTransferred: number;
 }
 
-export const WorkspacePage: React.FC = () => {
+interface WorkspacePageProps {
+  viewType?: 'workspace-overview' | 'protocol-overview' | 'protocol-type-overview';
+  protocol?: string;
+  connectionType?: 'client' | 'server';
+}
+
+export const WorkspacePage: React.FC<WorkspacePageProps> = ({
+  viewType = 'workspace-overview',
+  protocol,
+  connectionType
+}) => {
   // Get real data from store
   const allSessions = useAllSessions();
   const connectedSessions = useConnectedSessions();
@@ -84,9 +94,20 @@ export const WorkspacePage: React.FC = () => {
     };
   }, [allSessions, connectedSessions]);
 
-  // Convert sessions to display format
+  // Convert sessions to display format with filtering based on view type
   const sessions = useMemo<SessionSummary[]>(() => {
-    return allSessions.map(session => ({
+    let filteredSessions = allSessions;
+
+    // Filter based on view type
+    if (viewType === 'protocol-overview' && protocol) {
+      filteredSessions = allSessions.filter(session => session.config.protocol === protocol);
+    } else if (viewType === 'protocol-type-overview' && protocol && connectionType) {
+      filteredSessions = allSessions.filter(session =>
+        session.config.protocol === protocol && session.config.connectionType === connectionType
+      );
+    }
+
+    return filteredSessions.map(session => ({
       id: session.config.id,
       name: session.config.name,
       protocol: session.config.protocol,
@@ -95,7 +116,7 @@ export const WorkspacePage: React.FC = () => {
       messageCount: session.statistics.messagesReceived + session.statistics.messagesSent,
       bytesTransferred: session.statistics.bytesReceived + session.statistics.bytesSent
     }));
-  }, [allSessions]);
+  }, [allSessions, viewType, protocol, connectionType]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'connected' | 'disconnected' | 'connecting'>('all');
@@ -166,8 +187,16 @@ export const WorkspacePage: React.FC = () => {
               <Folder className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">默认工作区</h1>
-              <p className="text-sm text-muted-foreground">工作区概览和会话管理</p>
+              <h1 className="text-2xl font-bold">
+                {viewType === 'workspace-overview' && '默认工作区'}
+                {viewType === 'protocol-overview' && `${protocol} 协议概览`}
+                {viewType === 'protocol-type-overview' && `${protocol} ${connectionType === 'client' ? '客户端' : '服务端'}`}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {viewType === 'workspace-overview' && '工作区概览和会话管理'}
+                {viewType === 'protocol-overview' && `${protocol} 协议会话统计和管理`}
+                {viewType === 'protocol-type-overview' && `${protocol} ${connectionType === 'client' ? '客户端' : '服务端'}会话管理`}
+              </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">

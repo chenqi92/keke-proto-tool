@@ -33,35 +33,90 @@ interface SidebarProps {
 interface TreeNode {
   id: string;
   label: string;
-  type: 'workspace' | 'session' | 'connection' | 'filter';
+  type: 'workspace' | 'protocol' | 'protocol-type' | 'session' | 'connection';
   protocol?: 'TCP' | 'UDP' | 'MQTT' | 'WebSocket' | 'SSE';
+  connectionType?: 'client' | 'server';
   status?: 'connected' | 'disconnected' | 'connecting';
   children?: TreeNode[];
   expanded?: boolean;
+  sessionData?: any; // For storing session reference
 }
 
-// Helper function to create tree data from real sessions
+// Helper function to create hierarchical tree data from real sessions
 const createTreeDataFromSessions = (sessions: any[]): TreeNode[] => {
+  // Group sessions by protocol and connection type
+  const protocolGroups: { [key: string]: { [key: string]: any[] } } = {};
+
+  sessions.forEach(session => {
+    const protocol = session.config.protocol;
+    const connectionType = session.config.connectionType;
+
+    if (!protocolGroups[protocol]) {
+      protocolGroups[protocol] = {};
+    }
+    if (!protocolGroups[protocol][connectionType]) {
+      protocolGroups[protocol][connectionType] = [];
+    }
+    protocolGroups[protocol][connectionType].push(session);
+  });
+
+  // Create protocol nodes
+  const protocolNodes: TreeNode[] = [];
+  const protocols = ['TCP', 'UDP', 'WebSocket', 'MQTT', 'SSE'];
+
+  protocols.forEach(protocol => {
+    if (protocolGroups[protocol]) {
+      const protocolTypeNodes: TreeNode[] = [];
+
+      // Create client/server type nodes
+      Object.keys(protocolGroups[protocol]).forEach(connectionType => {
+        const typeSessions = protocolGroups[protocol][connectionType];
+        const typeLabel = connectionType === 'client' ?
+          `${protocol} 客户端` : `${protocol} 服务端`;
+
+        const sessionNodes: TreeNode[] = typeSessions.map(session => ({
+          id: session.config.id,
+          label: session.config.name,
+          type: 'session' as const,
+          protocol: session.config.protocol as any,
+          connectionType: session.config.connectionType,
+          status: session.status,
+          sessionData: session,
+          children: session.status === 'connected' ? [{
+            id: `conn-${session.config.id}`,
+            label: `${session.config.host}:${session.config.port}`,
+            type: 'connection' as const,
+            protocol: session.config.protocol as any,
+            status: session.status,
+            sessionData: session
+          }] : []
+        }));
+
+        protocolTypeNodes.push({
+          id: `${protocol.toLowerCase()}-${connectionType}`,
+          label: typeLabel,
+          type: 'protocol-type',
+          protocol: protocol as any,
+          connectionType: connectionType as any,
+          children: sessionNodes
+        });
+      });
+
+      protocolNodes.push({
+        id: protocol.toLowerCase(),
+        label: protocol,
+        type: 'protocol',
+        protocol: protocol as any,
+        children: protocolTypeNodes
+      });
+    }
+  });
+
   const workspaceNode: TreeNode = {
     id: 'workspace-1',
     label: '默认工作区',
     type: 'workspace',
-    expanded: true,
-    children: sessions.map(session => ({
-      id: session.config.id,
-      label: session.config.name,
-      type: 'session' as const,
-      protocol: session.config.protocol,
-      status: session.status,
-      expanded: false,
-      children: session.status === 'connected' ? [{
-        id: `conn-${session.config.id}`,
-        label: `${session.config.host}:${session.config.port}`,
-        type: 'connection' as const,
-        protocol: session.config.protocol,
-        status: session.status
-      }] : []
-    }))
+    children: protocolNodes
   };
 
   return [workspaceNode];
@@ -161,12 +216,14 @@ const TreeItem: React.FC<{
           )}
         </button>
 
-        {/* Protocol Icon */}
-        {node.type === 'session' && (
-          <div className="mr-2">
-            {getProtocolIcon(node.protocol)}
-          </div>
-        )}
+        {/* Node Type Icon */}
+        <div className="mr-2">
+          {node.type === 'workspace' && <Folder className="w-4 h-4" />}
+          {node.type === 'protocol' && getProtocolIcon(node.protocol)}
+          {node.type === 'protocol-type' && getProtocolIcon(node.protocol)}
+          {node.type === 'session' && getProtocolIcon(node.protocol)}
+          {node.type === 'connection' && <Globe className="w-4 h-4" />}
+        </div>
 
         {/* Status Icon */}
         {node.status && (
@@ -275,7 +332,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   // Generate tree data from real sessions
   const treeData = useMemo(() => createTreeDataFromSessions(sessions), [sessions]);
 
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['workspace-1']));
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
+    new Set(['workspace-1', 'tcp', 'udp', 'websocket', 'mqtt', 'sse'])
+  );
 
   const handleToggle = (id: string) => {
     setExpandedNodes(prev => {
@@ -292,22 +351,48 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   const handleNodeSelect = (node: TreeNode) => {
     setSelectedNodeId(node.id);
 
-    // Determine node type based on node properties
+    // Determine node type and handle different selections
     let nodeType: 'workspace' | 'session' | 'connection' = 'workspace';
-    if (node.type === 'session') {
-      nodeType = 'session';
-    } else if (node.type === 'connection') {
-      nodeType = 'connection';
+    let nodeData: any = {
+      protocol: node.protocol,
+      label: node.label,
+      status: node.status,
+      connectionType: node.connectionType,
+      sessionData: node.sessionData,
+      type: node.type
+    };
+
+    switch (node.type) {
+      case 'workspace':
+        nodeType = 'workspace';
+        nodeData.viewType = 'workspace-overview';
+        break;
+      case 'protocol':
+        nodeType = 'workspace';
+        nodeData.viewType = 'protocol-overview';
+        nodeData.protocol = node.protocol;
+        break;
+      case 'protocol-type':
+        nodeType = 'workspace';
+        nodeData.viewType = 'protocol-type-overview';
+        nodeData.protocol = node.protocol;
+        nodeData.connectionType = node.connectionType;
+        break;
+      case 'session':
+        nodeType = 'session';
+        nodeData.viewType = 'session-detail';
+        nodeData.sessionId = node.id;
+        break;
+      case 'connection':
+        nodeType = 'connection';
+        nodeData.viewType = 'connection-detail';
+        nodeData.sessionId = node.sessionData?.config?.id;
+        break;
     }
 
     // Call the callback with node information
     if (onNodeSelect) {
-      onNodeSelect(node.id, nodeType, {
-        label: node.label,
-        protocol: node.protocol,
-        type: node.type,
-        status: node.status
-      });
+      onNodeSelect(node.id, nodeType, nodeData);
     }
 
     // Also call the legacy session select callback if it's a session node

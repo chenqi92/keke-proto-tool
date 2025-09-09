@@ -44,9 +44,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       type: nodeType,
       protocol: nodeData.protocol,
       label: nodeData.label,
-      config: nodeData.config
+      config: nodeData.config,
+      viewType: nodeData.viewType,
+      connectionType: nodeData.connectionType,
+      sessionData: nodeData.sessionData
     };
+
     setSelectedNode(selectedNode);
+
+    // If it's a session node, also set it as the active session
+    if (nodeType === 'session' && nodeData.sessionId) {
+      setSessionId(nodeData.sessionId);
+    }
+
+    console.log('Selected node:', selectedNode);
   };
 
   return (

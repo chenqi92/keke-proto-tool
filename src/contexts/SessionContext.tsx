@@ -8,6 +8,9 @@ export interface SelectedNode {
   protocol?: ProtocolType;
   label: string;
   config?: SessionConfig;
+  viewType?: string;
+  connectionType?: 'client' | 'server';
+  sessionData?: any;
 }
 
 interface SessionContextType {
