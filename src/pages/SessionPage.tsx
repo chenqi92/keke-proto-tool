@@ -614,8 +614,6 @@ export const SessionPage: React.FC = () => {
     switch (selectedNode.viewType) {
       case 'workspace-overview':
         return <WorkspacePage viewType="workspace-overview" />;
-      case 'protocol-overview':
-        return <WorkspacePage viewType="protocol-overview" protocol={selectedNode.protocol} />;
       case 'protocol-type-overview':
         return <WorkspacePage
           viewType="protocol-type-overview"

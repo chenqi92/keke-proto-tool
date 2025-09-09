@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { cn } from '@/utils';
 import {
   Folder,
@@ -19,7 +19,10 @@ import {
   CheckCircle,
   Filter,
   Search,
-  MoreHorizontal
+  MoreHorizontal,
+  Timer,
+  Send,
+  Zap
 } from 'lucide-react';
 import { useAllSessions, useConnectedSessions, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
@@ -45,7 +48,7 @@ interface SessionSummary {
 }
 
 interface WorkspacePageProps {
-  viewType?: 'workspace-overview' | 'protocol-overview' | 'protocol-type-overview';
+  viewType?: 'workspace-overview' | 'protocol-type-overview';
   protocol?: string;
   connectionType?: 'client' | 'server';
 }
@@ -60,6 +63,70 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const connectedSessions = useConnectedSessions();
   const setActiveSession = useAppStore(state => state.setActiveSession);
   const deleteSession = useAppStore(state => state.deleteSession);
+
+  // Automated data sending state (only for client types)
+  const [isAutomatedSending, setIsAutomatedSending] = useState(false);
+  const [automatedConfig, setAutomatedConfig] = useState({
+    payload: 'Hello World',
+    interval: 1000, // milliseconds
+    format: 'ascii' as 'ascii' | 'hex' | 'binary'
+  });
+  const [automatedStats, setAutomatedStats] = useState({
+    messagesSent: 0,
+    startTime: null as Date | null,
+    lastSentTime: null as Date | null
+  });
+
+  // Automated data sending effect (only for client types)
+  useEffect(() => {
+    if (!isAutomatedSending || connectionType !== 'client') return;
+
+    const interval = setInterval(async () => {
+      // Get connected sessions of the current protocol-type
+      const targetSessions = connectedSessions.filter(session =>
+        session.config.protocol === protocol &&
+        session.config.connectionType === 'client'
+      );
+
+      if (targetSessions.length === 0) return;
+
+      // Send data to all connected client sessions
+      let successCount = 0;
+      for (const session of targetSessions) {
+        try {
+          // Convert payload based on format
+          let dataBytes: number[];
+          switch (automatedConfig.format) {
+            case 'hex':
+              dataBytes = automatedConfig.payload.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
+              break;
+            case 'binary':
+              dataBytes = automatedConfig.payload.split('').map(char => char.charCodeAt(0));
+              break;
+            case 'ascii':
+            default:
+              dataBytes = Array.from(new TextEncoder().encode(automatedConfig.payload));
+              break;
+          }
+
+          const success = await networkService.sendMessage(session.config.id, dataBytes);
+          if (success) successCount++;
+        } catch (error) {
+          console.error('Automated sending error:', error);
+        }
+      }
+
+      if (successCount > 0) {
+        setAutomatedStats(prev => ({
+          messagesSent: prev.messagesSent + successCount,
+          startTime: prev.startTime || new Date(),
+          lastSentTime: new Date()
+        }));
+      }
+    }, automatedConfig.interval);
+
+    return () => clearInterval(interval);
+  }, [isAutomatedSending, automatedConfig, connectedSessions, protocol, connectionType]);
 
   // Calculate real statistics
   const stats = useMemo<WorkspaceStats>(() => {
@@ -99,9 +166,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     let filteredSessions = allSessions;
 
     // Filter based on view type
-    if (viewType === 'protocol-overview' && protocol) {
-      filteredSessions = allSessions.filter(session => session.config.protocol === protocol);
-    } else if (viewType === 'protocol-type-overview' && protocol && connectionType) {
+    if (viewType === 'protocol-type-overview' && protocol && connectionType) {
       filteredSessions = allSessions.filter(session =>
         session.config.protocol === protocol && session.config.connectionType === connectionType
       );
@@ -161,13 +226,34 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     if (diffMins < 1) return '刚刚';
     if (diffMins < 60) return `${diffMins}分钟前`;
     const diffHours = Math.floor(diffMins / 60);
     if (diffHours < 24) return `${diffHours}小时前`;
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}天前`;
+  };
+
+  // Automated sending control functions
+  const handleStartAutomatedSending = () => {
+    setIsAutomatedSending(true);
+    setAutomatedStats({
+      messagesSent: 0,
+      startTime: new Date(),
+      lastSentTime: null
+    });
+  };
+
+  const handleStopAutomatedSending = () => {
+    setIsAutomatedSending(false);
+  };
+
+  const handleConfigChange = (field: string, value: any) => {
+    setAutomatedConfig(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const filteredSessions = sessions.filter(session => {
@@ -189,12 +275,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             <div>
               <h1 className="text-2xl font-bold">
                 {viewType === 'workspace-overview' && '默认工作区'}
-                {viewType === 'protocol-overview' && `${protocol} 协议概览`}
                 {viewType === 'protocol-type-overview' && `${protocol} ${connectionType === 'client' ? '客户端' : '服务端'}`}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {viewType === 'workspace-overview' && '工作区概览和会话管理'}
-                {viewType === 'protocol-overview' && `${protocol} 协议会话统计和管理`}
                 {viewType === 'protocol-type-overview' && `${protocol} ${connectionType === 'client' ? '客户端' : '服务端'}会话管理`}
               </p>
             </div>
@@ -259,6 +343,128 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Automated Data Sending Panel (only for client types) */}
+      {viewType === 'protocol-type-overview' && connectionType === 'client' && (
+        <div className="p-6 border-b border-border">
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Zap className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">自动化数据发送</h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                {isAutomatedSending ? (
+                  <button
+                    onClick={handleStopAutomatedSending}
+                    className="flex items-center space-x-2 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md text-sm font-medium transition-colors"
+                  >
+                    <Square className="w-4 h-4" />
+                    <span>停止发送</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStartAutomatedSending}
+                    className="flex items-center space-x-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md text-sm font-medium transition-colors"
+                  >
+                    <Play className="w-4 h-4" />
+                    <span>开始发送</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Configuration */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground">发送配置</h4>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">数据格式</label>
+                  <select
+                    value={automatedConfig.format}
+                    onChange={(e) => handleConfigChange('format', e.target.value)}
+                    className="w-full px-2 py-1 text-sm bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                    disabled={isAutomatedSending}
+                  >
+                    <option value="ascii">ASCII</option>
+                    <option value="hex">HEX</option>
+                    <option value="binary">Binary</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">发送间隔 (ms)</label>
+                  <input
+                    type="number"
+                    value={automatedConfig.interval}
+                    onChange={(e) => handleConfigChange('interval', parseInt(e.target.value) || 1000)}
+                    className="w-full px-2 py-1 text-sm bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                    min="100"
+                    step="100"
+                    disabled={isAutomatedSending}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">数据内容</label>
+                  <textarea
+                    value={automatedConfig.payload}
+                    onChange={(e) => handleConfigChange('payload', e.target.value)}
+                    className="w-full px-2 py-1 text-sm bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                    rows={2}
+                    disabled={isAutomatedSending}
+                    placeholder="输入要发送的数据..."
+                  />
+                </div>
+              </div>
+
+              {/* Statistics */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground">发送统计</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">已发送消息:</span>
+                    <span className="font-medium">{automatedStats.messagesSent}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">开始时间:</span>
+                    <span className="font-medium">
+                      {automatedStats.startTime ? automatedStats.startTime.toLocaleTimeString() : '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">最后发送:</span>
+                    <span className="font-medium">
+                      {automatedStats.lastSentTime ? automatedStats.lastSentTime.toLocaleTimeString() : '-'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-muted-foreground">发送状态</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    {isAutomatedSending ? (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm text-green-600">正在发送</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <span className="text-sm text-muted-foreground">已停止</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    目标会话: {sessions.filter(s => s.status === 'connected').length} 个连接的客户端
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sessions List */}
       <div className="flex-1 p-6">

@@ -33,7 +33,7 @@ interface SidebarProps {
 interface TreeNode {
   id: string;
   label: string;
-  type: 'workspace' | 'protocol' | 'protocol-type' | 'session' | 'connection';
+  type: 'workspace' | 'protocol-type' | 'session' | 'connection';
   protocol?: 'TCP' | 'UDP' | 'MQTT' | 'WebSocket' | 'SSE';
   connectionType?: 'client' | 'server';
   status?: 'connected' | 'disconnected' | 'connecting';
@@ -42,72 +42,66 @@ interface TreeNode {
   sessionData?: any; // For storing session reference
 }
 
-// Helper function to create hierarchical tree data from real sessions
+// Helper function to create flattened tree data from real sessions
 const createTreeDataFromSessions = (sessions: any[]): TreeNode[] => {
-  // Group sessions by protocol and connection type
-  const protocolGroups: { [key: string]: { [key: string]: any[] } } = {};
+  // Group sessions by protocol and connection type combination
+  const protocolTypeGroups: { [key: string]: any[] } = {};
 
   sessions.forEach(session => {
     const protocol = session.config.protocol;
     const connectionType = session.config.connectionType;
+    const key = `${protocol}-${connectionType}`;
 
-    if (!protocolGroups[protocol]) {
-      protocolGroups[protocol] = {};
+    if (!protocolTypeGroups[key]) {
+      protocolTypeGroups[key] = [];
     }
-    if (!protocolGroups[protocol][connectionType]) {
-      protocolGroups[protocol][connectionType] = [];
-    }
-    protocolGroups[protocol][connectionType].push(session);
+    protocolTypeGroups[key].push(session);
   });
 
-  // Create protocol nodes
-  const protocolNodes: TreeNode[] = [];
-  const protocols = ['TCP', 'UDP', 'WebSocket', 'MQTT', 'SSE'];
+  // Create protocol-type nodes directly under workspace
+  const protocolTypeNodes: TreeNode[] = [];
+  const protocolTypes = [
+    { protocol: 'TCP', connectionType: 'client', label: 'TCP 客户端' },
+    { protocol: 'TCP', connectionType: 'server', label: 'TCP 服务端' },
+    { protocol: 'UDP', connectionType: 'client', label: 'UDP 客户端' },
+    { protocol: 'UDP', connectionType: 'server', label: 'UDP 服务端' },
+    { protocol: 'WebSocket', connectionType: 'client', label: 'WebSocket 客户端' },
+    { protocol: 'WebSocket', connectionType: 'server', label: 'WebSocket 服务端' },
+    { protocol: 'MQTT', connectionType: 'client', label: 'MQTT 客户端' },
+    { protocol: 'SSE', connectionType: 'client', label: 'SSE 客户端' }
+  ];
 
-  protocols.forEach(protocol => {
-    if (protocolGroups[protocol]) {
-      const protocolTypeNodes: TreeNode[] = [];
+  protocolTypes.forEach(({ protocol, connectionType, label }) => {
+    const key = `${protocol}-${connectionType}`;
+    const typeSessions = protocolTypeGroups[key] || [];
 
-      // Create client/server type nodes
-      Object.keys(protocolGroups[protocol]).forEach(connectionType => {
-        const typeSessions = protocolGroups[protocol][connectionType];
-        const typeLabel = connectionType === 'client' ?
-          `${protocol} 客户端` : `${protocol} 服务端`;
-
-        const sessionNodes: TreeNode[] = typeSessions.map(session => ({
-          id: session.config.id,
-          label: session.config.name,
-          type: 'session' as const,
+    // Only create the node if there are sessions or if we want to show empty categories
+    if (typeSessions.length > 0) {
+      const sessionNodes: TreeNode[] = typeSessions.map(session => ({
+        id: session.config.id,
+        label: session.config.name,
+        type: 'session' as const,
+        protocol: session.config.protocol as any,
+        connectionType: session.config.connectionType,
+        status: session.status,
+        sessionData: session,
+        children: session.status === 'connected' ? [{
+          id: `conn-${session.config.id}`,
+          label: `${session.config.host}:${session.config.port}`,
+          type: 'connection' as const,
           protocol: session.config.protocol as any,
-          connectionType: session.config.connectionType,
           status: session.status,
-          sessionData: session,
-          children: session.status === 'connected' ? [{
-            id: `conn-${session.config.id}`,
-            label: `${session.config.host}:${session.config.port}`,
-            type: 'connection' as const,
-            protocol: session.config.protocol as any,
-            status: session.status,
-            sessionData: session
-          }] : []
-        }));
+          sessionData: session
+        }] : []
+      }));
 
-        protocolTypeNodes.push({
-          id: `${protocol.toLowerCase()}-${connectionType}`,
-          label: typeLabel,
-          type: 'protocol-type',
-          protocol: protocol as any,
-          connectionType: connectionType as any,
-          children: sessionNodes
-        });
-      });
-
-      protocolNodes.push({
-        id: protocol.toLowerCase(),
-        label: protocol,
-        type: 'protocol',
+      protocolTypeNodes.push({
+        id: `${protocol.toLowerCase()}-${connectionType}`,
+        label,
+        type: 'protocol-type',
         protocol: protocol as any,
-        children: protocolTypeNodes
+        connectionType: connectionType as any,
+        children: sessionNodes
       });
     }
   });
@@ -116,7 +110,7 @@ const createTreeDataFromSessions = (sessions: any[]): TreeNode[] => {
     id: 'workspace-1',
     label: '默认工作区',
     type: 'workspace',
-    children: protocolNodes
+    children: protocolTypeNodes
   };
 
   return [workspaceNode];
@@ -219,7 +213,6 @@ const TreeItem: React.FC<{
         {/* Node Type Icon */}
         <div className="mr-2">
           {node.type === 'workspace' && <Folder className="w-4 h-4" />}
-          {node.type === 'protocol' && getProtocolIcon(node.protocol)}
           {node.type === 'protocol-type' && getProtocolIcon(node.protocol)}
           {node.type === 'session' && getProtocolIcon(node.protocol)}
           {node.type === 'connection' && <Globe className="w-4 h-4" />}
@@ -333,7 +326,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   const treeData = useMemo(() => createTreeDataFromSessions(sessions), [sessions]);
 
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
-    new Set(['workspace-1', 'tcp', 'udp', 'websocket', 'mqtt', 'sse'])
+    new Set(['workspace-1'])
   );
 
   const handleToggle = (id: string) => {
@@ -366,11 +359,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
       case 'workspace':
         nodeType = 'workspace';
         nodeData.viewType = 'workspace-overview';
-        break;
-      case 'protocol':
-        nodeType = 'workspace';
-        nodeData.viewType = 'protocol-overview';
-        nodeData.protocol = node.protocol;
         break;
       case 'protocol-type':
         nodeType = 'workspace';
