@@ -291,7 +291,7 @@ tramp
 local/
 
 # Package managers
-package-lock.json
+# package-lock.json  # Commented out - needed for GitHub Actions caching
 yarn.lock
 pnpm-lock.yaml
 
