@@ -104,6 +104,23 @@ export type ProtocolType = 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
 export type ConnectionType = 'client' | 'server';
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+// WebSocket特有类型
+export type WebSocketFrameType = 'text' | 'binary' | 'ping' | 'pong' | 'close' | 'continuation';
+export type WebSocketErrorType = 'connection_timeout' | 'protocol_error' | 'invalid_frame' | 'message_too_large' | 'compression_error' | 'pong_timeout';
+
+export interface WebSocketConfig {
+  url?: string; // 完整的WebSocket URL (ws:// 或 wss://)
+  subprotocols?: string[]; // 子协议列表
+  extensions?: string[]; // 扩展列表
+  pingInterval?: number; // ping间隔（毫秒）
+  pongTimeout?: number; // pong超时（毫秒）
+  maxMessageSize?: number; // 最大消息大小（字节）
+  compressionEnabled?: boolean; // 是否启用压缩
+  autoReconnect?: boolean; // 是否自动重连
+  reconnectInterval?: number; // 重连间隔（毫秒）
+  maxReconnectAttempts?: number; // 最大重连次数
+}
+
 export interface NetworkAddress {
   host: string;
   port: number;
@@ -122,6 +139,15 @@ export interface Message {
   // UDP特有字段：来源/目标地址
   sourceAddress?: NetworkAddress;
   targetAddress?: NetworkAddress;
+  // WebSocket特有字段
+  frameType?: 'text' | 'binary' | 'ping' | 'pong' | 'close' | 'continuation';
+  isFragmented?: boolean; // 是否为分片消息
+  fragmentIndex?: number; // 分片索引
+  totalFragments?: number; // 总分片数
+  compressed?: boolean; // 是否压缩
+  // WebSocket服务端特有字段
+  targetClientId?: string; // 目标客户端ID（用于单播消息）
+  sourceClientId?: string; // 来源客户端ID（用于接收消息）
 }
 
 export interface SessionConfig {
@@ -137,6 +163,10 @@ export interface SessionConfig {
   retryAttempts: number;
   // Protocol-specific configs
   websocketSubprotocol?: string;
+  websocketExtensions?: string[];
+  websocketPingInterval?: number; // ping间隔（秒）
+  websocketMaxMessageSize?: number; // 最大消息大小（字节）
+  websocketCompressionEnabled?: boolean; // 是否启用压缩
   mqttTopic?: string;
   sseEventTypes?: string[];
 }
