@@ -8,7 +8,6 @@ import {
   Database,
   Keyboard,
   Bell,
-  Monitor,
   Moon,
   Sun,
   Laptop,

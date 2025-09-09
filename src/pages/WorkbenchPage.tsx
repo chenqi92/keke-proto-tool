@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { cn } from '@/utils';
 import { 
-  Plus, 
   FileText, 
   Network, 
   Wrench, 

@@ -111,7 +111,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
   };
 
   const visibleItems = getVisibleItems();
-  const hiddenItems = toolBarItems.filter(item => !visibleItems.includes(item));
+  const _hiddenItems = toolBarItems.filter(item => !visibleItems.includes(item));
 
   const renderToolBarItem = (item: ToolBarItem, index: number, compact = false) => {
     if (item.separator) {

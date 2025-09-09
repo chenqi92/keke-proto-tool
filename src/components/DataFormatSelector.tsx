@@ -154,7 +154,7 @@ export const formatData = {
 
 // 验证数据格式
 export const validateFormat = {
-  ascii: (text: string): boolean => {
+  ascii: (_text: string): boolean => {
     return true; // ASCII总是有效的
   },
   
@@ -195,7 +195,7 @@ export const validateFormat = {
     }
   },
 
-  'utf-8': (text: string): boolean => {
+  'utf-8': (_text: string): boolean => {
     return true; // UTF-8 字符串总是有效的
   }
 };

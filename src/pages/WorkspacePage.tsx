@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { cn } from '@/utils';
 import {
   Folder,
   Plus,
@@ -17,11 +16,8 @@ import {
   Square,
   AlertCircle,
   CheckCircle,
-  Filter,
   Search,
   MoreHorizontal,
-  Timer,
-  Send,
   Zap
 } from 'lucide-react';
 import { useAllSessions, useConnectedSessions, useAppStore } from '@/stores/AppStore';

@@ -6,8 +6,7 @@ import {
   WorkspaceState, 
   Message, 
   ConnectionStatus,
-  SessionStatistics,
-  NetworkConnection
+  SessionStatistics
 } from '@/types';
 
 interface AppStore extends WorkspaceState {

@@ -21,9 +21,7 @@ import {
   Download,
   Settings,
   Maximize2,
-  Minimize2,
   AlertCircle,
-  Menu,
   Clock,
   TreePine
 } from 'lucide-react';

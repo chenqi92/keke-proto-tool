@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { cn } from '@/utils';
 import { X, Server, Wifi, MessageSquare, Globe, Radio } from 'lucide-react';
 import { ProtocolType, ConnectionType } from '@/types';

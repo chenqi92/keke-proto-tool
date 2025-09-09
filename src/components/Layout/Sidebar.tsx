@@ -7,17 +7,14 @@ import {
   Plus,
   MoreHorizontal,
   Wifi,
-  WifiOff,
   Circle,
   Play,
   Square,
-  Filter,
   MessageSquare,
   Globe,
   Radio,
   RefreshCw,
-  Folder,
-  FolderOpen
+  Folder
 } from 'lucide-react';
 import { NewSessionModal, SessionData } from '@/components/NewSessionModal';
 import { useAppStore, useAllSessions } from '@/stores/AppStore';
@@ -318,7 +315,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   // Get real session data from store
   const sessions = useAllSessions();
   const createSession = useAppStore(state => state.createSession);
-  const deleteSession = useAppStore(state => state.deleteSession);
+  const _deleteSession = useAppStore(state => state.deleteSession);
   const startRecording = useAppStore(state => state.startRecording);
   const stopRecording = useAppStore(state => state.stopRecording);
 

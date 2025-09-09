@@ -9,9 +9,11 @@ import {
   AlertCircle,
   CheckCircle,
   Download,
-  Upload
+  Upload,
+  Info
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
+import { getVersionDisplayText } from '@/constants/version';
 
 interface StatusBarProps {
   className?: string;
@@ -45,7 +47,7 @@ interface StatusInfo {
 
 export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
   const layoutConfig = useLayoutConfig();
-  const [status, setStatus] = useState<StatusInfo>({
+  const [status, _setStatus] = useState<StatusInfo>({
     connections: { active: 2, total: 5 },
     performance: {
       cpu: 15,
@@ -178,6 +180,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
             <span>有更新</span>
           </button>
         )}
+
+        {/* Version Info - 始终显示 */}
+        <div className="flex items-center space-x-1 text-xs">
+          <Info className="w-3 h-3" />
+          <span>{getVersionDisplayText()}</span>
+        </div>
 
         {/* Current Time - 始终显示 */}
         <div className="flex items-center space-x-1">

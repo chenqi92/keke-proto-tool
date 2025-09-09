@@ -55,7 +55,7 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
   const [formatError, setFormatError] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<'text' | 'binary' | 'ping' | 'pong'>('text');
   const [autoReconnect, setAutoReconnect] = useState(true);
-  const [pingInterval, setPingInterval] = useState(30);
+  const [_pingInterval, _setPingInterval] = useState(30);
 
   // Mock WebSocket statistics
   const [wsStats] = useState({

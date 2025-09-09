@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { SessionConfig, Message, ConnectionStatus, NetworkConnection } from '@/types';
+import { Message, ConnectionStatus, NetworkConnection } from '@/types';
 import { useAppStore } from '@/stores/AppStore';
 
 export interface NetworkEvent {
@@ -12,7 +12,7 @@ export interface NetworkEvent {
 
 class NetworkService {
   private connections: Map<string, NetworkConnection> = new Map();
-  private reconnectTimers: Map<string, NodeJS.Timeout> = new Map();
+  private reconnectTimers: Map<string, number> = new Map();
 
   constructor() {
     this.initializeEventListeners();

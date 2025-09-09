@@ -17,7 +17,7 @@ interface Selection {
 export const HexEditor: React.FC<HexEditorProps> = ({
   data,
   readOnly = false,
-  onDataChange,
+  onDataChange: _onDataChange,
   highlightRange,
   className
 }) => {

@@ -9,7 +9,6 @@ import {
   Hash,
   Binary,
   Zap,
-  Settings,
   Play,
   Download
 } from 'lucide-react';
