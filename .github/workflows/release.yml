@@ -125,7 +125,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Windows builds - MSI installer
+          # Windows builds - MSI installer (64-bit)
           - platform: 'windows-latest'
             args: '--target x86_64-pc-windows-msvc --bundles msi'
             target: 'x86_64-pc-windows-msvc'
@@ -133,11 +133,35 @@ jobs:
             os: 'windows'
             bundle: 'msi'
 
-          # Windows builds - NSIS installer
+          # Windows builds - NSIS installer (64-bit)
           - platform: 'windows-latest'
             args: '--target x86_64-pc-windows-msvc --bundles nsis'
             target: 'x86_64-pc-windows-msvc'
             arch: 'x64'
+            os: 'windows'
+            bundle: 'nsis'
+
+          # Windows builds - ZIP archive (64-bit)
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-msvc --bundles app'
+            target: 'x86_64-pc-windows-msvc'
+            arch: 'x64'
+            os: 'windows'
+            bundle: 'app'
+
+          # Windows builds - MSI installer (32-bit)
+          - platform: 'windows-latest'
+            args: '--target i686-pc-windows-msvc --bundles msi'
+            target: 'i686-pc-windows-msvc'
+            arch: 'x86'
+            os: 'windows'
+            bundle: 'msi'
+
+          # Windows builds - NSIS installer (32-bit)
+          - platform: 'windows-latest'
+            args: '--target i686-pc-windows-msvc --bundles nsis'
+            target: 'i686-pc-windows-msvc'
+            arch: 'x86'
             os: 'windows'
             bundle: 'nsis'
 
@@ -154,12 +178,12 @@ jobs:
             os: 'macos'
 
           # Linux builds
-          - platform: 'ubuntu-20.04'
+          - platform: 'ubuntu-latest'
             args: '--target x86_64-unknown-linux-gnu'
             target: 'x86_64-unknown-linux-gnu'
             arch: 'x64'
             os: 'linux'
-          - platform: 'ubuntu-20.04'
+          - platform: 'ubuntu-latest'
             args: '--target aarch64-unknown-linux-gnu'
             target: 'aarch64-unknown-linux-gnu'
             arch: 'arm64'
