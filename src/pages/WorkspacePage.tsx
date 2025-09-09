@@ -714,7 +714,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       <NewSessionModal
         isOpen={isNewSessionModalOpen}
         onClose={() => setIsNewSessionModalOpen(false)}
-        onCreateSession={handleCreateSession}
+        onConfirm={handleCreateSession}
       />
     </div>
   );
