@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { cn } from '@/utils';
 import { ProtocolPlugin, ToolPlugin } from '@/types/plugins';
-import { ProtocolPluginManager } from '@/components/plugins/ProtocolPluginManager.tsx';
-import { ToolPluginManager } from '@/components/plugins/ToolPluginManager.tsx';
+import { ProtocolPluginManager } from '@/components/plugins/ProtocolPluginManager';
+import { ToolPluginManager } from '@/components/plugins/ToolPluginManager';
 import {
   Puzzle,
   Network,
