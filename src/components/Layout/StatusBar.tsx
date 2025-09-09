@@ -181,6 +181,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
           </button>
         )}
 
+        {/* Ready Status - 始终显示 */}
+        <div className="flex items-center space-x-1 text-xs">
+          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span>就绪</span>
+        </div>
+
         {/* Version Info - 始终显示 */}
         <div className="flex items-center space-x-1 text-xs">
           <Info className="w-3 h-3" />

@@ -18,7 +18,8 @@ import {
   CheckCircle,
   Search,
   MoreHorizontal,
-  Zap
+  Zap,
+  Server
 } from 'lucide-react';
 import { useAllSessions, useConnectedSessions, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
@@ -275,7 +276,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               </h1>
               <p className="text-sm text-muted-foreground">
                 {viewType === 'workspace-overview' && '工作区概览和会话管理'}
-                {viewType === 'protocol-type-overview' && `${protocol} ${connectionType === 'client' ? '客户端' : '服务端'}会话管理`}
+                {viewType === 'protocol-type-overview' && connectionType === 'client' && `${protocol} 客户端会话管理和自动化数据发送`}
+                {viewType === 'protocol-type-overview' && connectionType === 'server' && `${protocol} 服务端会话管理和客户端连接监控`}
               </p>
             </div>
           </div>
@@ -457,6 +459,85 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Server Connection Monitor Panel (only for server types) */}
+      {viewType === 'protocol-type-overview' && connectionType === 'server' && (
+        <div className="p-6 border-b border-border">
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Server className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">客户端连接监控</h3>
+              </div>
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <span>活跃连接: {sessions.filter(s => s.status === 'connected').length}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sessions.filter(s => s.status === 'connected').map(session => (
+                <div key={session.id} className="bg-background border border-border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="font-medium text-sm">{session.name}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {session.lastActivity ? formatTimeAgo(session.lastActivity) : '未知'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <div className="flex justify-between">
+                      <span>消息数:</span>
+                      <span>{session.messageCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>数据量:</span>
+                      <span>{formatBytes(session.bytesTransferred)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>连接时长:</span>
+                      <span>
+                        {session.lastActivity ?
+                          Math.floor((new Date().getTime() - session.lastActivity.getTime()) / 60000) + '分钟' :
+                          '未知'
+                        }
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
+                    <button
+                      className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                      onClick={() => setActiveSession(session.id)}
+                    >
+                      查看详情
+                    </button>
+                    <button
+                      className="text-xs text-red-600 hover:text-red-800 transition-colors"
+                      onClick={() => {
+                        // Disconnect client logic would go here
+                        console.log('Disconnect client:', session.id);
+                      }}
+                    >
+                      断开连接
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {sessions.filter(s => s.status === 'connected').length === 0 && (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  <Server className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>暂无客户端连接</p>
+                  <p className="text-xs mt-1">等待客户端连接到服务端...</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

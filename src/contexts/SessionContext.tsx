@@ -49,10 +49,17 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
   const selectedNode: SelectedNode | null = selectedNodeId ? {
     id: selectedNodeId,
     type: selectedNodeType || 'workspace',
-    label: selectedNodeId,
+    label: selectedNodeId === 'workspace-1' ? '默认工作区' : selectedNodeId,
     protocol: currentSession?.protocol,
     config: currentSession || undefined,
-  } : null;
+    viewType: selectedNodeId === 'workspace-1' ? 'workspace-overview' : undefined,
+  } : {
+    // Default to workspace overview if no node is selected
+    id: 'workspace-1',
+    type: 'workspace',
+    label: '默认工作区',
+    viewType: 'workspace-overview'
+  };
 
   const value: SessionContextType = {
     currentSession,

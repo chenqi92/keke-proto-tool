@@ -204,24 +204,6 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
 
       {/* Spacer */}
       <div className="flex-1" />
-
-      {/* Right side - Status info */}
-      {layoutConfig.statusBar.showAllInfo && (
-        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span>就绪</span>
-          </div>
-          <div>{getVersionDisplayText()}</div>
-        </div>
-      )}
-
-      {layoutConfig.statusBar.showEssentialInfo && !layoutConfig.statusBar.showAllInfo && (
-        <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span>就绪</span>
-        </div>
-      )}
     </div>
   );
 };
