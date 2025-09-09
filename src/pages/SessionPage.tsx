@@ -151,7 +151,7 @@ export const SessionPage: React.FC = () => {
 
     switch (currentSession.protocol) {
       case 'TCP':
-        return <TCPSessionContent config={currentSession} />;
+        return <TCPSessionContent sessionId={currentSession.id} />;
       case 'WebSocket':
         return <WebSocketSessionContent config={currentSession} />;
       case 'UDP':

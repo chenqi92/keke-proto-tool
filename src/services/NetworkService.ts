@@ -41,6 +41,17 @@ class NetworkService {
         const { sessionId, data, direction } = event.payload;
         this.handleIncomingMessage(sessionId, data, direction);
       });
+
+      // Listen for client connection events (for server sessions)
+      await listen<{ sessionId: string; clientId: string; remoteAddress: string; remotePort: number }>('client-connected', (event) => {
+        const { sessionId, clientId, remoteAddress, remotePort } = event.payload;
+        this.handleClientConnected(sessionId, clientId, remoteAddress, remotePort);
+      });
+
+      await listen<{ sessionId: string; clientId: string }>('client-disconnected', (event) => {
+        const { sessionId, clientId } = event.payload;
+        this.handleClientDisconnected(sessionId, clientId);
+      });
     } catch (error) {
       console.error('Failed to initialize network event listeners:', error);
     }
@@ -82,6 +93,26 @@ class NetworkService {
     };
 
     useAppStore.getState().addMessage(sessionId, message);
+  }
+
+  private handleClientConnected(sessionId: string, clientId: string, remoteAddress: string, remotePort: number) {
+    const clientConnection = {
+      id: clientId,
+      sessionId,
+      remoteAddress,
+      remotePort,
+      connectedAt: new Date(),
+      lastActivity: new Date(),
+      bytesReceived: 0,
+      bytesSent: 0,
+      isActive: true,
+    };
+
+    useAppStore.getState().addClientConnection(sessionId, clientConnection);
+  }
+
+  private handleClientDisconnected(sessionId: string, clientId: string) {
+    useAppStore.getState().removeClientConnection(sessionId, clientId);
   }
 
   private handleAutoReconnect(sessionId: string) {
@@ -233,6 +264,89 @@ class NetworkService {
       return await this.sendMessage(sessionId, data);
     } catch (error) {
       console.error('Send string failed:', error);
+      return false;
+    }
+  }
+
+  // 服务端特定方法：广播消息到所有客户端
+  async broadcastMessage(sessionId: string, data: Uint8Array): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.connectionType !== 'server') {
+        throw new Error('Session is not a server or not found');
+      }
+
+      // Call Tauri backend to broadcast message
+      const result = await invoke<boolean>('broadcast_message', {
+        sessionId,
+        data: Array.from(data),
+      });
+
+      if (result) {
+        // Add outgoing message to store
+        this.handleIncomingMessage(sessionId, data, 'out');
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Broadcast message failed:', error);
+
+      // Add failed message to store
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: useAppStore.getState().getSession(sessionId)?.config.protocol || 'TCP',
+        size: data.length,
+        data,
+        status: 'error',
+        raw: this.uint8ArrayToString(data),
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+      return false;
+    }
+  }
+
+  // 服务端特定方法：发送消息到指定客户端
+  async sendToClient(sessionId: string, clientId: string, data: Uint8Array): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.connectionType !== 'server') {
+        throw new Error('Session is not a server or not found');
+      }
+
+      // Call Tauri backend to send message to specific client
+      const result = await invoke<boolean>('send_to_client', {
+        sessionId,
+        clientId,
+        data: Array.from(data),
+      });
+
+      if (result) {
+        // Add outgoing message to store
+        this.handleIncomingMessage(sessionId, data, 'out');
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Send to client failed:', error);
+
+      // Add failed message to store
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: useAppStore.getState().getSession(sessionId)?.config.protocol || 'TCP',
+        size: data.length,
+        data,
+        status: 'error',
+        raw: this.uint8ArrayToString(data),
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
       return false;
     }
   }

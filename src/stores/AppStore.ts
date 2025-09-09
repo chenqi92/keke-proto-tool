@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { 
-  SessionState, 
-  SessionConfig, 
-  WorkspaceState, 
-  Message, 
+import {
+  SessionState,
+  SessionConfig,
+  WorkspaceState,
+  Message,
   ConnectionStatus,
-  SessionStatistics
+  SessionStatistics,
+  ClientConnection
 } from '@/types';
 
 interface AppStore extends WorkspaceState {
@@ -25,7 +26,13 @@ interface AppStore extends WorkspaceState {
   // Recording Management
   startRecording: (sessionId: string) => void;
   stopRecording: (sessionId: string) => void;
-  
+
+  // Client Connection Management (for server sessions)
+  addClientConnection: (sessionId: string, client: ClientConnection) => void;
+  removeClientConnection: (sessionId: string, clientId: string) => void;
+  updateClientConnection: (sessionId: string, clientId: string, updates: Partial<ClientConnection>) => void;
+  getClientConnections: (sessionId: string) => ClientConnection[];
+
   // Node Selection
   setSelectedNode: (nodeId: string | null, nodeType: 'workspace' | 'session' | 'connection' | null) => void;
   
@@ -251,6 +258,85 @@ export const useAppStore = create<AppStore>()(
         selectedNodeId: nodeId,
         selectedNodeType: nodeType,
       });
+    },
+
+    // Client Connection Management (for server sessions)
+    addClientConnection: (sessionId: string, client: ClientConnection) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session) return state;
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              clientConnections: {
+                ...session.clientConnections,
+                [client.id]: client,
+              },
+              statistics: {
+                ...session.statistics,
+                connectionCount: Object.keys(session.clientConnections || {}).length + 1,
+              },
+            },
+          },
+        };
+      });
+    },
+
+    removeClientConnection: (sessionId: string, clientId: string) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session || !session.clientConnections) return state;
+
+        const { [clientId]: removed, ...remainingConnections } = session.clientConnections;
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              clientConnections: remainingConnections,
+              statistics: {
+                ...session.statistics,
+                connectionCount: Object.keys(remainingConnections).length,
+              },
+            },
+          },
+        };
+      });
+    },
+
+    updateClientConnection: (sessionId: string, clientId: string, updates: Partial<ClientConnection>) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session || !session.clientConnections?.[clientId]) return state;
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              clientConnections: {
+                ...session.clientConnections,
+                [clientId]: {
+                  ...session.clientConnections[clientId],
+                  ...updates,
+                },
+              },
+            },
+          },
+        };
+      });
+    },
+
+    getClientConnections: (sessionId: string) => {
+      const session = get().sessions[sessionId];
+      return session?.clientConnections ? Object.values(session.clientConnections) : [];
     },
 
     // Utility Methods

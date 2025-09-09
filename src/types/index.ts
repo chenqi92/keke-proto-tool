@@ -142,6 +142,7 @@ export interface SessionState {
   messages: Message[];
   statistics: SessionStatistics;
   error?: string;
+  clientConnections?: Record<string, ClientConnection>; // For server sessions
 }
 
 export interface SessionStatistics {
@@ -170,4 +171,16 @@ export interface NetworkConnection {
   lastPing?: Date;
   remoteAddress?: string;
   remotePort?: number;
+}
+
+export interface ClientConnection {
+  id: string;
+  sessionId: string;
+  remoteAddress: string;
+  remotePort: number;
+  connectedAt: Date;
+  lastActivity: Date;
+  bytesReceived: number;
+  bytesSent: number;
+  isActive: boolean;
 }
