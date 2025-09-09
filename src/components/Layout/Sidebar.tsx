@@ -346,7 +346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
 
     // Determine node type and handle different selections
     let nodeType: 'workspace' | 'session' | 'connection' = 'workspace';
-    let nodeData: any = {
+    const nodeData: any = {
       protocol: node.protocol,
       label: node.label,
       status: node.status,

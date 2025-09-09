@@ -107,7 +107,7 @@ export const SessionPage: React.FC = () => {
         setFormatError('发送失败');
       }
     } catch (error) {
-      setFormatError('发送失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      setFormatError(`发送失败: ${  error instanceof Error ? error.message : '未知错误'}`);
     }
   };
 
