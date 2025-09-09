@@ -141,13 +141,8 @@ jobs:
             os: 'windows'
             bundle: 'nsis'
 
-          # Windows builds - ZIP archive (64-bit)
-          - platform: 'windows-latest'
-            args: '--target x86_64-pc-windows-msvc --bundles app'
-            target: 'x86_64-pc-windows-msvc'
-            arch: 'x64'
-            os: 'windows'
-            bundle: 'app'
+          # Windows builds - Portable (64-bit) - 移除不支持的 app bundle
+          # 注意：Tauri 在 Windows 上主要支持 MSI 和 NSIS，不支持 app bundle
 
           # Windows builds - MSI installer (32-bit)
           - platform: 'windows-latest'
@@ -226,7 +221,10 @@ jobs:
         if: matrix.os == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          # 修复包名问题：在新版本 Ubuntu 中使用正确的包名
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          # 尝试安装旧版本包作为备选
+          sudo apt-get install -y libwebkit2gtk-4.0-dev || echo "libwebkit2gtk-4.0-dev not available, using 4.1 version"
           # For ARM64 cross-compilation
           if [ "${{ matrix.arch }}" = "arm64" ]; then
             sudo apt-get install -y gcc-aarch64-linux-gnu
@@ -259,10 +257,10 @@ jobs:
             !src-tauri/target/*/release/bundle/**/*.dSYM/
           retention-days: 7
 
-  # Create GitHub release with all platform packages
+  # Create GitHub release with available platform packages (even if some builds failed)
   create-release:
     needs: [version-check, build-and-package]
-    if: needs.version-check.outputs.should-release == 'true' && github.event.inputs.skip_release != 'true'
+    if: always() && needs.version-check.outputs.should-release == 'true' && github.event.inputs.skip_release != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -272,6 +270,34 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+        continue-on-error: true
+
+      - name: Check build results and available packages
+        id: build-status
+        run: |
+          echo "Checking available build artifacts..."
+          AVAILABLE_PACKAGES=""
+          FAILED_BUILDS=""
+
+          # 检查各平台构建结果
+          if [ -d "artifacts" ]; then
+            echo "Available artifacts:"
+            find artifacts -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" | while read file; do
+              echo "  - $(basename "$file")"
+              AVAILABLE_PACKAGES="$AVAILABLE_PACKAGES\n- $(basename "$file")"
+            done
+          else
+            echo "No artifacts directory found"
+          fi
+
+          # 检查构建状态
+          BUILD_RESULTS="${{ toJSON(needs.build-and-package.result) }}"
+          echo "Build results: $BUILD_RESULTS"
+
+          # 设置输出变量
+          echo "available-packages<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$AVAILABLE_PACKAGES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Prepare release notes
         id: release-notes
