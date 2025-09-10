@@ -8,8 +8,45 @@ use tokio::net::{TcpListener, TcpStream};
 use url::Url;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::io::ErrorKind;
 use tokio::sync::RwLock;
 use futures_util::{SinkExt, StreamExt};
+
+/// Format WebSocket server binding error with Windows-specific guidance
+fn format_websocket_bind_error(error: &std::io::Error, host: &str, port: u16) -> String {
+    let base_msg = format!("Failed to bind WebSocket server to {}:{}", host, port);
+
+    match error.kind() {
+        ErrorKind::PermissionDenied => {
+            #[cfg(target_os = "windows")]
+            {
+                format!("{} - Permission denied (Windows Error 10013). This usually means:\n\
+                    1. Port {} is already in use by another application\n\
+                    2. You need administrator privileges to bind to this port\n\
+                    3. Windows Firewall is blocking the port\n\
+                    \nSuggestions:\n\
+                    - Try a different port (e.g., 8081, 8082, 9000)\n\
+                    - Run the application as administrator\n\
+                    - Check if another service is using port {} (netstat -an | findstr :{})\n\
+                    - Configure Windows Firewall to allow the application",
+                    base_msg, port, port, port)
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                format!("{} - Permission denied. Try using a port number above 1024 or run with elevated privileges.", base_msg)
+            }
+        }
+        ErrorKind::AddrInUse => {
+            format!("{} - Address already in use. Port {} is being used by another application. Try a different port.", base_msg, port)
+        }
+        ErrorKind::AddrNotAvailable => {
+            format!("{} - Address not available. The host address '{}' is not valid on this system.", base_msg, host)
+        }
+        _ => {
+            format!("{} - {}", base_msg, error)
+        }
+    }
+}
 
 /// WebSocket Client implementation
 pub struct WebSocketClient {
@@ -243,9 +280,16 @@ impl Connection for WebSocketServer {
         }
 
         let bind_addr = format!("{}:{}", self.host, self.port);
-        let listener = TcpListener::bind(&bind_addr).await
-            .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to bind WebSocket server to {}: {}", bind_addr, e)))?;
+        eprintln!("WebSocketServer: Attempting to bind to {}", bind_addr);
 
+        let listener = TcpListener::bind(&bind_addr).await
+            .map_err(|e| {
+                let error_msg = format_websocket_bind_error(&e, &self.host, self.port);
+                eprintln!("WebSocketServer: Bind failed - {}", error_msg);
+                NetworkError::ConnectionFailed(error_msg)
+            })?;
+
+        eprintln!("WebSocketServer: Successfully bound to {}", bind_addr);
         self.listener = Some(listener);
         self.connected = true;
         Ok(())

@@ -64,23 +64,51 @@ impl SessionManager {
 
     /// Connect a session
     pub async fn connect_session(&self, session_id: &str) -> NetworkResult<bool> {
+        eprintln!("SessionManager: Attempting to connect session {}", session_id);
+
         match self.sessions.get_mut(session_id) {
             Some(mut session) => {
-                session.connect().await?;
-                Ok(true)
+                eprintln!("SessionManager: Found session {}, initiating connection", session_id);
+                match session.connect().await {
+                    Ok(_) => {
+                        eprintln!("SessionManager: Session {} connection initiated successfully", session_id);
+                        Ok(true)
+                    }
+                    Err(e) => {
+                        eprintln!("SessionManager: Session {} connection failed: {}", session_id, e);
+                        Err(e)
+                    }
+                }
             }
-            None => Err(NetworkError::SessionNotFound(session_id.to_string())),
+            None => {
+                eprintln!("SessionManager: Session {} not found", session_id);
+                Err(NetworkError::SessionNotFound(session_id.to_string()))
+            }
         }
     }
 
     /// Disconnect a session
     pub async fn disconnect_session(&self, session_id: &str) -> NetworkResult<bool> {
+        eprintln!("SessionManager: Attempting to disconnect session {}", session_id);
+
         match self.sessions.get_mut(session_id) {
             Some(mut session) => {
-                session.disconnect().await?;
-                Ok(true)
+                eprintln!("SessionManager: Found session {}, initiating disconnection", session_id);
+                match session.disconnect().await {
+                    Ok(_) => {
+                        eprintln!("SessionManager: Session {} disconnected successfully", session_id);
+                        Ok(true)
+                    }
+                    Err(e) => {
+                        eprintln!("SessionManager: Session {} disconnection failed: {}", session_id, e);
+                        Err(e)
+                    }
+                }
             }
-            None => Err(NetworkError::SessionNotFound(session_id.to_string())),
+            None => {
+                eprintln!("SessionManager: Session {} not found for disconnection", session_id);
+                Err(NetworkError::SessionNotFound(session_id.to_string()))
+            }
         }
     }
 

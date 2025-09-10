@@ -58,20 +58,28 @@ impl Session {
         let connection_type = self.config.connection_type.clone();
         let config_value = serde_json::to_value(&self.config)?;
 
-        // Create connection factory closure
-        let connection_factory = move || {
+        // Create connection factory closure that can be called multiple times
+        let connection_factory = {
             let session_id = session_id.clone();
             let protocol = protocol.clone();
             let connection_type = connection_type.clone();
             let config_value = config_value.clone();
 
-            async move {
-                ConnectionFactory::create_connection(
-                    session_id,
-                    &protocol,
-                    &connection_type,
-                    config_value,
-                )
+            move || {
+                let session_id = session_id.clone();
+                let protocol = protocol.clone();
+                let connection_type = connection_type.clone();
+                let config_value = config_value.clone();
+
+                async move {
+                    eprintln!("Creating connection for session {} with protocol {} and type {}", session_id, protocol, connection_type);
+                    ConnectionFactory::create_connection(
+                        session_id,
+                        &protocol,
+                        &connection_type,
+                        config_value,
+                    )
+                }
             }
         };
 

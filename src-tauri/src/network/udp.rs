@@ -43,23 +43,35 @@ impl UdpClient {
 impl Connection for UdpClient {
     async fn connect(&mut self) -> NetworkResult<()> {
         if self.connected {
+            eprintln!("UDPClient: Already connected");
             return Ok(());
         }
+
+        eprintln!("UDPClient: Setting up UDP socket for {}:{}", self.host, self.port);
 
         // For UDP client, we just bind to a local address
         // UDP is connectionless, so "connect" just sets up the socket
         let local_addr = "0.0.0.0:0"; // Bind to any available port
         let socket = UdpSocket::bind(local_addr).await
-            .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to create UDP socket: {}", e)))?;
+            .map_err(|e| {
+                let error_msg = format!("Failed to create UDP socket: {}", e);
+                eprintln!("UDPClient: {}", error_msg);
+                NetworkError::ConnectionFailed(error_msg)
+            })?;
 
         // For UDP, "connect" just sets the default destination
         // This is optional and mainly for convenience
         let remote_addr = format!("{}:{}", self.host, self.port);
+        eprintln!("UDPClient: Setting default destination to {}", remote_addr);
+
         if let Err(e) = socket.connect(&remote_addr).await {
             // If connect fails, we can still use the socket with send_to
-            eprintln!("UDP connect failed (will use send_to instead): {}", e);
+            eprintln!("UDPClient: UDP connect failed (will use send_to instead): {}", e);
+        } else {
+            eprintln!("UDPClient: Successfully set default destination");
         }
 
+        eprintln!("UDPClient: UDP socket ready for communication");
         self.socket = Some(socket);
         self.connected = true; // "connected" means socket is ready
         Ok(())
@@ -215,16 +227,21 @@ impl UdpServer {
 impl Connection for UdpServer {
     async fn connect(&mut self) -> NetworkResult<()> {
         if self.connected {
+            eprintln!("UDPServer: Already connected");
             return Ok(());
         }
 
         let bind_addr = format!("{}:{}", self.host, self.port);
+        eprintln!("UDPServer: Attempting to bind to {}", bind_addr);
+
         let socket = UdpSocket::bind(&bind_addr).await
             .map_err(|e| {
                 let error_msg = format_udp_bind_error(&e, &self.host, self.port);
+                eprintln!("UDPServer: Bind failed - {}", error_msg);
                 NetworkError::ConnectionFailed(error_msg)
             })?;
 
+        eprintln!("UDPServer: Successfully bound to {}", bind_addr);
         self.socket = Some(socket);
         self.connected = true; // "connected" means socket is bound and ready
         Ok(())

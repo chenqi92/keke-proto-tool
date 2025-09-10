@@ -48,27 +48,42 @@ impl TcpClient {
 #[async_trait]
 impl Connection for TcpClient {
     async fn connect(&mut self) -> NetworkResult<()> {
+        eprintln!("TCPClient: Attempting to connect to {}:{}", self.host, self.port);
+
         let addr = parse_socket_addr(&self.host, self.port)
-            .map_err(|e| NetworkError::ConnectionFailed(format!("Invalid address {}:{} - {}", self.host, self.port, e)))?;
+            .map_err(|e| {
+                let error_msg = format!("Invalid address {}:{} - {}", self.host, self.port, e);
+                eprintln!("TCPClient: {}", error_msg);
+                NetworkError::ConnectionFailed(error_msg)
+            })?;
 
         let stream = if let Some(timeout_ms) = self.timeout {
+            eprintln!("TCPClient: Connecting with {}ms timeout", timeout_ms);
             tokio::time::timeout(
                 std::time::Duration::from_millis(timeout_ms),
                 TcpStream::connect(addr)
             ).await
-            .map_err(|_| NetworkError::ConnectionFailed(format!("Connection timeout after {}ms to {}:{}", timeout_ms, self.host, self.port)))?
+            .map_err(|_| {
+                let error_msg = format!("Connection timeout after {}ms to {}:{}", timeout_ms, self.host, self.port);
+                eprintln!("TCPClient: {}", error_msg);
+                NetworkError::ConnectionFailed(error_msg)
+            })?
             .map_err(|e| {
                 let error_msg = format_tcp_connection_error(&e, &self.host, self.port);
+                eprintln!("TCPClient: {}", error_msg);
                 NetworkError::ConnectionFailed(error_msg)
             })?
         } else {
+            eprintln!("TCPClient: Connecting without timeout");
             TcpStream::connect(addr).await
                 .map_err(|e| {
                     let error_msg = format_tcp_connection_error(&e, &self.host, self.port);
+                    eprintln!("TCPClient: {}", error_msg);
                     NetworkError::ConnectionFailed(error_msg)
                 })?
         };
 
+        eprintln!("TCPClient: Successfully connected to {}:{}", self.host, self.port);
         self.stream = Some(stream);
         self.connected = true;
 
@@ -215,25 +230,34 @@ impl TcpServer {
 #[async_trait]
 impl Connection for TcpServer {
     async fn connect(&mut self) -> NetworkResult<()> {
+        eprintln!("TCPServer: Attempting to bind to {}:{}", self.host, self.port);
+
         // Validate port before attempting to bind
         if let Err(port_error) = validate_port(self.port) {
+            eprintln!("TCPServer: Port validation failed - {}", port_error);
             return Err(NetworkError::ConnectionFailed(port_error));
         }
 
         // Check if it's a commonly used port
         if let Some(service) = is_common_port(self.port) {
-            eprintln!("Warning: Port {} is commonly used by {} service", self.port, service);
+            eprintln!("TCPServer: Warning - Port {} is commonly used by {} service", self.port, service);
         }
 
         let addr = parse_socket_addr(&self.host, self.port)
-            .map_err(|e| NetworkError::ConnectionFailed(format!("Invalid server address {}:{} - {}", self.host, self.port, e)))?;
+            .map_err(|e| {
+                let error_msg = format!("Invalid server address {}:{} - {}", self.host, self.port, e);
+                eprintln!("TCPServer: {}", error_msg);
+                NetworkError::ConnectionFailed(error_msg)
+            })?;
 
         let listener = TcpListener::bind(addr).await
             .map_err(|e| {
                 let error_msg = format_tcp_bind_error(&e, &self.host, self.port);
+                eprintln!("TCPServer: Bind failed - {}", error_msg);
                 NetworkError::ConnectionFailed(error_msg)
             })?;
 
+        eprintln!("TCPServer: Successfully bound to {}:{}", self.host, self.port);
         self.listener = Some(listener);
         self.connected = true;
 

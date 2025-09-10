@@ -118,6 +118,9 @@ pub enum NetworkError {
     #[error("Connection failed: {0}")]
     ConnectionFailed(String),
 
+    #[error("Connection failed (non-retryable): {0}")]
+    ConnectionFailedPermanent(String),
+
     #[error("Send failed: {0}")]
     SendFailed(String),
 
@@ -143,6 +146,13 @@ pub enum NetworkError {
 
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
+}
+
+impl NetworkError {
+    /// Check if this error should prevent retries
+    pub fn is_permanent(&self) -> bool {
+        matches!(self, NetworkError::ConnectionFailedPermanent(_))
+    }
 }
 
 pub type NetworkResult<T> = Result<T, NetworkError>;

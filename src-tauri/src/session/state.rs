@@ -34,19 +34,34 @@ impl SessionState {
     /// Set the connection status
     pub fn set_status(&self, status: ConnectionStatus) {
         let mut current_status = self.status.write().unwrap();
+        let previous_status = current_status.clone();
+
+        eprintln!("SessionState: Status transition for session {} - {:?} -> {:?}",
+            self.session_id, previous_status, status);
 
         match &status {
             ConnectionStatus::Connected => {
                 *self.connected_at.write().unwrap() = Some(Instant::now());
                 self.update_activity();
+                eprintln!("SessionState: Session {} connected successfully", self.session_id);
             }
             ConnectionStatus::Disconnected => {
                 *self.connected_at.write().unwrap() = None;
+                eprintln!("SessionState: Session {} disconnected", self.session_id);
             }
-            ConnectionStatus::Error(_) => {
+            ConnectionStatus::Error(msg) => {
                 *self.error_count.write().unwrap() += 1;
+                eprintln!("SessionState: Session {} error - {}", self.session_id, msg);
             }
-            _ => {}
+            ConnectionStatus::Connecting => {
+                eprintln!("SessionState: Session {} connecting...", self.session_id);
+            }
+            ConnectionStatus::Reconnecting(attempt) => {
+                eprintln!("SessionState: Session {} reconnecting (attempt {})", self.session_id, attempt);
+            }
+            ConnectionStatus::TimedOut => {
+                eprintln!("SessionState: Session {} timed out", self.session_id);
+            }
         }
 
         *current_status = status.clone();
@@ -63,10 +78,23 @@ impl SessionState {
                     }
                 });
 
+                eprintln!("SessionState: Emitting connection-status event for session {} - {:?}",
+                    self.session_id, status);
+
                 if let Err(e) = app_handle.emit("connection-status", payload) {
-                    eprintln!("Failed to emit connection-status event: {}", e);
+                    eprintln!("SessionState: Failed to emit connection-status event for session {}: {}",
+                        self.session_id, e);
+                } else {
+                    eprintln!("SessionState: Successfully emitted connection-status event for session {}",
+                        self.session_id);
                 }
+            } else {
+                eprintln!("SessionState: No app handle available for session {} - cannot emit event",
+                    self.session_id);
             }
+        } else {
+            eprintln!("SessionState: Failed to acquire app handle lock for session {}",
+                self.session_id);
         }
     }
 

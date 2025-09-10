@@ -48,11 +48,16 @@ impl ConnectionManager {
         F: FnMut() -> Fut + Send,
         Fut: std::future::Future<Output = NetworkResult<Box<dyn Connection>>> + Send,
     {
+        eprintln!("ConnectionManager: Starting connection attempt for session {}", self.session_id);
+
         // Check if already connecting
         {
             let is_connecting = self.is_connecting.read().await;
             if *is_connecting {
-                return Err(NetworkError::ConnectionFailed("Connection already in progress".to_string()));
+                let error_msg = "Connection already in progress".to_string();
+                eprintln!("ConnectionManager: {}", error_msg);
+                let _ = status_callback.send(ConnectionStatus::Error(error_msg.clone())).await;
+                return Err(NetworkError::ConnectionFailed(error_msg));
             }
         }
 
@@ -63,12 +68,39 @@ impl ConnectionManager {
         // Reset cancellation flag
         *self.should_cancel.write().await = false;
 
-        let result = self.attempt_connection_with_retries(connection_factory, status_callback).await;
+        // Add a global timeout safeguard - maximum time for all retries
+        let global_timeout = Duration::from_secs(300); // 5 minutes total
+        let result = timeout(
+            global_timeout,
+            self.attempt_connection_with_retries(connection_factory, status_callback.clone())
+        ).await;
 
-        // Reset connecting state
+        let final_result = match result {
+            Ok(connection_result) => connection_result,
+            Err(_) => {
+                let error_msg = format!("Global connection timeout after {:?} for session {}", global_timeout, self.session_id);
+                eprintln!("ConnectionManager: {}", error_msg);
+                let _ = status_callback.send(ConnectionStatus::TimedOut).await;
+                Err(NetworkError::ConnectionFailed(error_msg))
+            }
+        };
+
+        // Reset connecting state and ensure final status is sent
         *self.is_connecting.write().await = false;
 
-        result
+        // Ensure we always send a final status update
+        match &final_result {
+            Ok(_) => {
+                eprintln!("ConnectionManager: Connection successful for session {}", self.session_id);
+                let _ = status_callback.send(ConnectionStatus::Connected).await;
+            }
+            Err(e) => {
+                eprintln!("ConnectionManager: Connection failed for session {}: {}", self.session_id, e);
+                let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
+            }
+        }
+
+        final_result
     }
 
     async fn attempt_connection_with_retries<F, Fut>(
@@ -83,7 +115,10 @@ impl ConnectionManager {
         for attempt in 0..=self.max_retries {
             // Check for cancellation
             if *self.should_cancel.read().await {
-                return Err(NetworkError::ConnectionFailed("Connection cancelled".to_string()));
+                let error_msg = "Connection cancelled".to_string();
+                eprintln!("ConnectionManager: {}", error_msg);
+                let _ = status_callback.send(ConnectionStatus::Error(error_msg.clone())).await;
+                return Err(NetworkError::ConnectionFailed(error_msg));
             }
 
             *self.current_attempt.write().await = attempt;
@@ -94,6 +129,7 @@ impl ConnectionManager {
             } else {
                 ConnectionStatus::Reconnecting(attempt)
             };
+            eprintln!("ConnectionManager: Attempt {} - Status: {:?}", attempt + 1, status);
             let _ = status_callback.send(status).await;
 
             // Attempt connection with timeout
@@ -114,6 +150,14 @@ impl ConnectionManager {
                         }
                         Ok(Err(e)) => {
                             eprintln!("Connection establishment failed on attempt {}: {}", attempt + 1, e);
+
+                            // Check if this is a permanent error that shouldn't be retried
+                            if e.is_permanent() {
+                                eprintln!("ConnectionManager: Permanent error detected, stopping retries");
+                                let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
+                                return Err(e);
+                            }
+
                             if attempt == self.max_retries {
                                 let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
                                 return Err(e);
@@ -130,6 +174,14 @@ impl ConnectionManager {
                 }
                 Ok(Err(e)) => {
                     eprintln!("Connection creation failed on attempt {}: {}", attempt + 1, e);
+
+                    // Check if this is a permanent error that shouldn't be retried
+                    if e.is_permanent() {
+                        eprintln!("ConnectionManager: Permanent error detected, stopping retries");
+                        let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
+                        return Err(e);
+                    }
+
                     if attempt == self.max_retries {
                         let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
                         return Err(e);
@@ -149,26 +201,37 @@ impl ConnectionManager {
                 let delay = self.base_retry_delay * 2_u32.pow(attempt);
                 let max_delay = Duration::from_secs(30); // Cap at 30 seconds
                 let actual_delay = std::cmp::min(delay, max_delay);
-                
-                eprintln!("Retrying connection in {:?}...", actual_delay);
+
+                eprintln!("ConnectionManager: Retrying connection in {:?} (attempt {}/{})",
+                    actual_delay, attempt + 2, self.max_retries + 1);
 
                 // Sleep with periodic cancellation checks
                 let sleep_duration = Duration::from_millis(100); // Check every 100ms
                 let mut remaining = actual_delay;
+                let start_time = std::time::Instant::now();
 
                 while remaining > Duration::ZERO {
                     if *self.should_cancel.read().await {
-                        return Err(NetworkError::ConnectionFailed("Connection cancelled during retry".to_string()));
+                        let error_msg = "Connection cancelled during retry".to_string();
+                        eprintln!("ConnectionManager: {}", error_msg);
+                        let _ = status_callback.send(ConnectionStatus::Error(error_msg.clone())).await;
+                        return Err(NetworkError::ConnectionFailed(error_msg));
                     }
 
                     let sleep_time = std::cmp::min(remaining, sleep_duration);
                     sleep(sleep_time).await;
                     remaining = remaining.saturating_sub(sleep_time);
                 }
+
+                eprintln!("ConnectionManager: Retry delay completed after {:?}", start_time.elapsed());
             }
         }
 
-        Err(NetworkError::ConnectionFailed(format!("Failed to connect after {} attempts", self.max_retries + 1)))
+        // All retries exhausted - send final error status
+        let final_error = format!("Failed to connect after {} attempts", self.max_retries + 1);
+        eprintln!("ConnectionManager: {}", final_error);
+        let _ = status_callback.send(ConnectionStatus::Error(final_error.clone())).await;
+        Err(NetworkError::ConnectionFailed(final_error))
     }
 
     /// Cancel ongoing connection attempt

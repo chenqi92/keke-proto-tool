@@ -38,6 +38,7 @@ class NetworkService {
       // Listen for connection status changes
       await listen<{ sessionId: string; status: ConnectionStatus; error?: string }>('connection-status', (event) => {
         const { sessionId, status, error } = event.payload;
+        console.log(`NetworkService: Received connection-status event for session ${sessionId} - status: ${status}`, error ? `error: ${error}` : '');
         useAppStore.getState().updateSessionStatus(sessionId, status, error);
       });
 
@@ -151,8 +152,10 @@ class NetworkService {
 
   async connect(sessionId: string): Promise<boolean> {
     try {
+      console.log(`NetworkService: Initiating connection for session ${sessionId}`);
       const session = useAppStore.getState().getSession(sessionId);
       if (!session) {
+        console.error(`NetworkService: Session ${sessionId} not found`);
         throw new Error('Session not found');
       }
 
@@ -184,6 +187,7 @@ class NetworkService {
         }
       }
 
+      console.log(`NetworkService: Setting session ${sessionId} status to connecting`);
       useAppStore.getState().updateSessionStatus(sessionId, 'connecting');
 
       // Set up a timeout to handle cases where the backend doesn't respond
@@ -195,6 +199,7 @@ class NetworkService {
       });
 
       // Call Tauri backend to establish connection
+      console.log(`NetworkService: Calling backend connect_session for ${sessionId}`);
       const connectPromise = invoke<boolean>('connect_session', {
         sessionId,
         config: {
@@ -215,6 +220,7 @@ class NetworkService {
       });
 
       const result = await Promise.race([connectPromise, timeoutPromise]);
+      console.log(`NetworkService: Backend connect_session result for ${sessionId}:`, result);
 
       if (result) {
         const connection: NetworkConnection = {

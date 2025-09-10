@@ -168,9 +168,14 @@ export const useAppStore = create<AppStore>()(
 
     // Connection Management
     updateSessionStatus: (sessionId: string, status: ConnectionStatus, error?: string) => {
+      console.log(`AppStore: Updating session ${sessionId} status to ${status}`, error ? `with error: ${error}` : '');
+
       set((state) => {
         const session = state.sessions[sessionId];
-        if (!session) return state;
+        if (!session) {
+          console.warn(`AppStore: Session ${sessionId} not found when updating status`);
+          return state;
+        }
 
         const updates: Partial<SessionState> = {
           status,
@@ -180,19 +185,29 @@ export const useAppStore = create<AppStore>()(
         if (status === 'connected') {
           updates.connectedAt = new Date();
           updates.error = undefined;
+          console.log(`AppStore: Session ${sessionId} marked as connected`);
         }
 
         if (status === 'disconnected') {
           updates.connectedAt = undefined;
+          console.log(`AppStore: Session ${sessionId} marked as disconnected`);
         }
+
+        if (status === 'error') {
+          console.log(`AppStore: Session ${sessionId} marked as error:`, error);
+        }
+
+        const updatedSession = {
+          ...session,
+          ...updates,
+        };
+
+        console.log(`AppStore: Session ${sessionId} updated:`, updatedSession);
 
         return {
           sessions: {
             ...state.sessions,
-            [sessionId]: {
-              ...session,
-              ...updates,
-            },
+            [sessionId]: updatedSession,
           },
         };
       });
