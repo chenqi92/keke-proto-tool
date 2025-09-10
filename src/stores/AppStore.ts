@@ -27,6 +27,7 @@ interface AppStore extends WorkspaceState {
 
   // Connection Management
   updateSessionStatus: (sessionId: string, status: ConnectionStatus, error?: string) => void;
+  updateSessionConfig: (sessionId: string, configUpdates: any) => void;
   addMessage: (sessionId: string, message: Message) => void;
   clearMessages: (sessionId: string) => void;
   updateStatistics: (sessionId: string, stats: Partial<SessionStatistics>) => void;
@@ -222,6 +223,35 @@ export const useAppStore = create<AppStore>()(
         };
 
         console.log(`AppStore: Session ${sessionId} updated:`, updatedSession);
+
+        return {
+          sessions: {
+            ...state.sessions,
+            [sessionId]: updatedSession,
+          },
+        };
+      });
+    },
+
+    updateSessionConfig: (sessionId: string, configUpdates: any) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session) {
+          console.warn(`AppStore: Session ${sessionId} not found for config update`);
+          return state;
+        }
+
+        const updatedConfig = {
+          ...session.config,
+          ...configUpdates,
+        };
+
+        const updatedSession = {
+          ...session,
+          config: updatedConfig,
+        };
+
+        console.log(`AppStore: Session ${sessionId} config updated:`, configUpdates);
 
         return {
           sessions: {

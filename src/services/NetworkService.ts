@@ -58,25 +58,52 @@ class NetworkService {
         const { sessionId, clientId } = event.payload;
         this.handleClientDisconnected(sessionId, clientId);
       });
+
+      // Listen for configuration updates (e.g., port changes)
+      await listen<{ sessionId: string; configUpdates: any }>('config-update', (event) => {
+        const { sessionId, configUpdates } = event.payload;
+        console.log(`NetworkService: Received config-update event for session ${sessionId}`, configUpdates);
+        this.handleConfigUpdate(sessionId, configUpdates);
+      });
     } catch (error) {
       console.error('Failed to initialize network event listeners:', error);
     }
   }
 
   private handleNetworkEvent(event: NetworkEvent) {
-    const { sessionId, type, data, error } = event;
+    const { sessionId, type, data, error, clientId } = event;
     const store = useAppStore.getState();
 
     switch (type) {
       case 'connected':
-        store.updateSessionStatus(sessionId, 'connected');
+        if (clientId) {
+          // This is a client connection to a server, not the server itself connecting
+          console.log(`NetworkService: Client ${clientId} connected to server session ${sessionId}`);
+          // Handle client connection events separately if needed
+        } else {
+          // This is the session itself connecting
+          store.updateSessionStatus(sessionId, 'connected');
+        }
         break;
       case 'disconnected':
-        store.updateSessionStatus(sessionId, 'disconnected');
-        this.handleAutoReconnect(sessionId);
+        if (clientId) {
+          // This is a client disconnecting from a server, not the server itself disconnecting
+          console.log(`NetworkService: Client ${clientId} disconnected from server session ${sessionId}`);
+          // Don't trigger auto-reconnect for client disconnections
+        } else {
+          // This is the session itself disconnecting
+          store.updateSessionStatus(sessionId, 'disconnected');
+          this.handleAutoReconnect(sessionId);
+        }
         break;
       case 'error':
-        store.updateSessionStatus(sessionId, 'error', error);
+        if (clientId) {
+          // This is a client error, not a session error
+          console.log(`NetworkService: Client ${clientId} error in session ${sessionId}:`, error);
+        } else {
+          // This is a session error
+          store.updateSessionStatus(sessionId, 'error', error);
+        }
         break;
       case 'message':
         if (data) {
@@ -124,6 +151,12 @@ class NetworkService {
 
   private handleClientDisconnected(sessionId: string, clientId: string) {
     useAppStore.getState().removeClientConnection(sessionId, clientId);
+  }
+
+  private handleConfigUpdate(sessionId: string, configUpdates: any) {
+    const store = useAppStore.getState();
+    store.updateSessionConfig(sessionId, configUpdates);
+    console.log(`Configuration updated for session ${sessionId}:`, configUpdates);
   }
 
   private handleAutoReconnect(sessionId: string) {

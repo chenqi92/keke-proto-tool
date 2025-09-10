@@ -313,6 +313,12 @@ impl TcpServer {
 #[async_trait]
 impl Connection for TcpServer {
     async fn connect(&mut self) -> NetworkResult<()> {
+        // Check if already connected
+        if self.connected {
+            eprintln!("TCPServer: Already connected to {}:{}", self.host, self.port);
+            return Ok(());
+        }
+
         eprintln!("TCPServer: Attempting to bind to {}:{}", self.host, self.port);
 
         // Validate port before attempting to bind
@@ -333,6 +339,10 @@ impl Connection for TcpServer {
             eprintln!("TCPServer: Original port {} was in use, successfully bound to alternative port {}", self.port, actual_port);
             // Update the port to the one we actually bound to
             self.port = actual_port;
+
+            // TODO: Emit port update event to frontend
+            // This would require access to the app handle, which we don't have here
+            // The port update should be handled at a higher level (in session manager)
         } else {
             eprintln!("TCPServer: Successfully bound to requested port {}", self.port);
         }
@@ -588,6 +598,10 @@ fn format_tcp_connection_error(error: &std::io::Error, host: &str, port: u16) ->
 fn format_tcp_bind_error(error: &std::io::Error, host: &str, port: u16) -> NetworkError {
     let base_msg = format!("Server startup failed: Unable to start TCP server on {}:{}", host, port);
 
+    // Debug: Print the actual error details
+    eprintln!("TCPServer: Bind error details - Kind: {:?}, OS Error: {:?}, Error: {}",
+              error.kind(), error.raw_os_error(), error);
+
     match error.kind() {
         std::io::ErrorKind::AddrInUse => {
             // Address in use is retryable - we can try alternative ports
@@ -595,12 +609,26 @@ fn format_tcp_bind_error(error: &std::io::Error, host: &str, port: u16) -> Netwo
             NetworkError::ConnectionFailed(msg)
         }
         std::io::ErrorKind::PermissionDenied => {
-            // Permission denied is permanent - don't retry
-            let msg = if port < 1024 {
-                format!("{} - Permission denied. Ports below 1024 require administrator privileges. Please run as administrator or use port 8080 or higher.", base_msg)
-            } else {
-                format!("{} - Permission denied. Please run as administrator or choose a different port.", base_msg)
-            };
+            // Check for Windows error 10013 which can mean either permission denied OR address in use
+            if let Some(os_error) = error.raw_os_error() {
+                if os_error == 10013 {
+                    // Windows error 10013 (WSAEACCES) can mean:
+                    // 1. Address already in use (retryable)
+                    // 2. Actual permission denied (permanent)
+                    // We'll treat it as address in use for ports >= 1024, permission denied for < 1024
+                    if port < 1024 {
+                        let msg = format!("{} - Permission denied. Ports below 1024 require administrator privileges. Please run as administrator or use port 8080 or higher.", base_msg);
+                        return NetworkError::ConnectionFailedPermanent(msg);
+                    } else {
+                        // For ports >= 1024, Windows error 10013 usually means address in use
+                        let msg = format!("{} - Port already in use (Windows error 10013). Will try alternative ports automatically.", base_msg);
+                        return NetworkError::ConnectionFailed(msg);
+                    }
+                }
+            }
+
+            // Standard permission denied (not Windows 10013)
+            let msg = format!("{} - Permission denied. Please run as administrator or choose a different port.", base_msg);
             NetworkError::ConnectionFailedPermanent(msg)
         }
         std::io::ErrorKind::AddrNotAvailable => {

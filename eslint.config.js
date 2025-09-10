@@ -72,7 +72,6 @@ export default [
 
             '@typescript-eslint/no-explicit-any': 'off', // 允许使用 any 类型，在原型开发阶段很常见
             'no-console': 'off', // 允许 console 语句，用于调试
-            'react-refresh/only-export-components': 'off', // 允许导出非组件内容
             'prefer-const': 'error',
             'no-var': 'error',
             'object-shorthand': 'error',

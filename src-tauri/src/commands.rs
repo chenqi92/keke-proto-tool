@@ -28,8 +28,14 @@ pub async fn connect_session(
 
     // Create session if it doesn't exist
     if let Err(e) = session_manager.create_session(session_id.clone(), config) {
-        // If session already exists, that's okay, we'll just try to connect
-        if !e.to_string().contains("already exists") {
+        // If session already exists, check if it's already connected
+        if e.to_string().contains("already exists") {
+            // Check if the session is already connected
+            if session_manager.is_session_connected(&session_id) {
+                eprintln!("Session {} is already connected, skipping connection attempt", session_id);
+                return Ok(true);
+            }
+        } else {
             return Err(format!("Failed to create session: {}", e));
         }
     }

@@ -109,6 +109,29 @@ impl SessionState {
         *self.last_activity.write().unwrap() = Some(Instant::now());
     }
 
+    /// Emit a configuration update event to the frontend
+    pub fn emit_config_update(&self, config_updates: serde_json::Value) {
+        if let Ok(app_handle_guard) = self.app_handle.read() {
+            if let Some(app_handle) = app_handle_guard.as_ref() {
+                let payload = serde_json::json!({
+                    "sessionId": self.session_id,
+                    "configUpdates": config_updates
+                });
+
+                eprintln!("SessionState: Emitting config-update event for session {} - {:?}",
+                    self.session_id, config_updates);
+
+                if let Err(e) = app_handle.emit("config-update", payload) {
+                    eprintln!("SessionState: Failed to emit config-update event for session {}: {}",
+                        self.session_id, e);
+                } else {
+                    eprintln!("SessionState: Successfully emitted config-update event for session {}",
+                        self.session_id);
+                }
+            }
+        }
+    }
+
     /// Get the connection duration
     #[allow(dead_code)]
     pub fn connection_time(&self) -> Option<Duration> {

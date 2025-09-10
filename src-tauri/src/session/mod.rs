@@ -95,6 +95,9 @@ impl Session {
         // Attempt connection with timeout and retry
         self.connection_manager.connect_with_retry(connection_factory, status_tx).await?;
 
+        // TODO: After successful connection, check if any configuration has changed (e.g., port)
+        // This would require a more complex implementation to detect port changes
+
         Ok(())
     }
 
@@ -109,6 +112,8 @@ impl Session {
         self.state.set_status(ConnectionStatus::Disconnected);
         Ok(())
     }
+
+
 
     /// Disconnect the session and cleanup resources
     pub async fn disconnect(&mut self) -> NetworkResult<()> {
