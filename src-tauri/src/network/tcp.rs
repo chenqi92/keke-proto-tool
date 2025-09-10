@@ -641,9 +641,7 @@ fn generate_alternative_ports(original_port: u16) -> Vec<u16> {
             // Try +1, +2, +3 from original port (if valid)
             for offset in 1..=3 {
                 if let Some(new_port) = original_port.checked_add(offset) {
-                    if new_port <= 65535 {
-                        alternatives.push(new_port);
-                    }
+                    alternatives.push(new_port);
                 }
             }
 

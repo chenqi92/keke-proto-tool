@@ -3,6 +3,7 @@ import { cn } from '@/utils';
 import { DataFormat, formatData } from '@/components/DataFormatSelector';
 import { useSessionById, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
+import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
 import { Message, SSEEventFilter } from '@/types';
 import {
   AlertCircle,
@@ -223,6 +224,17 @@ export const SSESessionContent: React.FC<SSESessionContentProps> = ({ sessionId 
           </span>
         </div>
       </div>
+
+      {/* 连接错误横幅 */}
+      {connectionError && (
+        <div className="px-4 pt-4">
+          <ConnectionErrorBanner
+            error={connectionError}
+            onRetry={handleConnect}
+            retryLabel="重新连接"
+          />
+        </div>
+      )}
 
       {/* 事件过滤器配置面板 */}
       <div className="h-32 border-b border-border bg-card p-4">

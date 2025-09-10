@@ -3,6 +3,7 @@ import { cn } from '@/utils';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
 import { useSessionById, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
+import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
 import { Message, MQTTQoSLevel } from '@/types';
 import {
   Send,
@@ -220,13 +221,6 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
             />
           </div>
 
-          {/* 连接错误信息 */}
-          {connectionError && (
-            <span className="text-xs text-red-500 max-w-48 truncate" title={connectionError}>
-              {connectionError}
-            </span>
-          )}
-
           <button
             onClick={handleConnect}
             disabled={isConnecting || isConnectingLocal}
@@ -277,6 +271,17 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
           </span>
         </div>
       </div>
+
+      {/* 连接错误横幅 */}
+      {connectionError && (
+        <div className="px-4 pt-4">
+          <ConnectionErrorBanner
+            error={connectionError}
+            onRetry={handleConnect}
+            retryLabel="重新连接"
+          />
+        </div>
+      )}
 
       {/* 发布面板 */}
       <div className="h-40 border-b border-border bg-card p-4">
