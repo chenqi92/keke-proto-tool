@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { Message, ConnectionStatus, NetworkConnection, WebSocketErrorType } from '@/types';
+import { Message, ConnectionStatus, NetworkConnection, WebSocketErrorType, MQTTQoSLevel, MQTTErrorType, MQTTSubscription, MQTTPublishOptions } from '@/types';
 import { useAppStore } from '@/stores/AppStore';
 
 export interface NetworkEvent {
@@ -1183,6 +1183,371 @@ class NetworkService {
       this.disconnect(sessionId);
     });
     this.connections.clear();
+  }
+
+  // ==================== MQTT特定方法 ====================
+
+  // MQTT特定方法：订阅主题
+  async subscribeMQTTTopic(sessionId: string, topic: string, qos: MQTTQoSLevel = 0): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.protocol !== 'MQTT') {
+        throw new Error('Session is not an MQTT session or not found');
+      }
+
+      // 检查连接状态
+      if (session.status !== 'connected') {
+        throw new Error('MQTT connection is not established');
+      }
+
+      // 验证主题格式
+      if (!this.validateMQTTTopic(topic, 'subscribe')) {
+        throw new Error('Invalid MQTT topic filter');
+      }
+
+      // Call Tauri backend to subscribe to MQTT topic
+      const result = await invoke<boolean>('subscribe_mqtt_topic', {
+        sessionId,
+        topic,
+        qos,
+      });
+
+      if (result) {
+        // 添加订阅到状态管理
+        const subscription: MQTTSubscription = {
+          id: `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          topic,
+          qos,
+          subscribedAt: new Date(),
+          messageCount: 0,
+          isActive: true,
+        };
+
+        useAppStore.getState().addMQTTSubscription(sessionId, subscription);
+
+        // 添加订阅成功消息到消息流
+        const message: Message = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date(),
+          direction: 'out',
+          protocol: 'MQTT',
+          size: topic.length,
+          data: new TextEncoder().encode(`SUBSCRIBE: ${topic} (QoS ${qos})`),
+          status: 'success',
+          raw: `SUBSCRIBE: ${topic} (QoS ${qos})`,
+          mqttTopic: topic,
+          mqttQos: qos,
+        };
+
+        useAppStore.getState().addMessage(sessionId, message);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Subscribe MQTT topic failed:', error);
+
+      // 添加失败消息到消息流
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: 'MQTT',
+        size: topic.length,
+        data: new TextEncoder().encode(`SUBSCRIBE FAILED: ${topic} (QoS ${qos})`),
+        status: 'error',
+        raw: `SUBSCRIBE FAILED: ${topic} (QoS ${qos})`,
+        mqttTopic: topic,
+        mqttQos: qos,
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+
+      // 根据错误类型进行特定处理
+      if (error instanceof Error) {
+        if (error.message.includes('topic')) {
+          this.handleMQTTError(sessionId, 'topic_filter_invalid', error.message);
+        } else if (error.message.includes('connection')) {
+          this.handleMQTTError(sessionId, 'connection_refused', error.message);
+        } else {
+          this.handleMQTTError(sessionId, 'protocol_error', error.message);
+        }
+      }
+
+      return false;
+    }
+  }
+
+  // MQTT特定方法：取消订阅主题
+  async unsubscribeMQTTTopic(sessionId: string, topic: string): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.protocol !== 'MQTT') {
+        throw new Error('Session is not an MQTT session or not found');
+      }
+
+      // 检查连接状态
+      if (session.status !== 'connected') {
+        throw new Error('MQTT connection is not established');
+      }
+
+      // Call Tauri backend to unsubscribe from MQTT topic
+      const result = await invoke<boolean>('unsubscribe_mqtt_topic', {
+        sessionId,
+        topic,
+      });
+
+      if (result) {
+        // 从状态管理中移除订阅
+        useAppStore.getState().removeMQTTSubscription(sessionId, topic);
+
+        // 添加取消订阅成功消息到消息流
+        const message: Message = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date(),
+          direction: 'out',
+          protocol: 'MQTT',
+          size: topic.length,
+          data: new TextEncoder().encode(`UNSUBSCRIBE: ${topic}`),
+          status: 'success',
+          raw: `UNSUBSCRIBE: ${topic}`,
+          mqttTopic: topic,
+        };
+
+        useAppStore.getState().addMessage(sessionId, message);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Unsubscribe MQTT topic failed:', error);
+
+      // 添加失败消息到消息流
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: 'MQTT',
+        size: topic.length,
+        data: new TextEncoder().encode(`UNSUBSCRIBE FAILED: ${topic}`),
+        status: 'error',
+        raw: `UNSUBSCRIBE FAILED: ${topic}`,
+        mqttTopic: topic,
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+
+      // 根据错误类型进行特定处理
+      if (error instanceof Error) {
+        this.handleMQTTError(sessionId, 'protocol_error', error.message);
+      }
+
+      return false;
+    }
+  }
+
+  // MQTT特定方法：发布消息
+  async publishMQTTMessage(sessionId: string, topic: string, payload: string | Uint8Array, options: MQTTPublishOptions = { qos: 0, retain: false }): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.protocol !== 'MQTT') {
+        throw new Error('Session is not an MQTT session or not found');
+      }
+
+      // 检查连接状态
+      if (session.status !== 'connected') {
+        throw new Error('MQTT connection is not established');
+      }
+
+      // 验证主题格式
+      if (!this.validateMQTTTopic(topic, 'publish')) {
+        throw new Error('Invalid MQTT topic name');
+      }
+
+      // 准备消息数据
+      const messageData = typeof payload === 'string'
+        ? new TextEncoder().encode(payload)
+        : payload;
+
+      // Call Tauri backend to publish MQTT message
+      const result = await invoke<boolean>('publish_mqtt_message', {
+        sessionId,
+        topic,
+        payload: Array.from(messageData),
+        qos: options.qos,
+        retain: options.retain,
+        dup: options.dup || false,
+      });
+
+      if (result) {
+        // 添加发布成功消息到消息流
+        const message: Message = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date(),
+          direction: 'out',
+          protocol: 'MQTT',
+          size: messageData.length,
+          data: messageData,
+          status: 'success',
+          raw: this.uint8ArrayToString(messageData),
+          mqttTopic: topic,
+          mqttQos: options.qos,
+          mqttRetain: options.retain,
+          mqttDup: options.dup,
+        };
+
+        useAppStore.getState().addMessage(sessionId, message);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Publish MQTT message failed:', error);
+
+      // 准备消息数据用于错误记录
+      const messageData = typeof payload === 'string'
+        ? new TextEncoder().encode(payload)
+        : payload;
+
+      // 添加失败消息到消息流
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: 'MQTT',
+        size: messageData.length,
+        data: messageData,
+        status: 'error',
+        raw: this.uint8ArrayToString(messageData),
+        mqttTopic: topic,
+        mqttQos: options.qos,
+        mqttRetain: options.retain,
+        mqttDup: options.dup,
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+
+      // 根据错误类型进行特定处理
+      if (error instanceof Error) {
+        if (error.message.includes('topic')) {
+          this.handleMQTTError(sessionId, 'topic_name_invalid', error.message);
+        } else if (error.message.includes('size') || error.message.includes('large')) {
+          this.handleMQTTError(sessionId, 'packet_too_large', error.message);
+        } else if (error.message.includes('connection')) {
+          this.handleMQTTError(sessionId, 'connection_refused', error.message);
+        } else {
+          this.handleMQTTError(sessionId, 'protocol_error', error.message);
+        }
+      }
+
+      return false;
+    }
+  }
+
+  // MQTT特定方法：验证主题格式
+  private validateMQTTTopic(topic: string, type: 'publish' | 'subscribe'): boolean {
+    if (!topic || topic.length === 0) {
+      return false;
+    }
+
+    // MQTT主题长度限制（通常为65535字节）
+    if (topic.length > 65535) {
+      return false;
+    }
+
+    // 发布主题不能包含通配符
+    if (type === 'publish') {
+      if (topic.includes('+') || topic.includes('#')) {
+        return false;
+      }
+    }
+
+    // 订阅主题可以包含通配符，但需要符合规则
+    if (type === 'subscribe') {
+      // # 通配符只能出现在主题末尾，且前面必须是 /
+      const hashIndex = topic.indexOf('#');
+      if (hashIndex !== -1) {
+        if (hashIndex !== topic.length - 1) {
+          return false; // # 不在末尾
+        }
+        if (hashIndex > 0 && topic[hashIndex - 1] !== '/') {
+          return false; // # 前面不是 /
+        }
+      }
+
+      // + 通配符必须占据完整的主题级别
+      const parts = topic.split('/');
+      for (const part of parts) {
+        if (part.includes('+') && part !== '+') {
+          return false; // + 不能与其他字符混合
+        }
+      }
+    }
+
+    // 主题不能包含空字符
+    if (topic.includes('\0')) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // MQTT特定方法：处理MQTT错误
+  private handleMQTTError(sessionId: string, errorType: MQTTErrorType, errorMessage: string) {
+    console.error(`MQTT Error [${errorType}]:`, errorMessage);
+
+    // 更新会话错误状态
+    useAppStore.getState().updateSessionStatus(sessionId, 'error', `MQTT ${errorType}: ${errorMessage}`);
+
+    // 根据错误类型决定是否需要重连
+    const reconnectableErrors: MQTTErrorType[] = [
+      'connection_refused',
+      'server_unavailable',
+      'connection_rate_exceeded',
+      'maximum_connect_time'
+    ];
+
+    if (reconnectableErrors.includes(errorType)) {
+      // 触发重连逻辑
+      this.handleMQTTReconnect(sessionId);
+    }
+  }
+
+  // MQTT特定方法：处理MQTT重连
+  private handleMQTTReconnect(sessionId: string) {
+    const session = useAppStore.getState().getSession(sessionId);
+    if (!session || session.config.protocol !== 'MQTT' || !session.config.autoReconnect) {
+      return;
+    }
+
+    // 设置重连延迟（指数退避）
+    const baseDelay = 1000; // 1秒
+    const maxDelay = 30000; // 30秒
+    const attempt = session.statistics.connectionCount || 0;
+    const reconnectDelay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+
+    console.log(`MQTT reconnecting in ${reconnectDelay}ms for session: ${sessionId}`);
+
+    setTimeout(async () => {
+      const currentSession = useAppStore.getState().getSession(sessionId);
+      if (currentSession && currentSession.status === 'error') {
+        console.log(`Attempting MQTT reconnection for session: ${sessionId}`);
+        const success = await this.connect(sessionId);
+        if (success) {
+          console.log(`MQTT reconnected successfully for session: ${sessionId}`);
+
+          // 重新订阅之前的主题
+          const subscriptions = currentSession.mqttSubscriptions;
+          if (subscriptions) {
+            for (const subscription of Object.values(subscriptions)) {
+              if (subscription.isActive) {
+                await this.subscribeMQTTTopic(sessionId, subscription.topic, subscription.qos);
+              }
+            }
+          }
+        }
+      }
+    }, reconnectDelay);
   }
 }
 

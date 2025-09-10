@@ -7,7 +7,8 @@ import {
   Message,
   ConnectionStatus,
   SessionStatistics,
-  ClientConnection
+  ClientConnection,
+  MQTTSubscription
 } from '@/types';
 
 interface AppStore extends WorkspaceState {
@@ -32,6 +33,13 @@ interface AppStore extends WorkspaceState {
   removeClientConnection: (sessionId: string, clientId: string) => void;
   updateClientConnection: (sessionId: string, clientId: string, updates: Partial<ClientConnection>) => void;
   getClientConnections: (sessionId: string) => ClientConnection[];
+
+  // MQTT Subscription Management
+  addMQTTSubscription: (sessionId: string, subscription: MQTTSubscription) => void;
+  removeMQTTSubscription: (sessionId: string, topic: string) => void;
+  updateMQTTSubscription: (sessionId: string, subscriptionId: string, updates: Partial<MQTTSubscription>) => void;
+  getMQTTSubscriptions: (sessionId: string) => MQTTSubscription[];
+  incrementMQTTSubscriptionMessageCount: (sessionId: string, topic: string) => void;
 
   // Node Selection
   setSelectedNode: (nodeId: string | null, nodeType: 'workspace' | 'session' | 'connection' | null) => void;
@@ -339,6 +347,123 @@ export const useAppStore = create<AppStore>()(
       return session?.clientConnections ? Object.values(session.clientConnections) : [];
     },
 
+    // MQTT Subscription Management
+    addMQTTSubscription: (sessionId: string, subscription: MQTTSubscription) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session) return state;
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              mqttSubscriptions: {
+                ...session.mqttSubscriptions,
+                [subscription.id]: subscription,
+              },
+            },
+          },
+        };
+      });
+    },
+
+    removeMQTTSubscription: (sessionId: string, topic: string) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session || !session.mqttSubscriptions) return state;
+
+        // 找到匹配主题的订阅
+        const subscriptionToRemove = Object.values(session.mqttSubscriptions).find(
+          sub => sub.topic === topic
+        );
+
+        if (!subscriptionToRemove) return state;
+
+        const { [subscriptionToRemove.id]: removed, ...remainingSubscriptions } = session.mqttSubscriptions;
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              mqttSubscriptions: remainingSubscriptions,
+            },
+          },
+        };
+      });
+    },
+
+    updateMQTTSubscription: (sessionId: string, subscriptionId: string, updates: Partial<MQTTSubscription>) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session || !session.mqttSubscriptions || !session.mqttSubscriptions[subscriptionId]) {
+          return state;
+        }
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              mqttSubscriptions: {
+                ...session.mqttSubscriptions,
+                [subscriptionId]: {
+                  ...session.mqttSubscriptions[subscriptionId],
+                  ...updates,
+                },
+              },
+            },
+          },
+        };
+      });
+    },
+
+    getMQTTSubscriptions: (sessionId: string) => {
+      const session = get().sessions[sessionId];
+      if (!session || !session.mqttSubscriptions) {
+        return [];
+      }
+      return Object.values(session.mqttSubscriptions);
+    },
+
+    incrementMQTTSubscriptionMessageCount: (sessionId: string, topic: string) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session || !session.mqttSubscriptions) return state;
+
+        // 找到匹配主题的订阅（支持通配符匹配）
+        const matchingSubscriptions = Object.values(session.mqttSubscriptions).filter(
+          sub => get().matchMQTTTopic(topic, sub.topic)
+        );
+
+        if (matchingSubscriptions.length === 0) return state;
+
+        const updatedSubscriptions = { ...session.mqttSubscriptions };
+        matchingSubscriptions.forEach(sub => {
+          updatedSubscriptions[sub.id] = {
+            ...sub,
+            messageCount: sub.messageCount + 1,
+            lastMessageAt: new Date(),
+          };
+        });
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              mqttSubscriptions: updatedSubscriptions,
+            },
+          },
+        };
+      });
+    },
+
     // Utility Methods
     getSession: (sessionId: string) => {
       return get().sessions[sessionId];
@@ -357,6 +482,43 @@ export const useAppStore = create<AppStore>()(
       return Object.values(get().sessions).filter(
         (session) => session.config.protocol === protocol
       );
+    },
+
+    // MQTT主题匹配辅助方法
+    matchMQTTTopic: (topic: string, filter: string) => {
+      // 简单的MQTT主题匹配实现
+      // 支持 + (单级通配符) 和 # (多级通配符)
+
+      if (filter === topic) return true;
+
+      // 将主题和过滤器分割成段
+      const topicParts = topic.split('/');
+      const filterParts = filter.split('/');
+
+      // 如果过滤器以 # 结尾，匹配所有剩余段
+      if (filterParts[filterParts.length - 1] === '#') {
+        const baseFilterParts = filterParts.slice(0, -1);
+        if (topicParts.length < baseFilterParts.length) return false;
+
+        for (let i = 0; i < baseFilterParts.length; i++) {
+          if (baseFilterParts[i] !== '+' && baseFilterParts[i] !== topicParts[i]) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      // 段数必须相等（除非有 # 通配符）
+      if (topicParts.length !== filterParts.length) return false;
+
+      // 逐段匹配
+      for (let i = 0; i < filterParts.length; i++) {
+        if (filterParts[i] !== '+' && filterParts[i] !== topicParts[i]) {
+          return false;
+        }
+      }
+
+      return true;
     },
   }))
 );

@@ -8,6 +8,7 @@ import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/co
 import { TCPSessionContent } from '@/components/ProtocolSessions/TCPSessionContent';
 import { UDPSessionContent } from '@/components/ProtocolSessions/UDPSessionContent';
 import { WebSocketSessionContent } from '@/components/ProtocolSessions/WebSocketSessionContent';
+import { MQTTSessionContent } from '@/components/ProtocolSessions/MQTTSessionContent';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession } from '@/contexts/SessionContext';
 import { WorkspacePage } from './WorkspacePage';
@@ -158,6 +159,7 @@ export const SessionPage: React.FC = () => {
       case 'WebSocket':
         return <WebSocketSessionContent sessionId={currentSession.id} />;
       case 'MQTT':
+        return <MQTTSessionContent sessionId={currentSession.id} />;
       case 'SSE':
       default:
         // Fall back to generic session content for protocols not yet implemented

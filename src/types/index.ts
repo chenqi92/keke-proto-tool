@@ -121,6 +121,53 @@ export interface WebSocketConfig {
   maxReconnectAttempts?: number; // 最大重连次数
 }
 
+// MQTT特有类型
+export type MQTTQoSLevel = 0 | 1 | 2; // QoS级别：0=最多一次，1=至少一次，2=恰好一次
+export type MQTTErrorType = 'connection_refused' | 'protocol_error' | 'client_identifier_not_valid' | 'server_unavailable' | 'bad_username_or_password' | 'not_authorized' | 'topic_filter_invalid' | 'topic_name_invalid' | 'packet_identifier_in_use' | 'packet_identifier_not_found' | 'receive_maximum_exceeded' | 'topic_alias_invalid' | 'packet_too_large' | 'message_rate_too_high' | 'quota_exceeded' | 'administrative_action' | 'payload_format_invalid' | 'retain_not_supported' | 'qos_not_supported' | 'use_another_server' | 'server_moved' | 'shared_subscriptions_not_supported' | 'connection_rate_exceeded' | 'maximum_connect_time' | 'subscription_identifiers_not_supported' | 'wildcard_subscriptions_not_supported';
+
+export interface MQTTConfig {
+  brokerUrl?: string; // MQTT broker URL (mqtt:// 或 mqtts://)
+  clientId?: string; // 客户端ID，如果为空则自动生成
+  username?: string; // 用户名
+  password?: string; // 密码
+  cleanSession?: boolean; // 清理会话标志
+  keepAlive?: number; // 保活间隔（秒）
+  connectTimeout?: number; // 连接超时（毫秒）
+  reconnectPeriod?: number; // 重连间隔（毫秒）
+  maxReconnectAttempts?: number; // 最大重连次数
+  // 遗嘱消息配置
+  will?: {
+    topic: string; // 遗嘱主题
+    payload: string; // 遗嘱消息内容
+    qos: MQTTQoSLevel; // 遗嘱消息QoS级别
+    retain: boolean; // 遗嘱消息保留标志
+  };
+  // SSL/TLS配置
+  ssl?: {
+    enabled: boolean;
+    ca?: string; // CA证书
+    cert?: string; // 客户端证书
+    key?: string; // 客户端私钥
+    rejectUnauthorized?: boolean; // 是否拒绝未授权的连接
+  };
+}
+
+export interface MQTTSubscription {
+  id: string; // 订阅ID
+  topic: string; // 主题过滤器
+  qos: MQTTQoSLevel; // 订阅QoS级别
+  subscribedAt: Date; // 订阅时间
+  messageCount: number; // 接收到的消息数量
+  lastMessageAt?: Date; // 最后一条消息时间
+  isActive: boolean; // 是否活跃
+}
+
+export interface MQTTPublishOptions {
+  qos: MQTTQoSLevel; // 发布QoS级别
+  retain: boolean; // 保留消息标志
+  dup?: boolean; // 重复消息标志（通常由客户端库自动设置）
+}
+
 export interface NetworkAddress {
   host: string;
   port: number;
@@ -148,6 +195,13 @@ export interface Message {
   // WebSocket服务端特有字段
   targetClientId?: string; // 目标客户端ID（用于单播消息）
   sourceClientId?: string; // 来源客户端ID（用于接收消息）
+  // MQTT特有字段
+  mqttTopic?: string; // MQTT主题
+  mqttQos?: MQTTQoSLevel; // MQTT QoS级别
+  mqttRetain?: boolean; // MQTT保留消息标志
+  mqttDup?: boolean; // MQTT重复消息标志
+  mqttPacketId?: number; // MQTT包标识符（QoS 1和2使用）
+  mqttSubscriptionId?: string; // 对应的订阅ID（接收消息时）
 }
 
 export interface SessionConfig {
@@ -167,7 +221,17 @@ export interface SessionConfig {
   websocketPingInterval?: number; // ping间隔（秒）
   websocketMaxMessageSize?: number; // 最大消息大小（字节）
   websocketCompressionEnabled?: boolean; // 是否启用压缩
-  mqttTopic?: string;
+  // MQTT特有配置
+  mqttClientId?: string; // MQTT客户端ID
+  mqttUsername?: string; // MQTT用户名
+  mqttPassword?: string; // MQTT密码
+  mqttCleanSession?: boolean; // MQTT清理会话标志
+  mqttKeepAlive?: number; // MQTT保活间隔（秒）
+  mqttWillTopic?: string; // MQTT遗嘱主题
+  mqttWillPayload?: string; // MQTT遗嘱消息
+  mqttWillQos?: MQTTQoSLevel; // MQTT遗嘱QoS级别
+  mqttWillRetain?: boolean; // MQTT遗嘱保留标志
+  // 其他协议配置
   sseEventTypes?: string[];
 }
 
@@ -181,6 +245,8 @@ export interface SessionState {
   statistics: SessionStatistics;
   error?: string;
   clientConnections?: Record<string, ClientConnection>; // For server sessions
+  // MQTT特有状态
+  mqttSubscriptions?: Record<string, MQTTSubscription>; // MQTT订阅列表
 }
 
 export interface SessionStatistics {
