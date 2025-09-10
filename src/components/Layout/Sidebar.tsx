@@ -19,6 +19,15 @@ import { NewSessionModal, SessionData } from '@/components/NewSessionModal';
 import { useAppStore, useAllSessions } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { SessionConfig } from '@/types';
+import {
+  ContextMenu,
+  createWorkspaceMenuItems,
+  createProtocolTypeMenuItems,
+  createSessionMenuItems,
+  createConnectionMenuItems,
+  useSessionDeleteModal,
+  useWorkspaceClearModal
+} from '@/components/Common';
 
 interface SidebarProps {
   onCollapse: () => void;
@@ -176,7 +185,7 @@ const TreeItem: React.FC<{
     <div>
       <div
         className={cn(
-          "flex items-center px-2 py-1 text-sm hover:bg-accent rounded-md cursor-pointer group",
+          "flex items-center px-2 py-1 text-sm hover:bg-accent rounded-md cursor-default group",
           level > 0 && "ml-4",
           selectedNodeId === node.id && "bg-primary/20 border border-primary/30"
         )}
@@ -311,9 +320,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   const [connectingNodes, setConnectingNodes] = useState<Set<string>>(new Set());
   const [recordingNodes, setRecordingNodes] = useState<Set<string>>(new Set());
 
+  // 上下文菜单状态
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    nodeId: string;
+    nodeType: 'workspace' | 'protocol-type' | 'session' | 'connection';
+    nodeData: any;
+  } | null>(null);
+
+  // 删除确认模态框
+  const sessionDeleteModal = useSessionDeleteModal();
+  const workspaceClearModal = useWorkspaceClearModal();
+
   // Get real session data from store
   const sessions = useAllSessions();
+  const sessionsMap = useAppStore(state => state.sessions);
   const createSession = useAppStore(state => state.createSession);
+  const deleteSession = useAppStore(state => state.deleteSession);
   const startRecording = useAppStore(state => state.startRecording);
   const stopRecording = useAppStore(state => state.stopRecording);
 
@@ -434,17 +458,219 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
 
   const handleMoreActions = (nodeId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
 
-    // Show context menu with additional options
-    // For now, just log the action
-    console.log('More actions for node:', nodeId);
+    // 找到对应的节点
+    const findNodeById = (nodes: TreeNode[], id: string): TreeNode | null => {
+      for (const node of nodes) {
+        if (node.id === id) return node;
+        if (node.children) {
+          const found = findNodeById(node.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
 
-    // In a real implementation, you would show a context menu with options like:
-    // - Edit configuration
-    // - Duplicate session
-    // - Export data
-    // - Delete session
-    // - View logs
+    const node = findNodeById(treeData, nodeId);
+
+    if (!node) {
+      console.warn('Node not found:', nodeId);
+      return;
+    }
+
+    // 关闭之前的菜单
+    if (contextMenu?.isOpen) {
+      setContextMenu(null);
+      // 短暂延迟后打开新菜单，避免立即关闭
+      setTimeout(() => {
+        setContextMenu({
+          isOpen: true,
+          position: { x: e.clientX, y: e.clientY },
+          nodeId,
+          nodeType: node.type,
+          nodeData: node
+        });
+      }, 10);
+    } else {
+      // 设置上下文菜单状态
+      setContextMenu({
+        isOpen: true,
+        position: { x: e.clientX, y: e.clientY },
+        nodeId,
+        nodeType: node.type,
+        nodeData: node
+      });
+    }
+  };
+
+  // 上下文菜单回调函数
+  const handleContextMenuAction = {
+    // 工作区级别操作
+    onNewSession: () => {
+      setIsNewSessionModalOpen(true);
+    },
+    onImportConfig: () => {
+      console.log('导入配置');
+      // TODO: 实现配置导入功能
+    },
+    onExportConfig: () => {
+      console.log('导出配置');
+      // TODO: 实现配置导出功能
+    },
+    onClearWorkspace: () => {
+      workspaceClearModal.openModal(() => {
+        // 删除所有会话
+        sessions.forEach(session => {
+          deleteSession(session.config.id);
+        });
+      });
+    },
+    onSettings: () => {
+      console.log('工作区设置');
+      // TODO: 打开工作区设置
+    },
+
+    // 协议类型级别操作
+    onNewProtocolSession: (_protocol: string) => {
+      setIsNewSessionModalOpen(true);
+      // TODO: 预设协议类型
+    },
+    onBatchOperation: () => {
+      console.log('批量操作');
+      // TODO: 实现批量操作
+    },
+
+    // 会话级别操作
+    onEditConfig: (sessionId: string) => {
+      console.log('编辑配置:', sessionId);
+      // TODO: 打开会话配置编辑器
+    },
+    onDuplicateSession: (sessionId: string) => {
+      const session = sessionsMap[sessionId];
+      if (session) {
+        const newSessionConfig: SessionConfig = {
+          ...session.config,
+          id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          name: `${session.config.name} (副本)`
+        };
+        createSession(newSessionConfig);
+      }
+    },
+    onDeleteSession: (sessionId: string) => {
+      const session = sessionsMap[sessionId];
+      if (session) {
+        sessionDeleteModal.openModal(
+          sessionId,
+          session.config.name,
+          () => {
+            try {
+              deleteSession(sessionId);
+              console.log('会话已删除:', sessionId);
+            } catch (error) {
+              console.error('删除会话失败:', error);
+              // Could show a toast notification here instead of alert
+            }
+          }
+        );
+      }
+    },
+    onViewLogs: (sessionId: string) => {
+      console.log('查看日志:', sessionId);
+      // TODO: 打开日志查看器
+    },
+    onConnect: async (sessionId: string) => {
+      try {
+        await networkService.connect(sessionId);
+      } catch (error) {
+        console.error('连接失败:', error);
+      }
+    },
+    onDisconnect: async (sessionId: string) => {
+      try {
+        await networkService.disconnect(sessionId);
+      } catch (error) {
+        console.error('断开连接失败:', error);
+      }
+    },
+
+    // 连接级别操作
+    onViewDetails: (connectionId: string) => {
+      // Extract session ID from connection ID
+      const sessionId = connectionId.replace('conn-', '');
+      const session = sessionsMap[sessionId];
+      if (session) {
+        const details = `连接详情:\n协议: ${session.config.protocol}\n地址: ${session.config.host}:${session.config.port}\n状态: ${session.status}\n连接类型: ${session.config.connectionType}`;
+        alert(details);
+      }
+    },
+    onCopyInfo: (connectionId: string) => {
+      // Extract session ID from connection ID
+      const sessionId = connectionId.replace('conn-', '');
+      const session = sessionsMap[sessionId];
+      if (session) {
+        const connectionInfo = `${session.config.protocol}://${session.config.host}:${session.config.port}`;
+        navigator.clipboard.writeText(connectionInfo).then(() => {
+          console.log('连接信息已复制到剪贴板:', connectionInfo);
+        }).catch(err => {
+          console.error('复制失败:', err);
+        });
+      }
+    },
+    onDisconnectConnection: async (connectionId: string) => {
+      try {
+        await networkService.disconnect(connectionId);
+      } catch (error) {
+        console.error('断开连接失败:', error);
+      }
+    }
+  };
+
+  // 生成上下文菜单项
+  const getContextMenuItems = () => {
+    if (!contextMenu) return [];
+
+    const { nodeType, nodeData } = contextMenu;
+    console.log('生成上下文菜单项:', { nodeType, nodeData });
+
+    switch (nodeType) {
+      case 'workspace':
+        return createWorkspaceMenuItems({
+          onNewSession: handleContextMenuAction.onNewSession,
+          onImportConfig: handleContextMenuAction.onImportConfig,
+          onExportConfig: handleContextMenuAction.onExportConfig,
+          onClearWorkspace: handleContextMenuAction.onClearWorkspace,
+          onSettings: handleContextMenuAction.onSettings
+        });
+
+      case 'protocol-type':
+        return createProtocolTypeMenuItems(nodeData.protocol || 'TCP', {
+          onNewSession: () => handleContextMenuAction.onNewProtocolSession(nodeData.protocol),
+          onBatchOperation: handleContextMenuAction.onBatchOperation
+        });
+
+      case 'session':
+        const session = sessionsMap[nodeData.id];
+        const isConnected = session?.status === 'connected';
+        return createSessionMenuItems({
+          onEditConfig: () => handleContextMenuAction.onEditConfig(nodeData.id),
+          onDuplicateSession: () => handleContextMenuAction.onDuplicateSession(nodeData.id),
+          onDeleteSession: () => handleContextMenuAction.onDeleteSession(nodeData.id),
+          onViewLogs: () => handleContextMenuAction.onViewLogs(nodeData.id),
+          onConnect: () => handleContextMenuAction.onConnect(nodeData.id),
+          onDisconnect: () => handleContextMenuAction.onDisconnect(nodeData.id)
+        }, isConnected);
+
+      case 'connection':
+        return createConnectionMenuItems({
+          onDisconnect: () => handleContextMenuAction.onDisconnectConnection(nodeData.id),
+          onViewDetails: () => handleContextMenuAction.onViewDetails(nodeData.id),
+          onCopyInfo: () => handleContextMenuAction.onCopyInfo(nodeData.id)
+        });
+
+      default:
+        return [];
+    }
   };
 
   // 按钮事件处理函数
@@ -536,6 +762,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
         onClose={() => setIsNewSessionModalOpen(false)}
         onConfirm={handleCreateSession}
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          isOpen={contextMenu.isOpen}
+          position={contextMenu.position}
+          items={getContextMenuItems()}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Delete Confirmation Modals */}
+      <sessionDeleteModal.Modal />
+      <workspaceClearModal.Modal />
     </div>
   );
 };

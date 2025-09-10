@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { subscribeWithSelector } from 'zustand/middleware';
+import { subscribeWithSelector, persist, createJSONStorage } from 'zustand/middleware';
 import {
   SessionState,
   SessionConfig,
@@ -70,8 +70,38 @@ const createInitialSessionState = (config: SessionConfig): SessionState => ({
   statistics: createInitialStatistics(),
 });
 
+// 持久化配置
+const persistConfig = {
+  name: 'keke-proto-tool-workspace', // 存储键名
+  storage: createJSONStorage(() => localStorage),
+  version: 1, // 数据版本
+  partialize: (state: AppStore) => ({
+    // 只持久化需要的状态，排除临时状态
+    sessions: state.sessions,
+    activeSessionId: state.activeSessionId,
+    selectedNodeId: state.selectedNodeId,
+    selectedNodeType: state.selectedNodeType,
+  }),
+  onRehydrateStorage: () => (state: AppStore | undefined) => {
+    // 数据恢复后的处理
+    if (state) {
+      console.log('工作区数据已恢复');
+      // 可以在这里添加数据迁移逻辑
+    }
+  },
+  migrate: (persistedState: any, version: number) => {
+    // 数据版本迁移逻辑
+    if (version === 0) {
+      // 从版本0迁移到版本1的逻辑
+      return persistedState;
+    }
+    return persistedState;
+  },
+};
+
 export const useAppStore = create<AppStore>()(
-  subscribeWithSelector((set, get) => ({
+  persist(
+    subscribeWithSelector((set, get) => ({
     // Initial state
     sessions: {},
     activeSessionId: null,
@@ -521,7 +551,9 @@ export const useAppStore = create<AppStore>()(
 
       return true;
     },
-  }))
+  })),
+  persistConfig
+  )
 );
 
 // Selectors for common use cases
