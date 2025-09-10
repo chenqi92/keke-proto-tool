@@ -43,6 +43,7 @@ pub struct MqttWill {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ConnectionStatus {
     Disconnected,
     Connecting,

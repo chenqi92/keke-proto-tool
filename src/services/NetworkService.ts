@@ -39,6 +39,7 @@ class NetworkService {
       await listen<{ sessionId: string; status: ConnectionStatus; error?: string }>('connection-status', (event) => {
         const { sessionId, status, error } = event.payload;
         console.log(`NetworkService: Received connection-status event for session ${sessionId} - status: ${status}`, error ? `error: ${error}` : '');
+        console.log(`NetworkService: Event payload:`, event.payload);
         useAppStore.getState().updateSessionStatus(sessionId, status, error);
       });
 

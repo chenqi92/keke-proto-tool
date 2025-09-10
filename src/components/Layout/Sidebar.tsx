@@ -82,23 +82,45 @@ const createTreeDataFromSessions = (sessions: any[]): TreeNode[] => {
 
     // Only create the node if there are sessions or if we want to show empty categories
     if (typeSessions.length > 0) {
-      const sessionNodes: TreeNode[] = typeSessions.map(session => ({
-        id: session.config.id,
-        label: session.config.name,
-        type: 'session' as const,
-        protocol: session.config.protocol as any,
-        connectionType: session.config.connectionType,
-        status: session.status,
-        sessionData: session,
-        children: session.status === 'connected' ? [{
-          id: `conn-${session.config.id}`,
-          label: `${session.config.host}:${session.config.port}`,
-          type: 'connection' as const,
+      const sessionNodes: TreeNode[] = typeSessions.map(session => {
+        let children: TreeNode[] = [];
+
+        if (session.status === 'connected') {
+          if (session.config.connectionType === 'server') {
+            // 服务端：显示连接的客户端
+            const clientConnections = session.clientConnections || {};
+            children = Object.values(clientConnections).map((client: any) => ({
+              id: `client-${client.id}`,
+              label: `${client.remoteAddress}:${client.remotePort}`,
+              type: 'connection' as const,
+              protocol: session.config.protocol as any,
+              status: client.isActive ? 'connected' : 'disconnected',
+              sessionData: { ...session, clientConnection: client }
+            }));
+          } else {
+            // 客户端：显示连接的服务器
+            children = [{
+              id: `conn-${session.config.id}`,
+              label: `${session.config.host}:${session.config.port}`,
+              type: 'connection' as const,
+              protocol: session.config.protocol as any,
+              status: session.status,
+              sessionData: session
+            }];
+          }
+        }
+
+        return {
+          id: session.config.id,
+          label: session.config.name,
+          type: 'session' as const,
           protocol: session.config.protocol as any,
+          connectionType: session.config.connectionType,
           status: session.status,
-          sessionData: session
-        }] : []
-      }));
+          sessionData: session,
+          children
+        };
+      });
 
       protocolTypeNodes.push({
         id: `${protocol.toLowerCase()}-${connectionType}`,
