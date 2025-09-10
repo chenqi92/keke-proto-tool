@@ -38,6 +38,7 @@ pub fn parse_socket_addr(host: &str, port: u16) -> Result<SocketAddr, Box<dyn st
 }
 
 /// Validate if a string is a valid IP address
+#[allow(dead_code)]
 pub fn is_valid_ip(ip: &str) -> bool {
     IpAddr::from_str(ip).is_ok()
 }
@@ -84,11 +85,13 @@ pub fn is_common_port(port: u16) -> Option<&'static str> {
 }
 
 /// Validate if a port number is valid
+#[allow(dead_code)]
 pub fn is_valid_port(port: u16) -> bool {
     port > 0
 }
 
 /// Convert bytes to hex string
+#[allow(dead_code)]
 pub fn bytes_to_hex(bytes: &[u8]) -> String {
     bytes.iter()
         .map(|b| format!("{:02x}", b))
@@ -97,12 +100,14 @@ pub fn bytes_to_hex(bytes: &[u8]) -> String {
 }
 
 /// Convert hex string to bytes
+#[allow(dead_code)]
 pub fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, hex::FromHexError> {
     let hex_clean = hex.replace(" ", "").replace("-", "");
     hex::decode(hex_clean)
 }
 
 /// Format bytes for display (with units)
+#[allow(dead_code)]
 pub fn format_bytes(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let mut size = bytes as f64;
@@ -121,11 +126,13 @@ pub fn format_bytes(bytes: u64) -> String {
 }
 
 /// Generate a unique session ID
+#[allow(dead_code)]
 pub fn generate_session_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
 /// Validate MQTT topic name
+#[allow(dead_code)]
 pub fn validate_mqtt_topic(topic: &str, for_publish: bool) -> bool {
     if topic.is_empty() || topic.len() > 65535 {
         return false;

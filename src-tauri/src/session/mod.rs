@@ -16,6 +16,7 @@ pub struct Session {
     pub id: String,
     pub config: SessionConfig,
     pub state: SessionState,
+    #[allow(dead_code)]
     pub buffer: SessionBuffer,
     connection_manager: ConnectionManager,
     event_sender: Option<mpsc::Sender<NetworkEvent>>,
@@ -110,21 +111,25 @@ impl Session {
     }
 
     /// Check if the session is connected
+    #[allow(dead_code)]
     pub fn is_connected(&self) -> bool {
         matches!(self.state.get_status(), ConnectionStatus::Connected)
     }
 
     /// Get current connection status
+    #[allow(dead_code)]
     pub fn get_connection_status(&self) -> ConnectionStatus {
         self.state.get_status()
     }
 
     /// Get the current connection status
+    #[allow(dead_code)]
     pub fn get_status(&self) -> ConnectionStatus {
         self.state.get_status()
     }
 
     /// Get session statistics
+    #[allow(dead_code)]
     pub fn get_statistics(&self) -> SessionStatistics {
         SessionStatistics {
             bytes_sent: self.buffer.bytes_sent(),
@@ -138,6 +143,7 @@ impl Session {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct SessionStatistics {
     pub bytes_sent: u64,
     pub bytes_received: u64,

@@ -122,9 +122,11 @@ pub enum NetworkError {
     SendFailed(String),
 
     #[error("Receive failed: {0}")]
+    #[allow(dead_code)]
     ReceiveFailed(String),
 
     #[error("Protocol error: {0}")]
+    #[allow(dead_code)]
     ProtocolError(String),
 
     #[error("Session not found: {0}")]

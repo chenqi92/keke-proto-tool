@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Message direction for tracking
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum MessageDirection {
     Incoming,
     Outgoing,
@@ -11,6 +12,7 @@ pub enum MessageDirection {
 
 /// A buffered message with metadata
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct BufferedMessage {
     pub data: Vec<u8>,
     pub direction: MessageDirection,
@@ -19,6 +21,7 @@ pub struct BufferedMessage {
 }
 
 impl BufferedMessage {
+    #[allow(dead_code)]
     pub fn new(data: Vec<u8>, direction: MessageDirection) -> Self {
         let size = data.len();
         let timestamp = SystemTime::now()
@@ -37,6 +40,7 @@ impl BufferedMessage {
 
 /// Ring buffer for session data with memory management
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct SessionBuffer {
     messages: Arc<RwLock<VecDeque<BufferedMessage>>>,
     max_messages: usize,
@@ -50,6 +54,7 @@ pub struct SessionBuffer {
     total_messages_received: Arc<RwLock<u64>>,
 }
 
+#[allow(dead_code)]
 impl SessionBuffer {
     pub fn new() -> Self {
         Self::with_limits(10000, 100 * 1024 * 1024) // 10k messages, 100MB max

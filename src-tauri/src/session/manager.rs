@@ -77,6 +77,7 @@ impl SessionManager {
     }
 
     /// Remove a session
+    #[allow(dead_code)]
     pub fn remove_session(&self, session_id: &str) -> NetworkResult<()> {
         match self.sessions.remove(session_id) {
             Some(_) => Ok(()),
@@ -85,6 +86,7 @@ impl SessionManager {
     }
 
     /// Cleanup all sessions and disconnect them (called on app shutdown)
+    #[allow(dead_code)]
     pub async fn cleanup_all_sessions(&self) {
         eprintln!("Cleaning up all sessions...");
 
@@ -103,6 +105,7 @@ impl SessionManager {
     }
 
     /// Get session statistics
+    #[allow(dead_code)]
     pub fn get_session_statistics(&self, session_id: &str) -> NetworkResult<SessionStatistics> {
         match self.sessions.get(session_id) {
             Some(session) => Ok(session.get_statistics()),
@@ -111,6 +114,7 @@ impl SessionManager {
     }
 
     /// Check if a session is connected
+    #[allow(dead_code)]
     pub fn is_session_connected(&self, session_id: &str) -> bool {
         match self.sessions.get(session_id) {
             Some(session) => session.is_connected(),
@@ -119,16 +123,19 @@ impl SessionManager {
     }
 
     /// Get all session IDs
+    #[allow(dead_code)]
     pub fn get_session_ids(&self) -> Vec<String> {
         self.sessions.iter().map(|entry| entry.key().clone()).collect()
     }
 
     /// Get session count
+    #[allow(dead_code)]
     pub fn session_count(&self) -> usize {
         self.sessions.len()
     }
 
     /// Clean up disconnected sessions
+    #[allow(dead_code)]
     pub async fn cleanup_disconnected_sessions(&self) {
         let mut to_remove = Vec::new();
         

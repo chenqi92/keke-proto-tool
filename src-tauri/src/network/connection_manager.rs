@@ -9,6 +9,7 @@ use tokio::time::{timeout, sleep};
 #[derive(Debug)]
 pub struct ConnectionManager {
     connection: Arc<RwLock<Option<Box<dyn Connection>>>>,
+    #[allow(dead_code)]
     session_id: String,
     timeout_duration: Duration,
     max_retries: u32,
@@ -192,6 +193,7 @@ impl ConnectionManager {
     }
 
     /// Execute an async operation with the connection
+    #[allow(dead_code)]
     pub async fn with_connection_async<F, Fut, R>(&self, f: F) -> NetworkResult<R>
     where
         F: FnOnce(&mut Box<dyn Connection>) -> Fut,
@@ -206,11 +208,13 @@ impl ConnectionManager {
     }
 
     /// Check if there's an active connection
+    #[allow(dead_code)]
     pub async fn has_connection(&self) -> bool {
         self.connection.read().await.is_some()
     }
 
     /// Check if the connection is active
+    #[allow(dead_code)]
     pub async fn is_connection_active(&self) -> bool {
         if let Some(ref connection) = *self.connection.read().await {
             connection.is_connected()
@@ -225,6 +229,7 @@ impl ConnectionManager {
     }
 
     /// Get current attempt number
+    #[allow(dead_code)]
     pub async fn current_attempt(&self) -> u32 {
         *self.current_attempt.read().await
     }

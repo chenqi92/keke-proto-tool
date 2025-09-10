@@ -13,6 +13,7 @@ pub mod connection_manager;
 
 /// Core connection trait that all network protocols must implement
 #[async_trait]
+#[allow(dead_code)]
 pub trait Connection: Send + Sync + std::fmt::Debug {
     /// Connect to the remote endpoint or start listening (for servers)
     async fn connect(&mut self) -> NetworkResult<()>;
@@ -35,6 +36,7 @@ pub trait Connection: Send + Sync + std::fmt::Debug {
 
 /// Server-specific connection trait for protocols that support server mode
 #[async_trait]
+#[allow(dead_code)]
 pub trait ServerConnection: Connection {
     /// Send data to a specific client (for server connections)
     async fn send_to_client(&mut self, client_id: &str, data: &[u8]) -> NetworkResult<usize>;
@@ -51,6 +53,7 @@ pub trait ServerConnection: Connection {
 
 /// UDP-specific connection trait for datagram operations
 #[async_trait]
+#[allow(dead_code)]
 pub trait UdpConnection: Connection {
     /// Send UDP datagram to a specific address
     async fn send_to(&mut self, data: &[u8], host: &str, port: u16) -> NetworkResult<usize>;
@@ -58,6 +61,7 @@ pub trait UdpConnection: Connection {
 
 /// MQTT-specific connection trait for pub/sub operations
 #[async_trait]
+#[allow(dead_code)]
 pub trait MqttConnection: Connection {
     /// Subscribe to an MQTT topic
     async fn subscribe(&mut self, topic: &str, qos: u8) -> NetworkResult<()>;

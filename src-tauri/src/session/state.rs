@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 /// Tracks the state of a network session
 #[derive(Debug, Clone)]
 pub struct SessionState {
+    #[allow(dead_code)]
     session_id: String,
     status: Arc<RwLock<ConnectionStatus>>,
     connected_at: Arc<RwLock<Option<Instant>>>,
@@ -45,6 +46,7 @@ impl SessionState {
     }
 
     /// Get the current connection status
+    #[allow(dead_code)]
     pub fn get_status(&self) -> ConnectionStatus {
         self.status.read().unwrap().clone()
     }
@@ -55,26 +57,31 @@ impl SessionState {
     }
 
     /// Get the connection duration
+    #[allow(dead_code)]
     pub fn connection_time(&self) -> Option<Duration> {
         self.connected_at.read().unwrap().map(|start| start.elapsed())
     }
 
     /// Get the last activity timestamp
+    #[allow(dead_code)]
     pub fn last_activity(&self) -> Option<Instant> {
         *self.last_activity.read().unwrap()
     }
 
     /// Get the error count
+    #[allow(dead_code)]
     pub fn error_count(&self) -> u64 {
         *self.error_count.read().unwrap()
     }
 
     /// Reset error count
+    #[allow(dead_code)]
     pub fn reset_error_count(&self) {
         *self.error_count.write().unwrap() = 0;
     }
 
     /// Check if the session is considered active (has recent activity)
+    #[allow(dead_code)]
     pub fn is_active(&self, threshold: Duration) -> bool {
         match self.last_activity() {
             Some(last) => last.elapsed() < threshold,
@@ -83,6 +90,7 @@ impl SessionState {
     }
 
     /// Get session uptime
+    #[allow(dead_code)]
     pub fn uptime(&self) -> Option<Duration> {
         self.connection_time()
     }

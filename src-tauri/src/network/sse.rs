@@ -11,6 +11,7 @@ pub struct SseClient {
     session_id: String,
     url: String,
     event_types: Option<Vec<String>>,
+    #[allow(dead_code)]
     retry_interval: Option<u64>,
     connected: bool,
     client: Client,
