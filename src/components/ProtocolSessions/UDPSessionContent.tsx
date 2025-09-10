@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { cn } from '@/utils';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
-import { useSessionById, useAppStore } from '@/stores/AppStore';
+import { useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { Message } from '@/types';
 import {

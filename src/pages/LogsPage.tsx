@@ -135,15 +135,16 @@ export const LogsPage: React.FC = () => {
     });
 
     const formatTimestamp = (timestamp: Date) => {
-        return timestamp.toLocaleString('zh-CN', {
+        const dateStr = timestamp.toLocaleString('zh-CN', {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
-            second: '2-digit',
-            fractionalSecondDigits: 3
+            second: '2-digit'
         });
+        const ms = timestamp.getMilliseconds().toString().padStart(3, '0');
+        return `${dateStr}.${ms}`;
     };
 
     return (

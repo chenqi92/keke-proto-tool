@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  Plus,
   MoreHorizontal,
   Wifi,
   Circle,
@@ -315,7 +314,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   // Get real session data from store
   const sessions = useAllSessions();
   const createSession = useAppStore(state => state.createSession);
-  const _deleteSession = useAppStore(state => state.deleteSession);
   const startRecording = useAppStore(state => state.startRecording);
   const stopRecording = useAppStore(state => state.stopRecording);
 
@@ -450,9 +448,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   };
 
   // 按钮事件处理函数
-  const handleNewSession = () => {
-    setIsNewSessionModalOpen(true);
-  };
 
   const handleCreateSession = (sessionData: SessionData) => {
     const sessionConfig: SessionConfig = {

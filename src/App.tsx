@@ -21,7 +21,6 @@ import { NewSessionModal, SessionData } from '@/components/NewSessionModal'
 // Context
 import { SessionProvider } from '@/contexts/SessionContext'
 import { useAppStore } from '@/stores/AppStore'
-import { SessionConfig } from '@/types'
 
 function App() {
   const [showWelcome, setShowWelcome] = useState(false)

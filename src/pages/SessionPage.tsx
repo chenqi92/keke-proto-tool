@@ -5,6 +5,7 @@ import { HexEditor } from '@/components/HexEditor/HexEditor';
 import { ParseTree } from '@/components/ParseTree/ParseTree';
 import { Timeline } from '@/components/Timeline/Timeline';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
+import { Message } from '@/types';
 import { TCPSessionContent } from '@/components/ProtocolSessions/TCPSessionContent';
 import { UDPSessionContent } from '@/components/ProtocolSessions/UDPSessionContent';
 import { WebSocketSessionContent } from '@/components/ProtocolSessions/WebSocketSessionContent';
@@ -13,7 +14,7 @@ import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession } from '@/contexts/SessionContext';
 import { WorkspacePage } from './WorkspacePage';
 import { ConnectionPage } from './ConnectionPage';
-import { useActiveSession, useAppStore } from '@/stores/AppStore';
+import { useActiveSession } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import {
   Play,
@@ -22,32 +23,12 @@ import {
   Filter,
   Download,
   Settings,
-  Maximize2,
-  AlertCircle,
-  Clock,
-  TreePine
+  AlertCircle
 } from 'lucide-react';
 
-interface Message {
-  id: string;
-  timestamp: Date;
-  direction: 'in' | 'out';
-  protocol: string;
-  size: number;
-  data: Uint8Array;
-  parsed?: any;
-  status: 'success' | 'error' | 'warning';
-}
 
-interface SessionConfig {
-  protocol: 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
-  connectionType: 'client' | 'server';
-  host?: string;
-  port?: number;
-  websocketSubprotocol?: string;
-  mqttTopic?: string;
-  sseEventTypes?: string[];
-}
+
+
 
 export const SessionPage: React.FC = () => {
   const layoutConfig = useLayoutConfig();
@@ -55,13 +36,12 @@ export const SessionPage: React.FC = () => {
 
   // Get real session data
   const activeSession = useActiveSession();
-  const clearMessages = useAppStore(state => state.clearMessages);
 
   // UI state
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [viewMode, setViewMode] = useState<'split' | 'hex' | 'tree' | 'timeline'>('split');
   const [filterText, setFilterText] = useState('');
-  const [mobileActiveTab, setMobileActiveTab] = useState<'send' | 'receive' | 'hex' | 'tree' | 'timeline'>('timeline');
+
 
   // 数据格式相关状态
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
@@ -116,13 +96,7 @@ export const SessionPage: React.FC = () => {
     setFormatError(null);
   };
 
-  const formatMessageData = (message: Message): string => {
-    try {
-      return formatData.to[receiveFormat](message.data);
-    } catch {
-      return '数据格式转换失败';
-    }
-  };
+
 
   const handleDownload = () => {
     console.log('导出数据');
@@ -334,7 +308,6 @@ export const SessionPage: React.FC = () => {
                 selectedMessage={selectedMessage}
                 onMessageSelect={handleMessageSelect}
                 filter={filterText}
-                formatData={formatMessageData}
               />
             </div>
           </Panel>
@@ -377,7 +350,6 @@ export const SessionPage: React.FC = () => {
               selectedMessage={selectedMessage}
               onMessageSelect={handleMessageSelect}
               filter={filterText}
-              formatData={formatMessageData}
             />
           </div>
         );
@@ -471,92 +443,9 @@ export const SessionPage: React.FC = () => {
     </div>
   );
 
-  // 移动端标签页导航
-  const renderMobileTabNav = () => (
-    <div className="h-12 border-b border-border bg-card flex items-center px-2 overflow-x-auto">
-      <div className="flex space-x-1 min-w-max">
-        {[
-          { id: 'timeline', label: '时间线', icon: Clock },
-          { id: 'send', label: '发送', icon: Send },
-          { id: 'receive', label: '接收', icon: Download },
-          { id: 'hex', label: 'Hex', icon: Maximize2 },
-          { id: 'tree', label: '解析树', icon: TreePine },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setMobileActiveTab(tab.id as any)}
-              className={cn(
-                "flex items-center space-x-1 px-3 py-2 rounded-md text-xs font-medium transition-colors",
-                mobileActiveTab === tab.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
-              <Icon className="w-3 h-3" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
 
-  // 移动端内容渲染
-  const renderMobileContent = () => {
-    switch (mobileActiveTab) {
-      case 'send':
-        return renderSendPanel();
-      case 'receive':
-        return (
-          <div className="h-full flex flex-col">
-            {renderReceivePanel()}
-            <div className="flex-1 p-4 text-center text-muted-foreground">
-              <div className="text-4xl mb-2">📄</div>
-              <p>暂无数据</p>
-            </div>
-          </div>
-        );
-      case 'hex':
-        return (
-          <div className="h-full">
-            <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
-              <h3 className="text-sm font-medium">Hex 编辑器</h3>
-            </div>
-            <HexEditor
-              data={selectedMessage?.data || new Uint8Array()}
-              readOnly={true}
-            />
-          </div>
-        );
-      case 'tree':
-        return (
-          <div className="h-full">
-            <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
-              <h3 className="text-sm font-medium">解析树</h3>
-            </div>
-            <ParseTree message={selectedMessage} />
-          </div>
-        );
-      case 'timeline':
-      default:
-        return (
-          <div className="h-full">
-            <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
-              <h3 className="text-sm font-medium">消息时间线</h3>
-            </div>
-            <Timeline
-              messages={messages}
-              selectedMessage={selectedMessage}
-              onMessageSelect={handleMessageSelect}
-              filter={filterText}
-              formatData={formatMessageData}
-            />
-          </div>
-        );
-    }
-  };
+
+
 
   // 响应式布局渲染
   // 暂时禁用移动端渲染以测试其他响应式功能

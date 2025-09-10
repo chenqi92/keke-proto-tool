@@ -1,26 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { cn } from '@/utils';
-import { 
-  ArrowUp, 
-  ArrowDown, 
-  Clock, 
-  AlertCircle, 
-  CheckCircle, 
+import { Message } from '@/types';
+import {
+  ArrowUp,
+  ArrowDown,
+  Clock,
+  AlertCircle,
+  CheckCircle,
   Info,
   Search,
   Filter
 } from 'lucide-react';
-
-interface Message {
-  id: string;
-  timestamp: Date;
-  direction: 'in' | 'out';
-  protocol: string;
-  size: number;
-  data: Uint8Array;
-  parsed?: any;
-  status: 'success' | 'error' | 'warning';
-}
 
 interface TimelineProps {
   messages: Message[];
@@ -28,7 +18,6 @@ interface TimelineProps {
   onMessageSelect?: (message: Message) => void;
   filter?: string;
   className?: string;
-  formatData?: (message: Message) => string;
 }
 
 const getDirectionIcon = (direction: string) => {
@@ -45,7 +34,7 @@ const getStatusIcon = (status: string) => {
       return <CheckCircle className="w-3 h-3 text-green-500" />;
     case 'error':
       return <AlertCircle className="w-3 h-3 text-red-500" />;
-    case 'warning':
+    case 'pending':
       return <AlertCircle className="w-3 h-3 text-yellow-500" />;
     default:
       return <Info className="w-3 h-3 text-blue-500" />;
@@ -53,13 +42,14 @@ const getStatusIcon = (status: string) => {
 };
 
 const formatTimestamp = (timestamp: Date): string => {
-  return timestamp.toLocaleTimeString('zh-CN', {
+  const timeStr = timestamp.toLocaleTimeString('zh-CN', {
     hour12: false,
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
-    fractionalSecondDigits: 3
+    second: '2-digit'
   });
+  const ms = timestamp.getMilliseconds().toString().padStart(3, '0');
+  return `${timeStr}.${ms}`;
 };
 
 const formatSize = (size: number): string => {
@@ -91,8 +81,7 @@ export const Timeline: React.FC<TimelineProps> = ({
   selectedMessage,
   onMessageSelect,
   filter = '',
-  className,
-  formatData
+  className
 }) => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFilter, setShowFilter] = useState(false);
@@ -238,7 +227,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                 <span className="text-xs capitalize">
                   {message.status === 'success' && '成功'}
                   {message.status === 'error' && '错误'}
-                  {message.status === 'warning' && '警告'}
+                  {message.status === 'pending' && '处理中'}
                 </span>
               </div>
 

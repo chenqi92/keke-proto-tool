@@ -39,7 +39,7 @@ interface SessionSummary {
   id: string;
   name: string;
   protocol: 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
-  status: 'connected' | 'disconnected' | 'connecting';
+  status: 'connected' | 'disconnected' | 'connecting' | 'error';
   lastActivity: Date;
   messageCount: number;
   bytesTransferred: number;
@@ -111,7 +111,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               break;
           }
 
-          const success = await networkService.sendMessage(session.config.id, dataBytes);
+          const success = await networkService.sendMessage(session.config.id, new Uint8Array(dataBytes));
           if (success) successCount++;
         } catch (error) {
           console.error('Automated sending error:', error);

@@ -49,6 +49,7 @@ interface AppStore extends WorkspaceState {
   getActiveSession: () => SessionState | undefined;
   getAllSessions: () => SessionState[];
   getSessionsByProtocol: (protocol: string) => SessionState[];
+  matchMQTTTopic: (topic: string, filter: string) => boolean;
 }
 
 const createInitialStatistics = (): SessionStatistics => ({

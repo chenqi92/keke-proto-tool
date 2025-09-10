@@ -19,9 +19,8 @@ import {
   XCircle,
   AlertCircle
 } from 'lucide-react';
-import { useActiveSession, useAppStore } from '@/stores/AppStore';
+import { useActiveSession } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
-import { useSession } from '@/contexts/SessionContext';
 
 interface Connection {
   id: string;
@@ -35,40 +34,7 @@ interface Connection {
   bytesTransferred: number;
 }
 
-const mockConnections: Connection[] = [
-  {
-    id: '1',
-    name: 'TCP 调试服务器',
-    type: 'tcp-server',
-    host: '0.0.0.0',
-    port: 8080,
-    status: 'connected',
-    lastConnected: new Date(),
-    messageCount: 1250,
-    bytesTransferred: 2048576
-  },
-  {
-    id: '2',
-    name: 'Modbus TCP 客户端',
-    type: 'tcp-client',
-    host: '192.168.1.100',
-    port: 502,
-    status: 'disconnected',
-    lastConnected: new Date(Date.now() - 300000),
-    messageCount: 890,
-    bytesTransferred: 1024000
-  },
-  {
-    id: '3',
-    name: 'UDP 广播监听',
-    type: 'udp-server',
-    host: '0.0.0.0',
-    port: 9999,
-    status: 'connecting',
-    messageCount: 0,
-    bytesTransferred: 0
-  }
-];
+
 
 const connectionTypes = [
   { 
@@ -134,8 +100,6 @@ const formatBytes = (bytes: number): string => {
 export const ConnectionPage: React.FC = () => {
   // Get real session data
   const activeSession = useActiveSession();
-  const { selectedNode } = useSession();
-  const updateSessionConfig = useAppStore(state => state.updateSessionConfig);
 
   // UI state
   const [showNewConnectionDialog, setShowNewConnectionDialog] = useState(false);
@@ -161,7 +125,7 @@ export const ConnectionPage: React.FC = () => {
     return [connection];
   }, [activeSession]);
 
-  const handleConnect = async (connection: Connection) => {
+  const handleConnect = async (_connection: Connection) => {
     if (!activeSession) return;
 
     try {
@@ -171,7 +135,7 @@ export const ConnectionPage: React.FC = () => {
     }
   };
 
-  const handleDisconnect = async (connection: Connection) => {
+  const handleDisconnect = async (_connection: Connection) => {
     if (!activeSession) return;
 
     try {

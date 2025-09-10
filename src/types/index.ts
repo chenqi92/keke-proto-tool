@@ -222,6 +222,7 @@ export interface SessionConfig {
   websocketMaxMessageSize?: number; // 最大消息大小（字节）
   websocketCompressionEnabled?: boolean; // 是否启用压缩
   // MQTT特有配置
+  mqttTopic?: string; // MQTT主题
   mqttClientId?: string; // MQTT客户端ID
   mqttUsername?: string; // MQTT用户名
   mqttPassword?: string; // MQTT密码

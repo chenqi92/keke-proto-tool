@@ -11,7 +11,6 @@ import {
   Puzzle
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
-import { getVersionDisplayText } from '@/constants/version';
 
 interface ToolBarProps {
   className?: string;
@@ -100,18 +99,17 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     } else if (layoutConfig.toolbar.showEssentialButtons) {
       // 平板：显示核心功能
       return toolBarItems.filter(item =>
-        ['new-session', 'connect', 'capture', 'search'].includes(item.id)
+        item.id && ['new-session', 'connect', 'capture', 'search'].includes(item.id)
       );
     } else {
       // 移动端：只显示最重要的功能
       return toolBarItems.filter(item =>
-        ['new-session', 'connect'].includes(item.id)
+        item.id && ['new-session', 'connect'].includes(item.id)
       );
     }
   };
 
   const visibleItems = getVisibleItems();
-  const _hiddenItems = toolBarItems.filter(item => !visibleItems.includes(item));
 
   const renderToolBarItem = (item: ToolBarItem, index: number, compact = false) => {
     if (item.separator) {
@@ -121,6 +119,10 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     }
 
     const Icon = item.icon;
+
+    if (!Icon) {
+      return null;
+    }
 
     if (compact) {
       // 紧凑模式：只显示图标
