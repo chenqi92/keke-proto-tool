@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use crate::network::{Connection, ServerConnection};
 use crate::types::{NetworkResult, NetworkError, NetworkEvent};
-use crate::utils::parse_socket_addr;
+use crate::utils::{parse_socket_addr, validate_port, is_common_port};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -49,23 +49,29 @@ impl TcpClient {
 impl Connection for TcpClient {
     async fn connect(&mut self) -> NetworkResult<()> {
         let addr = parse_socket_addr(&self.host, self.port)
-            .map_err(|e| NetworkError::ConnectionFailed(e.to_string()))?;
+            .map_err(|e| NetworkError::ConnectionFailed(format!("Invalid address {}:{} - {}", self.host, self.port, e)))?;
 
         let stream = if let Some(timeout_ms) = self.timeout {
             tokio::time::timeout(
                 std::time::Duration::from_millis(timeout_ms),
                 TcpStream::connect(addr)
             ).await
-            .map_err(|_| NetworkError::ConnectionFailed("Connection timeout".to_string()))?
-            .map_err(|e| NetworkError::ConnectionFailed(e.to_string()))?
+            .map_err(|_| NetworkError::ConnectionFailed(format!("Connection timeout after {}ms to {}:{}", timeout_ms, self.host, self.port)))?
+            .map_err(|e| {
+                let error_msg = format_tcp_connection_error(&e, &self.host, self.port);
+                NetworkError::ConnectionFailed(error_msg)
+            })?
         } else {
             TcpStream::connect(addr).await
-                .map_err(|e| NetworkError::ConnectionFailed(e.to_string()))?
+                .map_err(|e| {
+                    let error_msg = format_tcp_connection_error(&e, &self.host, self.port);
+                    NetworkError::ConnectionFailed(error_msg)
+                })?
         };
 
         self.stream = Some(stream);
         self.connected = true;
-        
+
         Ok(())
     }
 
@@ -209,11 +215,24 @@ impl TcpServer {
 #[async_trait]
 impl Connection for TcpServer {
     async fn connect(&mut self) -> NetworkResult<()> {
+        // Validate port before attempting to bind
+        if let Err(port_error) = validate_port(self.port) {
+            return Err(NetworkError::ConnectionFailed(port_error));
+        }
+
+        // Check if it's a commonly used port
+        if let Some(service) = is_common_port(self.port) {
+            eprintln!("Warning: Port {} is commonly used by {} service", self.port, service);
+        }
+
         let addr = parse_socket_addr(&self.host, self.port)
-            .map_err(|e| NetworkError::ConnectionFailed(e.to_string()))?;
+            .map_err(|e| NetworkError::ConnectionFailed(format!("Invalid server address {}:{} - {}", self.host, self.port, e)))?;
 
         let listener = TcpListener::bind(addr).await
-            .map_err(|e| NetworkError::ConnectionFailed(e.to_string()))?;
+            .map_err(|e| {
+                let error_msg = format_tcp_bind_error(&e, &self.host, self.port);
+                NetworkError::ConnectionFailed(error_msg)
+            })?;
 
         self.listener = Some(listener);
         self.connected = true;
@@ -400,7 +419,7 @@ impl ServerConnection for TcpServer {
         let clients = self.clients.read().await;
         let mut total_sent = 0;
 
-        for (client_id, stream_arc) in clients.iter() {
+        for (_client_id, stream_arc) in clients.iter() {
             let mut stream = stream_arc.write().await;
             match stream.write_all(data).await {
                 Ok(_) => {
@@ -430,5 +449,64 @@ impl ServerConnection for TcpServer {
             drop(stream_arc);
         }
         Ok(())
+    }
+}
+
+/// Format TCP connection error with helpful suggestions
+fn format_tcp_connection_error(error: &std::io::Error, host: &str, port: u16) -> String {
+    let base_msg = format!("Failed to connect to {}:{}", host, port);
+
+    match error.kind() {
+        std::io::ErrorKind::ConnectionRefused => {
+            format!("{} - Connection refused. Check if the server is running and the port is correct.", base_msg)
+        }
+        std::io::ErrorKind::TimedOut => {
+            format!("{} - Connection timed out. Check network connectivity and firewall settings.", base_msg)
+        }
+        std::io::ErrorKind::PermissionDenied => {
+            format!("{} - Permission denied. Try running as administrator or use a different port.", base_msg)
+        }
+        std::io::ErrorKind::AddrNotAvailable => {
+            format!("{} - Address not available. Check if the host address is correct.", base_msg)
+        }
+        _ => {
+            // Check for Windows error 10013 (WSAEACCES)
+            if let Some(os_error) = error.raw_os_error() {
+                if os_error == 10013 {
+                    return format!("{} - Access denied (Windows error 10013). Try running as administrator or use a port >= 1024.", base_msg);
+                }
+            }
+            format!("{} - {}", base_msg, error)
+        }
+    }
+}
+
+/// Format TCP bind error with helpful suggestions
+fn format_tcp_bind_error(error: &std::io::Error, host: &str, port: u16) -> String {
+    let base_msg = format!("Failed to bind TCP server to {}:{}", host, port);
+
+    match error.kind() {
+        std::io::ErrorKind::AddrInUse => {
+            format!("{} - Address already in use. Try a different port or stop the service using this port.", base_msg)
+        }
+        std::io::ErrorKind::PermissionDenied => {
+            if port < 1024 {
+                format!("{} - Permission denied. Ports below 1024 require administrator privileges. Try using port 8080 or higher.", base_msg)
+            } else {
+                format!("{} - Permission denied. Try running as administrator.", base_msg)
+            }
+        }
+        std::io::ErrorKind::AddrNotAvailable => {
+            format!("{} - Address not available. Check if the bind address is correct (use 0.0.0.0 to bind to all interfaces).", base_msg)
+        }
+        _ => {
+            // Check for Windows error 10013 (WSAEACCES)
+            if let Some(os_error) = error.raw_os_error() {
+                if os_error == 10013 {
+                    return format!("{} - Access denied (Windows error 10013). Try running as administrator or use a port >= 1024.", base_msg);
+                }
+            }
+            format!("{} - {}", base_msg, error)
+        }
     }
 }

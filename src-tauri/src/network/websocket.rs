@@ -3,7 +3,7 @@ use crate::network::{Connection, ServerConnection};
 use crate::types::{NetworkResult, NetworkError, NetworkEvent};
 use tokio::sync::mpsc;
 use tokio_tungstenite::{connect_async, accept_async, WebSocketStream, MaybeTlsStream};
-use tokio_tungstenite::tungstenite::{Message, Error as WsError};
+use tokio_tungstenite::tungstenite::Message;
 use tokio::net::{TcpListener, TcpStream};
 use url::Url;
 use std::collections::HashMap;

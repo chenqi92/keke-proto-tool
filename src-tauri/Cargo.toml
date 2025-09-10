@@ -31,6 +31,12 @@ tokio-tungstenite = "0.20"
 url = "2.4"
 futures-util = "0.3"
 
+# MQTT support
+rumqttc = "0.24"
+
+# HTTP client for SSE
+reqwest = { version = "0.11", features = ["stream"] }
+
 # Error handling
 anyhow = "1.0"
 thiserror = "1.0"

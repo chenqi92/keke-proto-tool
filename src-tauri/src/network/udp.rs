@@ -46,17 +46,22 @@ impl Connection for UdpClient {
             return Ok(());
         }
 
-        // For UDP, we bind to a local address and connect to the remote address
+        // For UDP client, we just bind to a local address
+        // UDP is connectionless, so "connect" just sets up the socket
         let local_addr = "0.0.0.0:0"; // Bind to any available port
         let socket = UdpSocket::bind(local_addr).await
-            .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to bind UDP socket: {}", e)))?;
+            .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to create UDP socket: {}", e)))?;
 
+        // For UDP, "connect" just sets the default destination
+        // This is optional and mainly for convenience
         let remote_addr = format!("{}:{}", self.host, self.port);
-        socket.connect(&remote_addr).await
-            .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to connect to {}: {}", remote_addr, e)))?;
+        if let Err(e) = socket.connect(&remote_addr).await {
+            // If connect fails, we can still use the socket with send_to
+            eprintln!("UDP connect failed (will use send_to instead): {}", e);
+        }
 
         self.socket = Some(socket);
-        self.connected = true;
+        self.connected = true; // "connected" means socket is ready
         Ok(())
     }
 
@@ -90,9 +95,9 @@ impl Connection for UdpClient {
 
     fn status(&self) -> String {
         if self.connected {
-            format!("UDP client ready for {}:{}", self.host, self.port)
+            format!("UDP socket ready (target: {}:{})", self.host, self.port)
         } else {
-            "Disconnected".to_string()
+            "UDP socket not initialized".to_string()
         }
     }
 
@@ -215,10 +220,13 @@ impl Connection for UdpServer {
 
         let bind_addr = format!("{}:{}", self.host, self.port);
         let socket = UdpSocket::bind(&bind_addr).await
-            .map_err(|e| NetworkError::ConnectionFailed(format!("Failed to bind UDP server to {}: {}", bind_addr, e)))?;
+            .map_err(|e| {
+                let error_msg = format_udp_bind_error(&e, &self.host, self.port);
+                NetworkError::ConnectionFailed(error_msg)
+            })?;
 
         self.socket = Some(socket);
-        self.connected = true;
+        self.connected = true; // "connected" means socket is bound and ready
         Ok(())
     }
 
@@ -244,9 +252,9 @@ impl Connection for UdpServer {
 
     fn status(&self) -> String {
         if self.connected {
-            format!("UDP server listening on {}:{}", self.host, self.port)
+            format!("UDP server bound to {}:{}", self.host, self.port)
         } else {
-            "Not listening".to_string()
+            "UDP server not bound".to_string()
         }
     }
 
@@ -370,7 +378,7 @@ impl ServerConnection for UdpServer {
         Vec::new()
     }
 
-    async fn disconnect_client(&mut self, client_id: &str) -> NetworkResult<()> {
+    async fn disconnect_client(&mut self, _client_id: &str) -> NetworkResult<()> {
         // UDP is connectionless, so this is a no-op
         Ok(())
     }
@@ -388,5 +396,35 @@ impl UdpConnection for UdpServer {
             .map_err(|e| NetworkError::SendFailed(format!("UDP send_to failed: {}", e)))?;
 
         Ok(bytes_sent)
+    }
+}
+
+/// Format UDP bind error with helpful suggestions
+fn format_udp_bind_error(error: &std::io::Error, host: &str, port: u16) -> String {
+    let base_msg = format!("Failed to bind UDP socket to {}:{}", host, port);
+
+    match error.kind() {
+        std::io::ErrorKind::AddrInUse => {
+            format!("{} - Address already in use. Try a different port.", base_msg)
+        }
+        std::io::ErrorKind::PermissionDenied => {
+            if port < 1024 {
+                format!("{} - Permission denied. Ports below 1024 require administrator privileges. Try using port 8080 or higher.", base_msg)
+            } else {
+                format!("{} - Permission denied. Try running as administrator.", base_msg)
+            }
+        }
+        std::io::ErrorKind::AddrNotAvailable => {
+            format!("{} - Address not available. Check if the bind address is correct (use 0.0.0.0 to bind to all interfaces).", base_msg)
+        }
+        _ => {
+            // Check for Windows error 10013 (WSAEACCES)
+            if let Some(os_error) = error.raw_os_error() {
+                if os_error == 10013 {
+                    return format!("{} - Access denied (Windows error 10013). Try running as administrator or use a port >= 1024.", base_msg);
+                }
+            }
+            format!("{} - {}", base_msg, error)
+        }
     }
 }

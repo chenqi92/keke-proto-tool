@@ -1,22 +1,86 @@
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::str::FromStr;
 
-/// Parse a host:port string into a SocketAddr
-pub fn parse_socket_addr(host: &str, port: u16) -> Result<SocketAddr, std::net::AddrParseError> {
-    let addr_str = if host.contains(':') {
-        // IPv6 address
-        format!("[{}]:{}", host, port)
-    } else {
-        // IPv4 address or hostname
-        format!("{}:{}", host, port)
-    };
-    
-    addr_str.parse()
+/// Parse a host:port string into a SocketAddr with hostname resolution support
+pub fn parse_socket_addr(host: &str, port: u16) -> Result<SocketAddr, Box<dyn std::error::Error + Send + Sync>> {
+    // First try to parse as IP address directly
+    if let Ok(ip) = IpAddr::from_str(host) {
+        return Ok(SocketAddr::new(ip, port));
+    }
+
+    // Handle IPv6 addresses with brackets
+    if host.starts_with('[') && host.ends_with(']') {
+        let ipv6_str = &host[1..host.len()-1];
+        if let Ok(ip) = IpAddr::from_str(ipv6_str) {
+            return Ok(SocketAddr::new(ip, port));
+        }
+    }
+
+    // Try hostname resolution
+    let addr_str = format!("{}:{}", host, port);
+    match addr_str.to_socket_addrs() {
+        Ok(mut addrs) => {
+            if let Some(addr) = addrs.next() {
+                Ok(addr)
+            } else {
+                Err(format!("No addresses found for hostname: {}", host).into())
+            }
+        }
+        Err(e) => {
+            // If hostname resolution fails, try as literal IP one more time
+            if let Ok(ip) = IpAddr::from_str(host) {
+                Ok(SocketAddr::new(ip, port))
+            } else {
+                Err(format!("Failed to resolve hostname '{}': {}", host, e).into())
+            }
+        }
+    }
 }
 
 /// Validate if a string is a valid IP address
 pub fn is_valid_ip(ip: &str) -> bool {
     IpAddr::from_str(ip).is_ok()
+}
+
+/// Validate if a port number is valid and check for potential permission issues
+pub fn validate_port(port: u16) -> Result<(), String> {
+    if port == 0 {
+        return Err("Port cannot be 0".to_string());
+    }
+
+    // Warn about privileged ports on Windows/Unix
+    if port < 1024 {
+        return Err(format!(
+            "Port {} requires administrator privileges. Consider using a port >= 1024 (e.g., 8080, 9090)",
+            port
+        ));
+    }
+
+    Ok(())
+}
+
+/// Check if a port is likely to be in use (common ports)
+pub fn is_common_port(port: u16) -> Option<&'static str> {
+    match port {
+        80 => Some("HTTP"),
+        443 => Some("HTTPS"),
+        21 => Some("FTP"),
+        22 => Some("SSH"),
+        23 => Some("Telnet"),
+        25 => Some("SMTP"),
+        53 => Some("DNS"),
+        110 => Some("POP3"),
+        143 => Some("IMAP"),
+        993 => Some("IMAPS"),
+        995 => Some("POP3S"),
+        3389 => Some("RDP"),
+        5432 => Some("PostgreSQL"),
+        3306 => Some("MySQL"),
+        1433 => Some("SQL Server"),
+        6379 => Some("Redis"),
+        27017 => Some("MongoDB"),
+        _ => None,
+    }
 }
 
 /// Validate if a port number is valid

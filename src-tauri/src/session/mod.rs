@@ -1,9 +1,6 @@
 use crate::network::{Connection, ConnectionFactory};
 use crate::types::{SessionConfig, ConnectionStatus, NetworkResult, NetworkError, NetworkEvent};
-use dashmap::DashMap;
-use std::sync::Arc;
 use tokio::sync::mpsc;
-use uuid::Uuid;
 
 pub mod manager;
 pub mod state;
@@ -59,7 +56,7 @@ impl Session {
                 self.state.set_status(ConnectionStatus::Connected);
                 
                 // Start receiving data
-                let event_receiver = connection.start_receiving().await?;
+                let _event_receiver = connection.start_receiving().await?;
                 
                 // Store connection
                 self.connection = Some(connection);
