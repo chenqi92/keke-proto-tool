@@ -237,12 +237,18 @@ impl TcpServer {
                 return Ok((listener, original_port));
             }
             Err(e) => {
-                // Check if it's an "address in use" error
+                // Check if it's a permanent error (permission denied, etc.)
+                if e.is_permanent() {
+                    eprintln!("TCPServer: Permanent error for port {}, not trying alternatives", original_port);
+                    return Err(e);
+                }
+
+                // Check if it's an "address in use" error (retryable)
                 if let NetworkError::ConnectionFailed(msg) = &e {
-                    if msg.contains("Address already in use") {
+                    if msg.contains("Port already in use") {
                         eprintln!("TCPServer: Port {} is in use, trying alternative ports...", original_port);
                     } else {
-                        // For other errors (permission denied, etc.), don't try alternatives
+                        // For other retryable errors, don't try alternatives
                         return Err(e);
                     }
                 } else {
@@ -262,13 +268,20 @@ impl TcpServer {
                     return Ok((listener, port));
                 }
                 Err(e) => {
+                    // If it's a permanent error, stop trying alternatives
+                    if e.is_permanent() {
+                        eprintln!("TCPServer: Permanent error on port {}, stopping alternatives", port);
+                        return Err(e);
+                    }
+
+                    // For retryable errors, check if it's port conflict
                     if let NetworkError::ConnectionFailed(msg) = &e {
-                        if msg.contains("Address already in use") {
+                        if msg.contains("Port already in use") {
                             eprintln!("TCPServer: Port {} also in use, continuing...", port);
                             continue;
                         } else {
-                            // For non-port-conflict errors, stop trying
-                            eprintln!("TCPServer: Failed to bind to port {} with non-port-conflict error: {}", port, msg);
+                            // For other retryable errors, stop trying
+                            eprintln!("TCPServer: Failed to bind to port {} with error: {}", port, msg);
                             break;
                         }
                     }
@@ -278,7 +291,7 @@ impl TcpServer {
 
         // If all alternatives failed, return the original error with suggestions
         let error_msg = format!(
-            "Failed to bind TCP server to {}:{} - Address already in use. Tried alternative ports: {:?}. Please choose a different port or stop the service using these ports.",
+            "Server startup failed: Unable to start TCP server on {}:{} - Port already in use. Tried alternative ports: {:?}. Please choose a different port or stop the service using these ports.",
             self.host, original_port, alternative_ports
         );
         Err(NetworkError::ConnectionFailed(error_msg))
@@ -289,14 +302,11 @@ impl TcpServer {
         let addr = parse_socket_addr(&self.host, port)
             .map_err(|e| {
                 let error_msg = format!("Invalid server address {}:{} - {}", self.host, port, e);
-                NetworkError::ConnectionFailed(error_msg)
+                NetworkError::ConnectionFailedPermanent(error_msg)
             })?;
 
         TcpListener::bind(addr).await
-            .map_err(|e| {
-                let error_msg = format_tcp_bind_error(&e, &self.host, port);
-                NetworkError::ConnectionFailed(error_msg)
-            })
+            .map_err(|e| format_tcp_bind_error(&e, &self.host, port))
     }
 }
 
@@ -547,7 +557,7 @@ impl ServerConnection for TcpServer {
 
 /// Format TCP connection error with helpful suggestions
 fn format_tcp_connection_error(error: &std::io::Error, host: &str, port: u16) -> String {
-    let base_msg = format!("Failed to connect to {}:{}", host, port);
+    let base_msg = format!("Connection failed: Unable to connect to {}:{}", host, port);
 
     match error.kind() {
         std::io::ErrorKind::ConnectionRefused => {
@@ -574,32 +584,41 @@ fn format_tcp_connection_error(error: &std::io::Error, host: &str, port: u16) ->
     }
 }
 
-/// Format TCP bind error with helpful suggestions
-fn format_tcp_bind_error(error: &std::io::Error, host: &str, port: u16) -> String {
-    let base_msg = format!("Failed to bind TCP server to {}:{}", host, port);
+/// Format TCP bind error with helpful suggestions and return appropriate error type
+fn format_tcp_bind_error(error: &std::io::Error, host: &str, port: u16) -> NetworkError {
+    let base_msg = format!("Server startup failed: Unable to start TCP server on {}:{}", host, port);
 
     match error.kind() {
         std::io::ErrorKind::AddrInUse => {
-            format!("{} - Address already in use. Try a different port or stop the service using this port.", base_msg)
+            // Address in use is retryable - we can try alternative ports
+            let msg = format!("{} - Port already in use. Will try alternative ports automatically.", base_msg);
+            NetworkError::ConnectionFailed(msg)
         }
         std::io::ErrorKind::PermissionDenied => {
-            if port < 1024 {
-                format!("{} - Permission denied. Ports below 1024 require administrator privileges. Try using port 8080 or higher.", base_msg)
+            // Permission denied is permanent - don't retry
+            let msg = if port < 1024 {
+                format!("{} - Permission denied. Ports below 1024 require administrator privileges. Please run as administrator or use port 8080 or higher.", base_msg)
             } else {
-                format!("{} - Permission denied. Try running as administrator.", base_msg)
-            }
+                format!("{} - Permission denied. Please run as administrator or choose a different port.", base_msg)
+            };
+            NetworkError::ConnectionFailedPermanent(msg)
         }
         std::io::ErrorKind::AddrNotAvailable => {
-            format!("{} - Address not available. Check if the bind address is correct (use 0.0.0.0 to bind to all interfaces).", base_msg)
+            // Address not available is usually permanent
+            let msg = format!("{} - Address not available. Check if the bind address is correct (use 0.0.0.0 to bind to all interfaces).", base_msg);
+            NetworkError::ConnectionFailedPermanent(msg)
         }
         _ => {
             // Check for Windows error 10013 (WSAEACCES)
             if let Some(os_error) = error.raw_os_error() {
                 if os_error == 10013 {
-                    return format!("{} - Access denied (Windows error 10013). Try running as administrator or use a port >= 1024.", base_msg);
+                    let msg = format!("{} - Access denied (Windows error 10013). Please run as administrator or use a port >= 1024.", base_msg);
+                    return NetworkError::ConnectionFailedPermanent(msg);
                 }
             }
-            format!("{} - {}", base_msg, error)
+            // Other errors are treated as permanent by default
+            let msg = format!("{} - {}", base_msg, error);
+            NetworkError::ConnectionFailedPermanent(msg)
         }
     }
 }
@@ -621,8 +640,10 @@ fn generate_alternative_ports(original_port: u16) -> Vec<u16> {
             // For other ports, try nearby ports and common alternatives
             // Try +1, +2, +3 from original port (if valid)
             for offset in 1..=3 {
-                if original_port.saturating_add(offset) <= 65535 {
-                    alternatives.push(original_port + offset);
+                if let Some(new_port) = original_port.checked_add(offset) {
+                    if new_port <= 65535 {
+                        alternatives.push(new_port);
+                    }
                 }
             }
 
