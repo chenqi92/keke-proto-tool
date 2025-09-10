@@ -168,6 +168,46 @@ export interface MQTTPublishOptions {
   dup?: boolean; // 重复消息标志（通常由客户端库自动设置）
 }
 
+// SSE特有类型
+export type SSEEventType = 'message' | 'open' | 'error' | 'close' | string; // 支持自定义事件类型
+export type SSEReadyState = 'connecting' | 'open' | 'closed';
+
+export interface SSEConfig {
+  url?: string; // SSE服务器URL
+  withCredentials?: boolean; // 是否发送凭据
+  headers?: Record<string, string>; // 自定义请求头
+  reconnectTime?: number; // 重连间隔（毫秒）
+  maxReconnectAttempts?: number; // 最大重连次数
+  eventTypes?: string[]; // 监听的事件类型列表
+}
+
+export interface SSEEvent {
+  id: string; // 事件ID
+  type: string; // 事件类型
+  data: string; // 事件数据
+  timestamp: Date; // 接收时间
+  retry?: number; // 重试间隔
+  lastEventId?: string; // 最后事件ID
+}
+
+export interface SSEConnectionOptions {
+  url: string; // SSE服务器URL
+  eventTypes: string[]; // 要监听的事件类型
+  headers?: Record<string, string>; // 自定义请求头
+  withCredentials?: boolean; // 是否发送凭据
+  reconnectTime?: number; // 重连间隔（毫秒）
+  maxReconnectAttempts?: number; // 最大重连次数
+}
+
+export interface SSEEventFilter {
+  id: string; // 过滤器ID
+  eventType: string; // 事件类型
+  isActive: boolean; // 是否启用
+  messageCount: number; // 接收到的消息数量
+  lastMessageAt?: Date; // 最后一条消息时间
+  createdAt: Date; // 创建时间
+}
+
 export interface NetworkAddress {
   host: string;
   port: number;
@@ -202,6 +242,11 @@ export interface Message {
   mqttDup?: boolean; // MQTT重复消息标志
   mqttPacketId?: number; // MQTT包标识符（QoS 1和2使用）
   mqttSubscriptionId?: string; // 对应的订阅ID（接收消息时）
+  // SSE特有字段
+  sseEventType?: string; // SSE事件类型
+  sseEventId?: string; // SSE事件ID
+  sseRetry?: number; // SSE重试间隔
+  sseLastEventId?: string; // SSE最后事件ID
 }
 
 export interface SessionConfig {
@@ -248,6 +293,9 @@ export interface SessionState {
   clientConnections?: Record<string, ClientConnection>; // For server sessions
   // MQTT特有状态
   mqttSubscriptions?: Record<string, MQTTSubscription>; // MQTT订阅列表
+  // SSE特有状态
+  sseEventFilters?: Record<string, SSEEventFilter>; // SSE事件过滤器列表
+  sseLastEventId?: string; // SSE最后事件ID（用于重连）
 }
 
 export interface SessionStatistics {

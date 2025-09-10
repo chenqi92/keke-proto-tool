@@ -1,21 +1,22 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { Message, ConnectionStatus, NetworkConnection, WebSocketErrorType, MQTTQoSLevel, MQTTErrorType, MQTTSubscription, MQTTPublishOptions } from '@/types';
+import { Message, ConnectionStatus, NetworkConnection, WebSocketErrorType, MQTTQoSLevel, MQTTErrorType, MQTTSubscription, MQTTPublishOptions, SSEEvent, SSEEventFilter } from '@/types';
 import { useAppStore } from '@/stores/AppStore';
 
 export interface NetworkEvent {
   sessionId: string;
-  type: 'connected' | 'disconnected' | 'message' | 'error';
+  type: 'connected' | 'disconnected' | 'message' | 'error' | 'sse_event';
   data?: any;
   error?: string;
+  sseEvent?: SSEEvent;
 }
 
 class NetworkService {
   private connections: Map<string, NetworkConnection> = new Map();
-  private reconnectTimers: Map<string, NodeJS.Timeout> = new Map();
+  private reconnectTimers: Map<string, number> = new Map();
   // WebSocket特有属性
-  private websocketPingTimers: Map<string, NodeJS.Timeout> = new Map();
-  private websocketPongTimers: Map<string, NodeJS.Timeout> = new Map();
+  private websocketPingTimers: Map<string, number> = new Map();
+  private websocketPongTimers: Map<string, number> = new Map();
   private websocketReconnectAttempts: Map<string, number> = new Map();
 
   constructor() {
@@ -81,6 +82,11 @@ class NetworkService {
           this.handleIncomingMessage(sessionId, data, 'in');
         }
         break;
+      case 'sse_event':
+        if (event.sseEvent) {
+          this.handleSSEEvent(sessionId, event.sseEvent);
+        }
+        break;
     }
   }
 
@@ -123,6 +129,12 @@ class NetworkService {
     const session = useAppStore.getState().getSession(sessionId);
     if (!session || !session.config.autoReconnect) return;
 
+    // SSE has its own reconnect mechanism
+    if (session.config.protocol === 'SSE') {
+      this.handleSSEReconnect(sessionId);
+      return;
+    }
+
     // Clear existing timer
     const existingTimer = this.reconnectTimers.get(sessionId);
     if (existingTimer) {
@@ -134,7 +146,7 @@ class NetworkService {
       this.connect(sessionId);
     }, 5000); // Reconnect after 5 seconds
 
-    this.reconnectTimers.set(sessionId, timer);
+    this.reconnectTimers.set(sessionId, timer as unknown as number);
   }
 
   async connect(sessionId: string): Promise<boolean> {
@@ -156,6 +168,19 @@ class NetworkService {
         const validation = this.validateWebSocketUrl(wsUrl);
         if (!validation.isValid) {
           throw new Error(validation.error || 'Invalid WebSocket URL');
+        }
+      }
+
+      // SSE特有的连接前验证
+      if (config.protocol === 'SSE') {
+        // 构建SSE URL
+        const protocol = config.host?.startsWith('localhost') || config.host?.startsWith('127.0.0.1') ? 'http' : 'https';
+        const sseUrl = `${protocol}://${config.host}:${config.port}`;
+
+        // 验证SSE URL
+        const validation = this.validateSSEUrl(sseUrl);
+        if (!validation.isValid) {
+          throw new Error(validation.error || 'Invalid SSE URL');
         }
       }
 
@@ -504,7 +529,7 @@ class NetworkService {
       }
     }, pingInterval);
 
-    this.websocketPingTimers.set(sessionId, pingTimer as any);
+    this.websocketPingTimers.set(sessionId, pingTimer as unknown as number);
   }
 
   // WebSocket特定方法：停止心跳机制
@@ -541,7 +566,7 @@ class NetworkService {
           this.handleWebSocketError(sessionId, 'pong_timeout', 'Pong response timeout');
         }, 10000); // 10秒pong超时
 
-        this.websocketPongTimers.set(sessionId, pongTimeout as any);
+        this.websocketPongTimers.set(sessionId, pongTimeout as unknown as number);
 
         // 添加ping消息到消息流
         const pingMessage: Message = {
@@ -1539,7 +1564,7 @@ class NetworkService {
           // 重新订阅之前的主题
           const subscriptions = currentSession.mqttSubscriptions;
           if (subscriptions) {
-            for (const subscription of Object.values(subscriptions)) {
+            for (const subscription of Object.values(subscriptions) as MQTTSubscription[]) {
               if (subscription.isActive) {
                 await this.subscribeMQTTTopic(sessionId, subscription.topic, subscription.qos);
               }
@@ -1548,6 +1573,262 @@ class NetworkService {
         }
       }
     }, reconnectDelay);
+  }
+
+  // ==================== SSE特定方法 ====================
+
+  // SSE特定方法：添加事件类型过滤器
+  async addSSEEventFilter(sessionId: string, eventType: string): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.protocol !== 'SSE') {
+        throw new Error('Session is not an SSE session or not found');
+      }
+
+      // 检查是否已存在相同的事件类型过滤器
+      const existingFilters = session.sseEventFilters || {};
+      const existingFilter = Object.values(existingFilters).find((filter: SSEEventFilter) => filter.eventType === eventType);
+
+      if (existingFilter) {
+        throw new Error(`Event filter for type '${eventType}' already exists`);
+      }
+
+      // 创建新的事件过滤器
+      const eventFilter: SSEEventFilter = {
+        id: `filter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventType,
+        isActive: true,
+        messageCount: 0,
+        createdAt: new Date(),
+      };
+
+      // 添加到状态管理
+      useAppStore.getState().addSSEEventFilter(sessionId, eventFilter);
+
+      // 如果已连接，通知后端添加事件监听
+      if (session.status === 'connected') {
+        const result = await invoke<boolean>('add_sse_event_filter', {
+          sessionId,
+          eventType,
+        });
+
+        if (!result) {
+          // 如果后端添加失败，从状态中移除
+          useAppStore.getState().removeSSEEventFilter(sessionId, eventType);
+          return false;
+        }
+      }
+
+      // 添加过滤器成功消息到消息流
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: 'SSE',
+        size: eventType.length,
+        data: new TextEncoder().encode(`ADD_FILTER: ${eventType}`),
+        status: 'success',
+        raw: `ADD_FILTER: ${eventType}`,
+        sseEventType: eventType,
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+      return true;
+    } catch (error) {
+      console.error('Add SSE event filter failed:', error);
+
+      // 添加失败消息到消息流
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: 'SSE',
+        size: eventType.length,
+        data: new TextEncoder().encode(`ADD_FILTER_FAILED: ${eventType}`),
+        status: 'error',
+        raw: `ADD_FILTER_FAILED: ${eventType}`,
+        sseEventType: eventType,
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+      return false;
+    }
+  }
+
+  // SSE特定方法：移除事件类型过滤器
+  async removeSSEEventFilter(sessionId: string, eventType: string): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.protocol !== 'SSE') {
+        throw new Error('Session is not an SSE session or not found');
+      }
+
+      // 如果已连接，通知后端移除事件监听
+      if (session.status === 'connected') {
+        const result = await invoke<boolean>('remove_sse_event_filter', {
+          sessionId,
+          eventType,
+        });
+
+        if (!result) {
+          return false;
+        }
+      }
+
+      // 从状态管理中移除
+      useAppStore.getState().removeSSEEventFilter(sessionId, eventType);
+
+      // 添加移除过滤器成功消息到消息流
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: 'SSE',
+        size: eventType.length,
+        data: new TextEncoder().encode(`REMOVE_FILTER: ${eventType}`),
+        status: 'success',
+        raw: `REMOVE_FILTER: ${eventType}`,
+        sseEventType: eventType,
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+      return true;
+    } catch (error) {
+      console.error('Remove SSE event filter failed:', error);
+
+      // 添加失败消息到消息流
+      const message: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: 'SSE',
+        size: eventType.length,
+        data: new TextEncoder().encode(`REMOVE_FILTER_FAILED: ${eventType}`),
+        status: 'error',
+        raw: `REMOVE_FILTER_FAILED: ${eventType}`,
+        sseEventType: eventType,
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+      return false;
+    }
+  }
+
+  // SSE特定方法：处理SSE事件
+  private handleSSEEvent(sessionId: string, event: SSEEvent) {
+    const session = useAppStore.getState().getSession(sessionId);
+    if (!session || session.config.protocol !== 'SSE') {
+      return;
+    }
+
+    // 检查事件类型是否在过滤器中
+    const eventFilters = session.sseEventFilters || {};
+    const matchingFilter = Object.values(eventFilters).find(
+      (filter: SSEEventFilter) => filter.isActive && (filter.eventType === event.type || filter.eventType === '*')
+    );
+
+    if (!matchingFilter && event.type !== 'open' && event.type !== 'error' && event.type !== 'close') {
+      // 如果没有匹配的过滤器且不是系统事件，忽略此事件
+      return;
+    }
+
+    // 更新过滤器统计
+    if (matchingFilter) {
+      useAppStore.getState().incrementSSEEventFilterMessageCount(sessionId, event.type);
+    }
+
+    // 更新最后事件ID
+    if (event.lastEventId) {
+      useAppStore.getState().updateSSELastEventId(sessionId, event.lastEventId);
+    }
+
+    // 创建消息对象
+    const message: Message = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: event.timestamp,
+      direction: 'in',
+      protocol: 'SSE',
+      size: event.data.length,
+      data: new TextEncoder().encode(event.data),
+      status: 'success',
+      raw: event.data,
+      sseEventType: event.type,
+      sseEventId: event.id,
+      sseRetry: event.retry,
+      sseLastEventId: event.lastEventId,
+    };
+
+    useAppStore.getState().addMessage(sessionId, message);
+  }
+
+  // SSE特定方法：处理SSE重连
+  private handleSSEReconnect(sessionId: string) {
+    const session = useAppStore.getState().getSession(sessionId);
+    if (!session || session.config.protocol !== 'SSE' || !session.config.autoReconnect) {
+      return;
+    }
+
+    // 设置重连延迟
+    const baseDelay = 3000; // 3秒（SSE标准推荐）
+    const maxDelay = 30000; // 30秒
+    const attempt = session.statistics.connectionCount || 0;
+    const reconnectDelay = Math.min(baseDelay * Math.pow(1.5, attempt), maxDelay);
+
+    console.log(`SSE reconnecting in ${reconnectDelay}ms for session: ${sessionId}`);
+
+    setTimeout(async () => {
+      const currentSession = useAppStore.getState().getSession(sessionId);
+      if (currentSession && (currentSession.status === 'error' || currentSession.status === 'disconnected')) {
+        console.log(`Attempting SSE reconnection for session: ${sessionId}`);
+        const success = await this.connect(sessionId);
+        if (success) {
+          console.log(`SSE reconnected successfully for session: ${sessionId}`);
+
+          // 重新添加事件过滤器
+          const eventFilters = currentSession.sseEventFilters;
+          if (eventFilters) {
+            for (const filter of Object.values(eventFilters) as SSEEventFilter[]) {
+              if (filter.isActive) {
+                await invoke<boolean>('add_sse_event_filter', {
+                  sessionId,
+                  eventType: filter.eventType,
+                });
+              }
+            }
+          }
+        }
+      }
+    }, reconnectDelay);
+  }
+
+  // SSE特定方法：验证SSE URL格式
+  private validateSSEUrl(url: string): { isValid: boolean; error?: string } {
+    try {
+      const urlObj = new URL(url);
+
+      // SSE通常使用HTTP/HTTPS协议
+      if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        return {
+          isValid: false,
+          error: 'SSE URL must use HTTP or HTTPS protocol'
+        };
+      }
+
+      // 检查URL格式
+      if (!urlObj.hostname) {
+        return {
+          isValid: false,
+          error: 'Invalid hostname in SSE URL'
+        };
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      return {
+        isValid: false,
+        error: 'Invalid SSE URL format'
+      };
+    }
   }
 }
 

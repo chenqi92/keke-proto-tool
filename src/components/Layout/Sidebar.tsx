@@ -649,7 +649,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
           onBatchOperation: handleContextMenuAction.onBatchOperation
         });
 
-      case 'session':
+      case 'session': {
         const session = sessionsMap[nodeData.id];
         const isConnected = session?.status === 'connected';
         return createSessionMenuItems({
@@ -660,6 +660,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
           onConnect: () => handleContextMenuAction.onConnect(nodeData.id),
           onDisconnect: () => handleContextMenuAction.onDisconnect(nodeData.id)
         }, isConnected);
+      }
 
       case 'connection':
         return createConnectionMenuItems({

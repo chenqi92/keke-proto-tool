@@ -543,7 +543,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                       <span>连接时长:</span>
                       <span>
                         {session.lastActivity ?
-                          Math.floor((new Date().getTime() - session.lastActivity.getTime()) / 60000) + '分钟' :
+                          `${Math.floor((new Date().getTime() - session.lastActivity.getTime()) / 60000)}分钟` :
                           '未知'
                         }
                       </span>

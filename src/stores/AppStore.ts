@@ -8,22 +8,29 @@ import {
   ConnectionStatus,
   SessionStatistics,
   ClientConnection,
-  MQTTSubscription
+  MQTTSubscription,
+  SSEEventFilter
 } from '@/types';
 
 interface AppStore extends WorkspaceState {
+  // State properties
+  sessions: Record<string, SessionState>;
+  activeSessionId: string | null;
+  selectedNodeId: string | null;
+  selectedNodeType: 'workspace' | 'session' | 'connection' | null;
+
   // Session Management
   createSession: (config: SessionConfig) => void;
   updateSession: (sessionId: string, updates: Partial<SessionState>) => void;
   deleteSession: (sessionId: string) => void;
   setActiveSession: (sessionId: string | null) => void;
-  
+
   // Connection Management
   updateSessionStatus: (sessionId: string, status: ConnectionStatus, error?: string) => void;
   addMessage: (sessionId: string, message: Message) => void;
   clearMessages: (sessionId: string) => void;
   updateStatistics: (sessionId: string, stats: Partial<SessionStatistics>) => void;
-  
+
   // Recording Management
   startRecording: (sessionId: string) => void;
   stopRecording: (sessionId: string) => void;
@@ -41,9 +48,17 @@ interface AppStore extends WorkspaceState {
   getMQTTSubscriptions: (sessionId: string) => MQTTSubscription[];
   incrementMQTTSubscriptionMessageCount: (sessionId: string, topic: string) => void;
 
+  // SSE Event Filter Management
+  addSSEEventFilter: (sessionId: string, eventFilter: SSEEventFilter) => void;
+  removeSSEEventFilter: (sessionId: string, eventType: string) => void;
+  updateSSEEventFilter: (sessionId: string, filterId: string, updates: Partial<SSEEventFilter>) => void;
+  getSSEEventFilters: (sessionId: string) => SSEEventFilter[];
+  incrementSSEEventFilterMessageCount: (sessionId: string, eventType: string) => void;
+  updateSSELastEventId: (sessionId: string, lastEventId: string) => void;
+
   // Node Selection
   setSelectedNode: (nodeId: string | null, nodeType: 'workspace' | 'session' | 'connection' | null) => void;
-  
+
   // Utility Methods
   getSession: (sessionId: string) => SessionState | undefined;
   getActiveSession: () => SessionState | undefined;
@@ -138,7 +153,7 @@ export const useAppStore = create<AppStore>()(
 
     deleteSession: (sessionId: string) => {
       set((state) => {
-        const { [sessionId]: deleted, ...remainingSessions } = state.sessions;
+        const { [sessionId]: _deleted, ...remainingSessions } = state.sessions;
         return {
           sessions: remainingSessions,
           activeSessionId: state.activeSessionId === sessionId ? null : state.activeSessionId,
@@ -330,7 +345,7 @@ export const useAppStore = create<AppStore>()(
         const session = state.sessions[sessionId];
         if (!session || !session.clientConnections) return state;
 
-        const { [clientId]: removed, ...remainingConnections } = session.clientConnections;
+        const { [clientId]: _removed, ...remainingConnections } = session.clientConnections;
 
         return {
           ...state,
@@ -407,12 +422,12 @@ export const useAppStore = create<AppStore>()(
 
         // 找到匹配主题的订阅
         const subscriptionToRemove = Object.values(session.mqttSubscriptions).find(
-          sub => sub.topic === topic
+          (sub: MQTTSubscription) => sub.topic === topic
         );
 
         if (!subscriptionToRemove) return state;
 
-        const { [subscriptionToRemove.id]: removed, ...remainingSubscriptions } = session.mqttSubscriptions;
+        const { [subscriptionToRemove.id]: _removed, ...remainingSubscriptions } = session.mqttSubscriptions;
 
         return {
           ...state,
@@ -468,13 +483,13 @@ export const useAppStore = create<AppStore>()(
 
         // 找到匹配主题的订阅（支持通配符匹配）
         const matchingSubscriptions = Object.values(session.mqttSubscriptions).filter(
-          sub => get().matchMQTTTopic(topic, sub.topic)
+          (sub: MQTTSubscription) => get().matchMQTTTopic(topic, sub.topic)
         );
 
         if (matchingSubscriptions.length === 0) return state;
 
         const updatedSubscriptions = { ...session.mqttSubscriptions };
-        matchingSubscriptions.forEach(sub => {
+        matchingSubscriptions.forEach((sub: MQTTSubscription) => {
           updatedSubscriptions[sub.id] = {
             ...sub,
             messageCount: sub.messageCount + 1,
@@ -550,6 +565,143 @@ export const useAppStore = create<AppStore>()(
       }
 
       return true;
+    },
+
+    // ==================== SSE Event Filter Management ====================
+
+    // SSE Event Filter Management
+    addSSEEventFilter: (sessionId: string, eventFilter: SSEEventFilter) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session) return state;
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              sseEventFilters: {
+                ...session.sseEventFilters,
+                [eventFilter.id]: eventFilter,
+              },
+            },
+          },
+        };
+      });
+    },
+
+    removeSSEEventFilter: (sessionId: string, eventType: string) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session || !session.sseEventFilters) return state;
+
+        // Find the filter to remove by event type
+        const filterToRemove = Object.entries(session.sseEventFilters).find(
+          ([_, filter]: [string, SSEEventFilter]) => filter.eventType === eventType
+        );
+
+        if (!filterToRemove) return state;
+
+        const updatedFilters = { ...session.sseEventFilters };
+        delete updatedFilters[filterToRemove[0]];
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              sseEventFilters: updatedFilters,
+            },
+          },
+        };
+      });
+    },
+
+    updateSSEEventFilter: (sessionId: string, filterId: string, updates: Partial<SSEEventFilter>) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session || !session.sseEventFilters || !session.sseEventFilters[filterId]) {
+          return state;
+        }
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              sseEventFilters: {
+                ...session.sseEventFilters,
+                [filterId]: {
+                  ...session.sseEventFilters[filterId],
+                  ...updates,
+                },
+              },
+            },
+          },
+        };
+      });
+    },
+
+    getSSEEventFilters: (sessionId: string) => {
+      const session = get().sessions[sessionId];
+      if (!session || !session.sseEventFilters) {
+        return [];
+      }
+      return Object.values(session.sseEventFilters) as SSEEventFilter[];
+    },
+
+    incrementSSEEventFilterMessageCount: (sessionId: string, eventType: string) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session || !session.sseEventFilters) return state;
+
+        const filterEntry = Object.entries(session.sseEventFilters).find(
+          ([_filterId, filter]: [string, SSEEventFilter]) => filter.eventType === eventType || filter.eventType === '*'
+        );
+
+        if (!filterEntry) return state;
+
+        const [filterId, filter] = filterEntry;
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              sseEventFilters: {
+                ...session.sseEventFilters,
+                [filterId]: {
+                  ...filter,
+                  messageCount: filter.messageCount + 1,
+                  lastMessageAt: new Date(),
+                },
+              },
+            },
+          },
+        };
+      });
+    },
+
+    updateSSELastEventId: (sessionId: string, lastEventId: string) => {
+      set((state) => {
+        const session = state.sessions[sessionId];
+        if (!session) return state;
+
+        return {
+          ...state,
+          sessions: {
+            ...state.sessions,
+            [sessionId]: {
+              ...session,
+              sseLastEventId: lastEventId,
+            },
+          },
+        };
+      });
     },
   })),
   persistConfig

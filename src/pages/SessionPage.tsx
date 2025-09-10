@@ -10,6 +10,7 @@ import { TCPSessionContent } from '@/components/ProtocolSessions/TCPSessionConte
 import { UDPSessionContent } from '@/components/ProtocolSessions/UDPSessionContent';
 import { WebSocketSessionContent } from '@/components/ProtocolSessions/WebSocketSessionContent';
 import { MQTTSessionContent } from '@/components/ProtocolSessions/MQTTSessionContent';
+import { SSESessionContent } from '@/components/ProtocolSessions/SSESessionContent';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession } from '@/contexts/SessionContext';
 import { WorkspacePage } from './WorkspacePage';
@@ -135,6 +136,7 @@ export const SessionPage: React.FC = () => {
       case 'MQTT':
         return <MQTTSessionContent sessionId={currentSession.id} />;
       case 'SSE':
+        return <SSESessionContent sessionId={currentSession.id} />;
       default:
         // Fall back to generic session content for protocols not yet implemented
         return renderGenericSessionContent();
