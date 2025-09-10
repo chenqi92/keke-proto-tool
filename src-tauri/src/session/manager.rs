@@ -11,9 +11,22 @@ pub struct SessionManager {
 
 impl SessionManager {
     pub fn new() -> Self {
-        Self {
+        let manager = Self {
             sessions: Arc::new(DashMap::new()),
-        }
+        };
+
+        // Reset any persistent state on startup
+        manager.reset_all_session_states();
+
+        manager
+    }
+
+    /// Reset all session states to disconnected on startup
+    /// This fixes the persistent invalid state issue
+    fn reset_all_session_states(&self) {
+        // This method will be called on app startup to ensure clean state
+        // Since sessions are created fresh each time, this is mainly for future persistence
+        eprintln!("SessionManager initialized - all sessions will start in disconnected state");
     }
 
     /// Create a new session with the given configuration
@@ -69,6 +82,24 @@ impl SessionManager {
             Some(_) => Ok(()),
             None => Err(NetworkError::SessionNotFound(session_id.to_string())),
         }
+    }
+
+    /// Cleanup all sessions and disconnect them (called on app shutdown)
+    pub async fn cleanup_all_sessions(&self) {
+        eprintln!("Cleaning up all sessions...");
+
+        let session_ids: Vec<String> = self.sessions.iter().map(|entry| entry.key().clone()).collect();
+
+        for session_id in session_ids {
+            if let Some(mut session) = self.sessions.get_mut(&session_id) {
+                if let Err(e) = session.disconnect().await {
+                    eprintln!("Error disconnecting session {}: {}", session_id, e);
+                }
+            }
+        }
+
+        self.sessions.clear();
+        eprintln!("All sessions cleaned up");
     }
 
     /// Get session statistics

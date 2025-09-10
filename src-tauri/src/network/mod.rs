@@ -2,11 +2,14 @@ use async_trait::async_trait;
 use crate::types::{NetworkResult, NetworkEvent};
 use tokio::sync::mpsc;
 
+pub use connection_manager::ConnectionManager;
+
 pub mod tcp;
 pub mod udp;
 pub mod websocket;
 pub mod mqtt;
 pub mod sse;
+pub mod connection_manager;
 
 /// Core connection trait that all network protocols must implement
 #[async_trait]

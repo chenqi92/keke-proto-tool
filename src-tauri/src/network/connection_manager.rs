@@ -1,0 +1,231 @@
+use crate::network::Connection;
+use crate::types::{NetworkResult, NetworkError, ConnectionStatus};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::{RwLock, mpsc};
+use tokio::time::{timeout, sleep};
+
+/// Connection manager that handles timeout, retry logic, and cleanup
+#[derive(Debug)]
+pub struct ConnectionManager {
+    connection: Arc<RwLock<Option<Box<dyn Connection>>>>,
+    session_id: String,
+    timeout_duration: Duration,
+    max_retries: u32,
+    base_retry_delay: Duration,
+    current_attempt: Arc<RwLock<u32>>,
+    is_connecting: Arc<RwLock<bool>>,
+    should_cancel: Arc<RwLock<bool>>,
+}
+
+impl ConnectionManager {
+    pub fn new(
+        session_id: String,
+        timeout_ms: Option<u64>,
+        max_retries: Option<u32>,
+        retry_delay_ms: Option<u64>,
+    ) -> Self {
+        Self {
+            connection: Arc::new(RwLock::new(None)),
+            session_id,
+            timeout_duration: Duration::from_millis(timeout_ms.unwrap_or(30000)), // Default 30s
+            max_retries: max_retries.unwrap_or(3),
+            base_retry_delay: Duration::from_millis(retry_delay_ms.unwrap_or(1000)), // Default 1s
+            current_attempt: Arc::new(RwLock::new(0)),
+            is_connecting: Arc::new(RwLock::new(false)),
+            should_cancel: Arc::new(RwLock::new(false)),
+        }
+    }
+
+    /// Connect with timeout and retry logic
+    pub async fn connect_with_retry<F, Fut>(
+        &self,
+        connection_factory: F,
+        status_callback: mpsc::Sender<ConnectionStatus>,
+    ) -> NetworkResult<()>
+    where
+        F: FnMut() -> Fut + Send,
+        Fut: std::future::Future<Output = NetworkResult<Box<dyn Connection>>> + Send,
+    {
+        // Check if already connecting
+        {
+            let is_connecting = self.is_connecting.read().await;
+            if *is_connecting {
+                return Err(NetworkError::ConnectionFailed("Connection already in progress".to_string()));
+            }
+        }
+
+        // Set connecting state
+        *self.is_connecting.write().await = true;
+        *self.current_attempt.write().await = 0;
+
+        // Reset cancellation flag
+        *self.should_cancel.write().await = false;
+
+        let result = self.attempt_connection_with_retries(connection_factory, status_callback).await;
+
+        // Reset connecting state
+        *self.is_connecting.write().await = false;
+
+        result
+    }
+
+    async fn attempt_connection_with_retries<F, Fut>(
+        &self,
+        mut connection_factory: F,
+        status_callback: mpsc::Sender<ConnectionStatus>,
+    ) -> NetworkResult<()>
+    where
+        F: FnMut() -> Fut + Send,
+        Fut: std::future::Future<Output = NetworkResult<Box<dyn Connection>>> + Send,
+    {
+        for attempt in 0..=self.max_retries {
+            // Check for cancellation
+            if *self.should_cancel.read().await {
+                return Err(NetworkError::ConnectionFailed("Connection cancelled".to_string()));
+            }
+
+            *self.current_attempt.write().await = attempt;
+
+            // Update status
+            let status = if attempt == 0 {
+                ConnectionStatus::Connecting
+            } else {
+                ConnectionStatus::Reconnecting(attempt)
+            };
+            let _ = status_callback.send(status).await;
+
+            // Attempt connection with timeout
+            let connection_result = timeout(
+                self.timeout_duration,
+                connection_factory()
+            ).await;
+
+            match connection_result {
+                Ok(Ok(mut connection)) => {
+                    // Connection successful, now try to establish it
+                    match timeout(self.timeout_duration, connection.connect()).await {
+                        Ok(Ok(_)) => {
+                            // Success! Store the connection
+                            *self.connection.write().await = Some(connection);
+                            let _ = status_callback.send(ConnectionStatus::Connected).await;
+                            return Ok(());
+                        }
+                        Ok(Err(e)) => {
+                            eprintln!("Connection establishment failed on attempt {}: {}", attempt + 1, e);
+                            if attempt == self.max_retries {
+                                let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
+                                return Err(e);
+                            }
+                        }
+                        Err(_) => {
+                            eprintln!("Connection establishment timed out on attempt {}", attempt + 1);
+                            if attempt == self.max_retries {
+                                let _ = status_callback.send(ConnectionStatus::TimedOut).await;
+                                return Err(NetworkError::ConnectionFailed("Connection timed out".to_string()));
+                            }
+                        }
+                    }
+                }
+                Ok(Err(e)) => {
+                    eprintln!("Connection creation failed on attempt {}: {}", attempt + 1, e);
+                    if attempt == self.max_retries {
+                        let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
+                        return Err(e);
+                    }
+                }
+                Err(_) => {
+                    eprintln!("Connection creation timed out on attempt {}", attempt + 1);
+                    if attempt == self.max_retries {
+                        let _ = status_callback.send(ConnectionStatus::TimedOut).await;
+                        return Err(NetworkError::ConnectionFailed("Connection timed out".to_string()));
+                    }
+                }
+            }
+
+            // Wait before retry with exponential backoff
+            if attempt < self.max_retries {
+                let delay = self.base_retry_delay * 2_u32.pow(attempt);
+                let max_delay = Duration::from_secs(30); // Cap at 30 seconds
+                let actual_delay = std::cmp::min(delay, max_delay);
+                
+                eprintln!("Retrying connection in {:?}...", actual_delay);
+
+                // Sleep with periodic cancellation checks
+                let sleep_duration = Duration::from_millis(100); // Check every 100ms
+                let mut remaining = actual_delay;
+
+                while remaining > Duration::ZERO {
+                    if *self.should_cancel.read().await {
+                        return Err(NetworkError::ConnectionFailed("Connection cancelled during retry".to_string()));
+                    }
+
+                    let sleep_time = std::cmp::min(remaining, sleep_duration);
+                    sleep(sleep_time).await;
+                    remaining = remaining.saturating_sub(sleep_time);
+                }
+            }
+        }
+
+        Err(NetworkError::ConnectionFailed(format!("Failed to connect after {} attempts", self.max_retries + 1)))
+    }
+
+    /// Cancel ongoing connection attempt
+    pub async fn cancel_connection(&self) {
+        *self.should_cancel.write().await = true;
+    }
+
+    /// Disconnect and cleanup
+    pub async fn disconnect(&self) -> NetworkResult<()> {
+        // Cancel any ongoing connection attempts
+        self.cancel_connection().await;
+
+        // Disconnect existing connection
+        if let Some(mut connection) = self.connection.write().await.take() {
+            connection.disconnect().await?;
+        }
+
+        *self.is_connecting.write().await = false;
+        *self.current_attempt.write().await = 0;
+
+        Ok(())
+    }
+
+    /// Execute an async operation with the connection
+    pub async fn with_connection_async<F, Fut, R>(&self, f: F) -> NetworkResult<R>
+    where
+        F: FnOnce(&mut Box<dyn Connection>) -> Fut,
+        Fut: std::future::Future<Output = NetworkResult<R>>,
+    {
+        let mut connection_guard = self.connection.write().await;
+        if let Some(ref mut connection) = *connection_guard {
+            f(connection).await
+        } else {
+            Err(NetworkError::ConnectionFailed("No active connection".to_string()))
+        }
+    }
+
+    /// Check if there's an active connection
+    pub async fn has_connection(&self) -> bool {
+        self.connection.read().await.is_some()
+    }
+
+    /// Check if the connection is active
+    pub async fn is_connection_active(&self) -> bool {
+        if let Some(ref connection) = *self.connection.read().await {
+            connection.is_connected()
+        } else {
+            false
+        }
+    }
+
+    /// Check if currently connecting
+    pub async fn is_connecting(&self) -> bool {
+        *self.is_connecting.read().await
+    }
+
+    /// Get current attempt number
+    pub async fn current_attempt(&self) -> u32 {
+        *self.current_attempt.read().await
+    }
+}

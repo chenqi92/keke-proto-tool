@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 /// Tracks the state of a network session
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SessionState {
     session_id: String,
     status: Arc<RwLock<ConnectionStatus>>,

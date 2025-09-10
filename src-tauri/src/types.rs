@@ -9,6 +9,8 @@ pub struct SessionConfig {
     pub port: u16,
     pub timeout: Option<u64>,
     pub keep_alive: Option<bool>,
+    pub retry_attempts: Option<u32>,
+    pub retry_delay: Option<u64>, // Base delay in milliseconds for exponential backoff
     
     // WebSocket specific
     pub websocket_subprotocol: Option<String>,
@@ -45,6 +47,8 @@ pub enum ConnectionStatus {
     Disconnected,
     Connecting,
     Connected,
+    Reconnecting(u32), // Retry attempt number
+    TimedOut,
     Error(String),
 }
 
