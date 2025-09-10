@@ -211,7 +211,7 @@ impl TcpServer {
             .and_then(|v| v.as_str())
             .unwrap_or("0.0.0.0")
             .to_string();
-        
+
         let port = config.get("port")
             .and_then(|v| v.as_u64())
             .unwrap_or(8080) as u16;
@@ -224,6 +224,79 @@ impl TcpServer {
             clients: Arc::new(RwLock::new(HashMap::new())),
             connected: false,
         })
+    }
+
+    /// Try to bind to the requested port, and if it fails due to address in use,
+    /// try alternative ports automatically
+    async fn try_bind_with_alternatives(&self) -> NetworkResult<(TcpListener, u16)> {
+        let original_port = self.port;
+
+        // First, try the requested port
+        match self.try_bind_to_port(original_port).await {
+            Ok(listener) => {
+                return Ok((listener, original_port));
+            }
+            Err(e) => {
+                // Check if it's an "address in use" error
+                if let NetworkError::ConnectionFailed(msg) = &e {
+                    if msg.contains("Address already in use") {
+                        eprintln!("TCPServer: Port {} is in use, trying alternative ports...", original_port);
+                    } else {
+                        // For other errors (permission denied, etc.), don't try alternatives
+                        return Err(e);
+                    }
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+
+        // Generate alternative ports to try
+        let alternative_ports = generate_alternative_ports(original_port);
+
+        for &port in &alternative_ports {
+            eprintln!("TCPServer: Trying alternative port {}", port);
+            match self.try_bind_to_port(port).await {
+                Ok(listener) => {
+                    eprintln!("TCPServer: Successfully bound to alternative port {}", port);
+                    return Ok((listener, port));
+                }
+                Err(e) => {
+                    if let NetworkError::ConnectionFailed(msg) = &e {
+                        if msg.contains("Address already in use") {
+                            eprintln!("TCPServer: Port {} also in use, continuing...", port);
+                            continue;
+                        } else {
+                            // For non-port-conflict errors, stop trying
+                            eprintln!("TCPServer: Failed to bind to port {} with non-port-conflict error: {}", port, msg);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // If all alternatives failed, return the original error with suggestions
+        let error_msg = format!(
+            "Failed to bind TCP server to {}:{} - Address already in use. Tried alternative ports: {:?}. Please choose a different port or stop the service using these ports.",
+            self.host, original_port, alternative_ports
+        );
+        Err(NetworkError::ConnectionFailed(error_msg))
+    }
+
+    /// Try to bind to a specific port
+    async fn try_bind_to_port(&self, port: u16) -> NetworkResult<TcpListener> {
+        let addr = parse_socket_addr(&self.host, port)
+            .map_err(|e| {
+                let error_msg = format!("Invalid server address {}:{} - {}", self.host, port, e);
+                NetworkError::ConnectionFailed(error_msg)
+            })?;
+
+        TcpListener::bind(addr).await
+            .map_err(|e| {
+                let error_msg = format_tcp_bind_error(&e, &self.host, port);
+                NetworkError::ConnectionFailed(error_msg)
+            })
     }
 }
 
@@ -243,21 +316,17 @@ impl Connection for TcpServer {
             eprintln!("TCPServer: Warning - Port {} is commonly used by {} service", self.port, service);
         }
 
-        let addr = parse_socket_addr(&self.host, self.port)
-            .map_err(|e| {
-                let error_msg = format!("Invalid server address {}:{} - {}", self.host, self.port, e);
-                eprintln!("TCPServer: {}", error_msg);
-                NetworkError::ConnectionFailed(error_msg)
-            })?;
+        // Try to bind to the requested port first, then try alternatives if it fails
+        let (listener, actual_port) = self.try_bind_with_alternatives().await?;
 
-        let listener = TcpListener::bind(addr).await
-            .map_err(|e| {
-                let error_msg = format_tcp_bind_error(&e, &self.host, self.port);
-                eprintln!("TCPServer: Bind failed - {}", error_msg);
-                NetworkError::ConnectionFailed(error_msg)
-            })?;
+        if actual_port != self.port {
+            eprintln!("TCPServer: Original port {} was in use, successfully bound to alternative port {}", self.port, actual_port);
+            // Update the port to the one we actually bound to
+            self.port = actual_port;
+        } else {
+            eprintln!("TCPServer: Successfully bound to requested port {}", self.port);
+        }
 
-        eprintln!("TCPServer: Successfully bound to {}:{}", self.host, self.port);
         self.listener = Some(listener);
         self.connected = true;
 
@@ -533,4 +602,47 @@ fn format_tcp_bind_error(error: &std::io::Error, host: &str, port: u16) -> Strin
             format!("{} - {}", base_msg, error)
         }
     }
+}
+
+/// Generate a list of alternative ports to try when the requested port is in use
+fn generate_alternative_ports(original_port: u16) -> Vec<u16> {
+    let mut alternatives = Vec::new();
+
+    // Common alternative ports based on the original port
+    match original_port {
+        // For common development ports, suggest other common alternatives
+        8080 => alternatives.extend_from_slice(&[8081, 8082, 8083, 9000, 9001]),
+        8081 => alternatives.extend_from_slice(&[8080, 8082, 8083, 9000, 9001]),
+        8000 => alternatives.extend_from_slice(&[8001, 8002, 8003, 8080, 8081]),
+        3000 => alternatives.extend_from_slice(&[3001, 3002, 3003, 8080, 8081]),
+        5000 => alternatives.extend_from_slice(&[5001, 5002, 5003, 8080, 8081]),
+        9000 => alternatives.extend_from_slice(&[9001, 9002, 9003, 8080, 8081]),
+        _ => {
+            // For other ports, try nearby ports and common alternatives
+            // Try +1, +2, +3 from original port (if valid)
+            for offset in 1..=3 {
+                if original_port.saturating_add(offset) <= 65535 {
+                    alternatives.push(original_port + offset);
+                }
+            }
+
+            // Add some common development ports if they're different from original
+            let common_ports = [8080, 8081, 8082, 9000, 9001];
+            for &port in &common_ports {
+                if port != original_port && !alternatives.contains(&port) {
+                    alternatives.push(port);
+                }
+            }
+        }
+    }
+
+    // Ensure we don't suggest privileged ports (< 1024) unless the original was also privileged
+    if original_port >= 1024 {
+        alternatives.retain(|&port| port >= 1024);
+    }
+
+    // Limit to first 5 alternatives to avoid too many attempts
+    alternatives.truncate(5);
+
+    alternatives
 }

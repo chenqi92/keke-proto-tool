@@ -101,7 +101,26 @@ const persistConfig = {
     // 数据恢复后的处理
     if (state) {
       console.log('工作区数据已恢复');
-      // 可以在这里添加数据迁移逻辑
+
+      // Reset all session statuses to disconnected on app startup
+      // This prevents sessions from being restored in connecting/connected states
+      const resetSessions: Record<string, SessionState> = {};
+      Object.entries(state.sessions).forEach(([sessionId, session]) => {
+        resetSessions[sessionId] = {
+          ...session,
+          status: 'disconnected',
+          connectedAt: undefined,
+          error: undefined,
+          // Reset any temporary connection state
+          messages: session.messages || [],
+          statistics: session.statistics || createInitialStatistics(),
+        };
+        console.log(`AppStore: Reset session ${sessionId} status to disconnected on startup`);
+      });
+
+      // Update the state with reset sessions
+      state.sessions = resetSessions;
+      console.log(`AppStore: Reset ${Object.keys(resetSessions).length} sessions to disconnected state`);
     }
   },
   migrate: (persistedState: any, version: number) => {
