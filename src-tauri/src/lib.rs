@@ -1,13 +1,29 @@
-// Tauri命令
-#[tauri::command]
-fn get_app_version() -> String {
-    env!("CARGO_PKG_VERSION").to_string()
-}
+use tauri::Manager;
+
+// Modules
+mod network;
+mod session;
+mod commands;
+mod types;
+mod utils;
+
+use commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_app_version])
+        .invoke_handler(tauri::generate_handler![
+            get_app_version,
+            connect_session,
+            disconnect_session,
+            send_message,
+            send_to_client,
+            broadcast_message,
+            send_udp_message,
+            subscribe_mqtt_topic,
+            unsubscribe_mqtt_topic,
+            publish_mqtt_message
+        ])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -16,6 +32,11 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Initialize session manager
+            let session_manager = session::SessionManager::new();
+            app.manage(session_manager);
+
             Ok(())
         })
         .run(tauri::generate_context!())

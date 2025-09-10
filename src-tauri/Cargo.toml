@@ -23,3 +23,20 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.1.0", features = [] }
 tauri-plugin-log = "2.0.0-rc"
+
+# Async runtime and networking
+tokio = { version = "1.0", features = ["net", "rt-multi-thread", "macros", "io-util", "time"] }
+async-trait = "0.1"
+tokio-tungstenite = "0.20"
+url = "2.4"
+futures-util = "0.3"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+bytes = "1.0"
+dashmap = "5.5"  # Concurrent HashMap for session management
+hex = "0.4"
