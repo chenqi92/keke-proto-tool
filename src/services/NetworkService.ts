@@ -186,8 +186,16 @@ class NetworkService {
 
       useAppStore.getState().updateSessionStatus(sessionId, 'connecting');
 
+      // Set up a timeout to handle cases where the backend doesn't respond
+      const timeoutMs = (config.timeout || 30) * 1000; // Convert to milliseconds
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Connection timeout after ${timeoutMs / 1000} seconds`));
+        }, timeoutMs + 5000); // Add 5 seconds buffer for backend processing
+      });
+
       // Call Tauri backend to establish connection
-      const result = await invoke<boolean>('connect_session', {
+      const connectPromise = invoke<boolean>('connect_session', {
         sessionId,
         config: {
           protocol: config.protocol.toLowerCase(),
@@ -205,6 +213,8 @@ class NetworkService {
           sseEventTypes: config.sseEventTypes,
         },
       });
+
+      const result = await Promise.race([connectPromise, timeoutPromise]);
 
       if (result) {
         const connection: NetworkConnection = {
@@ -233,6 +243,16 @@ class NetworkService {
     } catch (error) {
       console.error('Connection failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
+
+      // If it's a timeout, try to cancel the backend connection
+      if (errorMessage.includes('timeout')) {
+        try {
+          await invoke('cancel_connection', { sessionId });
+        } catch (cancelError) {
+          console.warn('Failed to cancel connection:', cancelError);
+        }
+      }
+
       useAppStore.getState().updateSessionStatus(sessionId, 'error', errorMessage);
 
       // WebSocket特有的错误处理
@@ -292,6 +312,32 @@ class NetworkService {
       return false;
     } catch (error) {
       console.error('Disconnect failed:', error);
+      return false;
+    }
+  }
+
+  async cancelConnection(sessionId: string): Promise<boolean> {
+    try {
+      const result = await invoke<boolean>('cancel_connection', { sessionId });
+
+      if (result) {
+        // Clear reconnect timer
+        const timer = this.reconnectTimers.get(sessionId);
+        if (timer) {
+          clearTimeout(timer);
+          this.reconnectTimers.delete(sessionId);
+        }
+
+        // 清理WebSocket相关的定时器和状态
+        this.stopWebSocketHeartbeat(sessionId);
+        this.websocketReconnectAttempts.delete(sessionId);
+
+        useAppStore.getState().updateSessionStatus(sessionId, 'disconnected');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Cancel connection failed:', error);
       return false;
     }
   }

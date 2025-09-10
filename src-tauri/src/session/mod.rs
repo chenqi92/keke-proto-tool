@@ -1,6 +1,7 @@
 use crate::network::{ConnectionFactory, ConnectionManager};
 use crate::types::{SessionConfig, ConnectionStatus, NetworkResult, NetworkError, NetworkEvent};
 use tokio::sync::mpsc;
+use tauri::AppHandle;
 
 pub mod manager;
 pub mod state;
@@ -86,6 +87,18 @@ impl Session {
         // Attempt connection with timeout and retry
         self.connection_manager.connect_with_retry(connection_factory, status_tx).await?;
 
+        Ok(())
+    }
+
+    /// Set the app handle for event emission
+    pub fn set_app_handle(&mut self, app_handle: AppHandle) {
+        self.state.set_app_handle(app_handle);
+    }
+
+    /// Cancel ongoing connection attempt
+    pub async fn cancel_connection(&mut self) -> NetworkResult<()> {
+        self.connection_manager.cancel_connection().await;
+        self.state.set_status(ConnectionStatus::Disconnected);
         Ok(())
     }
 

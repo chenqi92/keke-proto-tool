@@ -22,7 +22,8 @@ pub fn run() {
             send_udp_message,
             subscribe_mqtt_topic,
             unsubscribe_mqtt_topic,
-            publish_mqtt_message
+            publish_mqtt_message,
+            cancel_connection
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -34,11 +35,12 @@ pub fn run() {
             }
 
             // Initialize session manager with clean state
-            let session_manager = session::SessionManager::new();
+            let mut session_manager = session::SessionManager::new();
+            let app_handle = app.handle().clone();
+            session_manager.set_app_handle(app_handle.clone());
             app.manage(session_manager);
 
             // Setup cleanup on app exit
-            let _app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 // This will run when the app is shutting down
                 // Note: In a real implementation, you'd want to use proper shutdown hooks

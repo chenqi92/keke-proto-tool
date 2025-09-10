@@ -2,23 +2,36 @@ use super::{Session, SessionStatistics};
 use crate::types::{SessionConfig, NetworkResult, NetworkError};
 use dashmap::DashMap;
 use std::sync::Arc;
+use tauri::AppHandle;
 
 /// Manages all active network sessions
 #[derive(Debug)]
 pub struct SessionManager {
     sessions: Arc<DashMap<String, Session>>,
+    app_handle: Option<AppHandle>,
 }
 
 impl SessionManager {
     pub fn new() -> Self {
         let manager = Self {
             sessions: Arc::new(DashMap::new()),
+            app_handle: None,
         };
 
         // Reset any persistent state on startup
         manager.reset_all_session_states();
 
         manager
+    }
+
+    /// Set the app handle for event emission
+    pub fn set_app_handle(&mut self, app_handle: AppHandle) {
+        self.app_handle = Some(app_handle.clone());
+
+        // Update all existing sessions with the app handle
+        for mut session in self.sessions.iter_mut() {
+            session.set_app_handle(app_handle.clone());
+        }
     }
 
     /// Reset all session states to disconnected on startup
@@ -37,9 +50,15 @@ impl SessionManager {
             ));
         }
 
-        let session = Session::new(session_id.clone(), config);
+        let mut session = Session::new(session_id.clone(), config);
+
+        // Set app handle if available
+        if let Some(app_handle) = &self.app_handle {
+            session.set_app_handle(app_handle.clone());
+        }
+
         self.sessions.insert(session_id, session);
-        
+
         Ok(())
     }
 
@@ -70,6 +89,17 @@ impl SessionManager {
         match self.sessions.get_mut(session_id) {
             Some(mut session) => {
                 session.send(data).await?;
+                Ok(true)
+            }
+            None => Err(NetworkError::SessionNotFound(session_id.to_string())),
+        }
+    }
+
+    /// Cancel ongoing connection attempt
+    pub async fn cancel_connection(&self, session_id: &str) -> NetworkResult<bool> {
+        match self.sessions.get_mut(session_id) {
+            Some(mut session) => {
+                session.cancel_connection().await?;
                 Ok(true)
             }
             None => Err(NetworkError::SessionNotFound(session_id.to_string())),

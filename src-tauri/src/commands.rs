@@ -101,6 +101,18 @@ pub async fn broadcast_message(
     Err("Server functionality not yet implemented".to_string())
 }
 
+/// Cancel ongoing connection attempt
+#[tauri::command]
+pub async fn cancel_connection(
+    session_id: String,
+    session_manager: State<'_, SessionManager>,
+) -> Result<bool, String> {
+    match session_manager.cancel_connection(&session_id).await {
+        Ok(result) => Ok(result),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Send UDP message to specific address
 #[tauri::command]
 pub async fn send_udp_message(

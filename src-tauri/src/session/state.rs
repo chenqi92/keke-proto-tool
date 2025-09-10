@@ -1,16 +1,17 @@
 use crate::types::ConnectionStatus;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
+use tauri::{AppHandle, Emitter};
 
 /// Tracks the state of a network session
 #[derive(Debug, Clone)]
 pub struct SessionState {
-    #[allow(dead_code)]
     session_id: String,
     status: Arc<RwLock<ConnectionStatus>>,
     connected_at: Arc<RwLock<Option<Instant>>>,
     last_activity: Arc<RwLock<Option<Instant>>>,
     error_count: Arc<RwLock<u64>>,
+    app_handle: Arc<RwLock<Option<AppHandle>>>,
 }
 
 impl SessionState {
@@ -21,13 +22,19 @@ impl SessionState {
             connected_at: Arc::new(RwLock::new(None)),
             last_activity: Arc::new(RwLock::new(None)),
             error_count: Arc::new(RwLock::new(0)),
+            app_handle: Arc::new(RwLock::new(None)),
         }
+    }
+
+    /// Set the app handle for event emission
+    pub fn set_app_handle(&mut self, app_handle: AppHandle) {
+        *self.app_handle.write().unwrap() = Some(app_handle);
     }
 
     /// Set the connection status
     pub fn set_status(&self, status: ConnectionStatus) {
         let mut current_status = self.status.write().unwrap();
-        
+
         match &status {
             ConnectionStatus::Connected => {
                 *self.connected_at.write().unwrap() = Some(Instant::now());
@@ -41,8 +48,26 @@ impl SessionState {
             }
             _ => {}
         }
-        
-        *current_status = status;
+
+        *current_status = status.clone();
+
+        // Emit event to frontend if app handle is available
+        if let Ok(app_handle_guard) = self.app_handle.read() {
+            if let Some(app_handle) = app_handle_guard.as_ref() {
+                let payload = serde_json::json!({
+                    "sessionId": self.session_id,
+                    "status": status,
+                    "error": match &status {
+                        ConnectionStatus::Error(msg) => Some(msg.clone()),
+                        _ => None
+                    }
+                });
+
+                if let Err(e) = app_handle.emit("connection-status", payload) {
+                    eprintln!("Failed to emit connection-status event: {}", e);
+                }
+            }
+        }
     }
 
     /// Get the current connection status
