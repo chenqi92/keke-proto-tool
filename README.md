@@ -31,42 +31,83 @@ ProtoTool 是一个专为工业/物联网/环保/交通等行业设计的网络�
 - **插件**: WASM 运行时 (wasmtime)
 - **构建**: Vite + Cargo
 
-## 📦 安装使用
+## 📦 快速下载
 
-### 预编译版本
+### 🔥 最新版本 v0.0.5
 
-从 [Releases](https://github.com/chenqi92/keke-proto-tool/releases) 页面下载适合您系统的安装包：
+#### Windows 系统
+- **推荐**: [MSI 安装包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/ProtoTool_0.0.5_x64_en-US.msi)
+- **推荐**: [MSI 安装包 (x86)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/ProtoTool_0.0.5_x86_en-US.msi)
+- [NSIS 安装包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/ProtoTool_0.0.5_x64-setup.exe)
+- [NSIS 安装包 (x86)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/ProtoTool_0.0.5_x86-setup.exe)
 
-- **Windows**: `.msi` 安装包或 `.zip` 绿色版
-- **macOS**: `.dmg` 安装包
-- **Linux**: `.AppImage` 通用包或 `.deb`/`.rpm` 包
+#### macOS 系统
+- [Intel 芯片 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/ProtoTool_0.0.5_x64.dmg)
+- [Apple Silicon (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/ProtoTool_0.0.5_aarch64.dmg)
 
-### 从源码构建
+#### Linux 系统
+- **通用**: [AppImage (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/proto-tool_0.0.5_amd64.AppImage)
+- **通用**: [AppImage (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/proto-tool_0.0.5_arm64.AppImage)
+- **Ubuntu/Debian**: [DEB 包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/proto-tool_0.0.5_amd64.deb)
+- **Ubuntu/Debian**: [DEB 包 (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/proto-tool_0.0.5_arm64.deb)
+- **RHEL/CentOS**: [RPM 包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/proto-tool-0.0.5-1.x86_64.rpm)
+- **RHEL/CentOS**: [RPM 包 (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.5/proto-tool-0.0.5-1.aarch64.rpm)
 
-#### 环境要求
+> 💡 **安装提示**:
+> - Windows 用户推荐使用 MSI 安装包，支持自动更新
+> - macOS 用户请根据芯片类型选择对应版本
+> - Linux 用户推荐使用 AppImage，无需安装直接运行
 
-- Node.js 18+
-- Rust 1.70+
-- Tauri CLI
+### 历史版本
 
-#### 构建步骤
+查看所有版本: [Releases 页面](https://github.com/chenqi92/keke-proto-tool/releases)
+
+## 🔧 从源码构建
+
+### 环境要求
+
+- **Node.js**: 18.0+ (推荐使用 LTS 版本)
+- **Rust**: 1.70+ (推荐使用最新稳定版)
+- **系统要求**:
+  - Windows: Windows 10+ (支持 WebView2)
+  - macOS: macOS 10.15+
+  - Linux: 支持 GTK 3.0+ 的现代发行版
+
+### 构建步骤
 
 ```bash
-# 克隆仓库
+# 1. 克隆仓库
 git clone https://github.com/chenqi92/keke-proto-tool.git
 cd keke-proto-tool
 
-# 安装前端依赖
+# 2. 安装前端依赖
 npm install
 
-# 安装 Tauri CLI
+# 3. 安装 Tauri CLI (如果尚未安装)
 cargo install tauri-cli
 
-# 开发模式运行
+# 4. 开发模式运行
 npm run tauri:dev
 
-# 构建生产版本
+# 5. 构建生产版本
 npm run tauri:build
+```
+
+### 构建选项
+
+```bash
+# 构建特定平台
+npm run tauri:build -- --target x86_64-pc-windows-msvc  # Windows x64
+npm run tauri:build -- --target i686-pc-windows-msvc    # Windows x86
+npm run tauri:build -- --target x86_64-apple-darwin     # macOS Intel
+npm run tauri:build -- --target aarch64-apple-darwin    # macOS Apple Silicon
+
+# 构建特定格式
+npm run tauri:build -- --bundles msi     # Windows MSI
+npm run tauri:build -- --bundles nsis    # Windows NSIS
+npm run tauri:build -- --bundles deb     # Linux DEB
+npm run tauri:build -- --bundles rpm     # Linux RPM
+npm run tauri:build -- --bundles appimage # Linux AppImage
 ```
 
 ## 🎯 核心功能

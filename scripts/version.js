@@ -13,6 +13,7 @@ const PACKAGE_JSON_PATH = 'package.json';
 const CARGO_TOML_PATH = 'src-tauri/Cargo.toml';
 const TAURI_CONF_PATH = 'src-tauri/tauri.conf.json';
 const VERSION_TS_PATH = 'src/constants/version.ts';
+const README_PATH = 'README.md';
 
 /**
  * 读取JSON文件
@@ -125,6 +126,29 @@ export function getVersionDisplayText(): string {
 }
 
 /**
+ * 更新README中的版本信息和下载链接
+ */
+function updateReadmeVersion(newVersion) {
+  try {
+    const readmeContent = fs.readFileSync(README_PATH, 'utf8');
+
+    // 更新版本号标题
+    const versionRegex = /### 🔥 最新版本 v[\d.]+/;
+    let updatedContent = readmeContent.replace(versionRegex, `### 🔥 最新版本 v${newVersion}`);
+
+    // 更新所有下载链接中的版本号
+    const downloadLinkRegex = /https:\/\/github\.com\/chenqi92\/keke-proto-tool\/releases\/download\/v[\d.]+\//g;
+    updatedContent = updatedContent.replace(downloadLinkRegex, `https://github.com/chenqi92/keke-proto-tool/releases/download/v${newVersion}/`);
+
+    fs.writeFileSync(README_PATH, updatedContent, 'utf8');
+  } catch (error) {
+    console.error(`Error updating README version:`, error.message);
+    // Don't exit on README update failure, just warn
+    console.warn('Warning: Failed to update README version, continuing...');
+  }
+}
+
+/**
  * 验证版本号格式
  */
 function validateVersion(version) {
@@ -231,6 +255,7 @@ function main() {
       updateCargoVersion(newVersion);
       updateTauriVersion(newVersion);
       updateFrontendVersion(newVersion);
+      updateReadmeVersion(newVersion);
 
       console.log('Version updated successfully!');
       console.log('Files updated:');
@@ -238,6 +263,7 @@ function main() {
       console.log(`  - ${CARGO_TOML_PATH}`);
       console.log(`  - ${TAURI_CONF_PATH}`);
       console.log(`  - ${VERSION_TS_PATH}`);
+      console.log(`  - ${README_PATH}`);
       break;
     }
 
@@ -263,6 +289,7 @@ function main() {
       updateCargoVersion(newVersion);
       updateTauriVersion(newVersion);
       updateFrontendVersion(newVersion);
+      updateReadmeVersion(newVersion);
 
       console.log('Version updated successfully!');
       console.log('Files updated:');
@@ -270,6 +297,7 @@ function main() {
       console.log(`  - ${CARGO_TOML_PATH}`);
       console.log(`  - ${TAURI_CONF_PATH}`);
       console.log(`  - ${VERSION_TS_PATH}`);
+      console.log(`  - ${README_PATH}`);
       break;
     }
 
