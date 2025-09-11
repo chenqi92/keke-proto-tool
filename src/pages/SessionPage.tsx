@@ -15,6 +15,7 @@ import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession } from '@/contexts/SessionContext';
 import { WorkspacePage } from './WorkspacePage';
 import { ConnectionPage } from './ConnectionPage';
+import { ProtocolTypeOverview } from '@/components/ProtocolTypeOverview';
 import { useActiveSession } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import {
@@ -508,11 +509,13 @@ export const SessionPage: React.FC = () => {
       case 'workspace-overview':
         return <WorkspacePage viewType="workspace-overview" />;
       case 'protocol-type-overview':
-        return <WorkspacePage
-          viewType="protocol-type-overview"
-          protocol={selectedNode.protocol}
-          connectionType={selectedNode.connectionType}
-        />;
+        if (selectedNode.protocol && selectedNode.connectionType) {
+          return <ProtocolTypeOverview
+            protocol={selectedNode.protocol}
+            connectionType={selectedNode.connectionType}
+          />;
+        }
+        return <WorkspacePage viewType="workspace-overview" />;
       case 'connection-detail':
         return <ConnectionPage />;
       case 'session-detail':

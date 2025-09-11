@@ -24,6 +24,11 @@ import {
 import { useAllSessions, useConnectedSessions, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { NewSessionModal } from '@/components/NewSessionModal';
+import {
+  ContextMenu,
+  createSessionMenuItems,
+  useSessionDeleteModal
+} from '@/components/Common';
 
 interface WorkspaceStats {
   totalSessions: number;
@@ -65,6 +70,16 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
   // New session modal state
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    sessionId: string;
+  } | null>(null);
+
+  // Delete confirmation modal
+  const sessionDeleteModal = useSessionDeleteModal();
 
   // Automated data sending state (only for client types)
   const [isAutomatedSending, setIsAutomatedSending] = useState(false);
@@ -287,6 +302,81 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     // Create the session in the store
     createSession(sessionConfig)
     setIsNewSessionModalOpen(false);
+  };
+
+  // Context menu handlers
+  const handleMoreActions = (sessionId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const rect = (event.target as HTMLElement).getBoundingClientRect();
+    setContextMenu({
+      isOpen: true,
+      position: { x: rect.right, y: rect.bottom },
+      sessionId
+    });
+  };
+
+  const handleContextMenuAction = {
+    onEditConfig: (sessionId: string) => {
+      console.log('编辑配置:', sessionId);
+      // TODO: 实现配置编辑功能
+      setContextMenu(null);
+    },
+    onDuplicateSession: (sessionId: string) => {
+      console.log('复制会话:', sessionId);
+      // TODO: 实现会话复制功能
+      setContextMenu(null);
+    },
+    onDeleteSession: (sessionId: string) => {
+      const session = allSessions.find(s => s.config.id === sessionId);
+      if (session) {
+        sessionDeleteModal.openModal(
+          sessionId,
+          session.config.name,
+          () => {
+            deleteSession(sessionId);
+            console.log('会话已删除:', sessionId);
+          }
+        );
+      }
+      setContextMenu(null);
+    },
+    onViewLogs: (sessionId: string) => {
+      console.log('查看日志:', sessionId);
+      // TODO: 实现日志查看功能
+      setContextMenu(null);
+    },
+    onConnect: async (sessionId: string) => {
+      try {
+        await networkService.connect(sessionId);
+      } catch (error) {
+        console.error('连接失败:', error);
+      }
+      setContextMenu(null);
+    },
+    onDisconnect: async (sessionId: string) => {
+      try {
+        await networkService.disconnect(sessionId);
+      } catch (error) {
+        console.error('断开连接失败:', error);
+      }
+      setContextMenu(null);
+    }
+  };
+
+  const getContextMenuItems = () => {
+    if (!contextMenu) return [];
+
+    const session = allSessions.find(s => s.config.id === contextMenu.sessionId);
+    const isConnected = session?.status === 'connected';
+
+    return createSessionMenuItems({
+      onEditConfig: () => handleContextMenuAction.onEditConfig(contextMenu.sessionId),
+      onDuplicateSession: () => handleContextMenuAction.onDuplicateSession(contextMenu.sessionId),
+      onDeleteSession: () => handleContextMenuAction.onDeleteSession(contextMenu.sessionId),
+      onViewLogs: () => handleContextMenuAction.onViewLogs(contextMenu.sessionId),
+      onConnect: () => handleContextMenuAction.onConnect(contextMenu.sessionId),
+      onDisconnect: () => handleContextMenuAction.onDisconnect(contextMenu.sessionId)
+    }, isConnected);
   };
 
   const filteredSessions = sessions.filter(session => {
@@ -614,8 +704,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         </div>
 
         {/* Sessions Table */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-card border border-border rounded-lg overflow-hidden max-h-96">
+          <div className="overflow-x-auto overflow-y-auto max-h-full">
             <table className="w-full">
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
@@ -680,13 +770,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                           </button>
                         )}
                         <button
-                          onClick={() => {
-                            // Show context menu or perform more actions
-                            const action = confirm('删除此会话？');
-                            if (action) {
-                              deleteSession(session.id);
-                            }
-                          }}
+                          onClick={(e) => handleMoreActions(session.id, e)}
                           className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
                           title="更多操作"
                         >
@@ -716,6 +800,19 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         onClose={() => setIsNewSessionModalOpen(false)}
         onConfirm={handleCreateSession}
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          isOpen={contextMenu.isOpen}
+          position={contextMenu.position}
+          items={getContextMenuItems()}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <sessionDeleteModal.Modal />
     </div>
   );
 };
