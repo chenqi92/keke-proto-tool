@@ -140,6 +140,31 @@ function updateReadmeVersion(newVersion) {
     const downloadLinkRegex = /https:\/\/github\.com\/chenqi92\/keke-proto-tool\/releases\/download\/v[\d.]+\//g;
     updatedContent = updatedContent.replace(downloadLinkRegex, `https://github.com/chenqi92/keke-proto-tool/releases/download/v${newVersion}/`);
 
+    // 更新文件名中的版本号
+    // Windows MSI files
+    updatedContent = updatedContent.replace(/ProtoTool_[\d.]+_x64_en-US\.msi/g, `ProtoTool_${newVersion}_x64_en-US.msi`);
+    updatedContent = updatedContent.replace(/ProtoTool_[\d.]+_x86_en-US\.msi/g, `ProtoTool_${newVersion}_x86_en-US.msi`);
+
+    // Windows NSIS files
+    updatedContent = updatedContent.replace(/ProtoTool_[\d.]+_x64-setup\.exe/g, `ProtoTool_${newVersion}_x64-setup.exe`);
+    updatedContent = updatedContent.replace(/ProtoTool_[\d.]+_x86-setup\.exe/g, `ProtoTool_${newVersion}_x86-setup.exe`);
+
+    // macOS DMG files
+    updatedContent = updatedContent.replace(/ProtoTool_[\d.]+_x64\.dmg/g, `ProtoTool_${newVersion}_x64.dmg`);
+    updatedContent = updatedContent.replace(/ProtoTool_[\d.]+_aarch64\.dmg/g, `ProtoTool_${newVersion}_aarch64.dmg`);
+
+    // Linux AppImage files
+    updatedContent = updatedContent.replace(/proto-tool_[\d.]+_amd64\.AppImage/g, `proto-tool_${newVersion}_amd64.AppImage`);
+    updatedContent = updatedContent.replace(/proto-tool_[\d.]+_arm64\.AppImage/g, `proto-tool_${newVersion}_arm64.AppImage`);
+
+    // Linux DEB files
+    updatedContent = updatedContent.replace(/proto-tool_[\d.]+_amd64\.deb/g, `proto-tool_${newVersion}_amd64.deb`);
+    updatedContent = updatedContent.replace(/proto-tool_[\d.]+_arm64\.deb/g, `proto-tool_${newVersion}_arm64.deb`);
+
+    // Linux RPM files
+    updatedContent = updatedContent.replace(/proto-tool-[\d.]+-1\.x86_64\.rpm/g, `proto-tool-${newVersion}-1.x86_64.rpm`);
+    updatedContent = updatedContent.replace(/proto-tool-[\d.]+-1\.aarch64\.rpm/g, `proto-tool-${newVersion}-1.aarch64.rpm`);
+
     fs.writeFileSync(README_PATH, updatedContent, 'utf8');
   } catch (error) {
     console.error(`Error updating README version:`, error.message);
