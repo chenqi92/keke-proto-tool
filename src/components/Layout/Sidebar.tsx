@@ -362,6 +362,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   const sessions = useAllSessions();
   const sessionsMap = useAppStore(state => state.sessions);
   const createSession = useAppStore(state => state.createSession);
+  const updateSession = useAppStore(state => state.updateSession);
   const deleteSession = useAppStore(state => state.deleteSession);
   const startRecording = useAppStore(state => state.startRecording);
   const stopRecording = useAppStore(state => state.stopRecording);
@@ -726,7 +727,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   };
 
   const handleSaveConfig = (config: SessionConfig) => {
-    updateSession(config.id, config);
+    updateSession(config.id, { config });
     setEditingSession(null);
     setIsEditConfigModalOpen(false);
   };

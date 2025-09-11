@@ -261,6 +261,7 @@ export interface SessionConfig {
   timeout: number;
   retryAttempts: number;
   // Protocol-specific configs
+  websocketPath?: string; // WebSocket路径
   websocketSubprotocol?: string;
   websocketExtensions?: string[];
   websocketPingInterval?: number; // ping间隔（秒）

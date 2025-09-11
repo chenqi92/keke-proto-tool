@@ -8,6 +8,7 @@ export interface NetworkEvent {
   type: 'connected' | 'disconnected' | 'message' | 'error' | 'sse_event';
   data?: any;
   error?: string;
+  clientId?: string; // For server connections
   sseEvent?: SSEEvent;
 }
 
