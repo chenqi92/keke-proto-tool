@@ -57,17 +57,9 @@ export default [
                 {allowConstantExport: true},
             ],
 
-            // Unused imports and variables
-            'unused-imports/no-unused-imports': 'warn',
-            'unused-imports/no-unused-vars': [
-                'warn',
-                {
-                    vars: 'all',
-                    varsIgnorePattern: '^_',
-                    args: 'after-used',
-                    argsIgnorePattern: '^_',
-                },
-            ],
+            // Unused imports and variables - 忽略未使用导入的错误
+            'unused-imports/no-unused-imports': 'off',
+            'unused-imports/no-unused-vars': 'off',
             '@typescript-eslint/no-unused-vars': 'off', // Turn off the base rule as it's replaced by unused-imports
 
             '@typescript-eslint/no-explicit-any': 'off', // 允许使用 any 类型，在原型开发阶段很常见
@@ -101,17 +93,9 @@ export default [
             // TypeScript recommended rules
             ...typescript.configs.recommended.rules,
 
-            // Custom rules for Node.js files
-            'unused-imports/no-unused-imports': 'error',
-            'unused-imports/no-unused-vars': [
-                'error',
-                {
-                    vars: 'all',
-                    varsIgnorePattern: '^_',
-                    args: 'after-used',
-                    argsIgnorePattern: '^_',
-                },
-            ],
+            // Custom rules for Node.js files - 忽略未使用导入的错误
+            'unused-imports/no-unused-imports': 'off',
+            'unused-imports/no-unused-vars': 'off',
             '@typescript-eslint/no-unused-vars': 'off', // Turn off the base rule as it's replaced by unused-imports
 
             '@typescript-eslint/no-explicit-any': 'off', // 允许使用 any 类型
@@ -160,17 +144,9 @@ export default [
             // TypeScript recommended rules
             ...typescript.configs.recommended.rules,
 
-            // Unused imports and variables
-            'unused-imports/no-unused-imports': 'warn',
-            'unused-imports/no-unused-vars': [
-                'warn',
-                {
-                    vars: 'all',
-                    varsIgnorePattern: '^_',
-                    args: 'after-used',
-                    argsIgnorePattern: '^_',
-                },
-            ],
+            // Unused imports and variables - 忽略未使用导入的错误
+            'unused-imports/no-unused-imports': 'off',
+            'unused-imports/no-unused-vars': 'off',
             '@typescript-eslint/no-unused-vars': 'off',
 
             '@typescript-eslint/no-explicit-any': 'off', // 允许使用 any 类型

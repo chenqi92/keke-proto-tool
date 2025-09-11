@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/utils';
-import { 
+import {
   Wrench,
-  ChevronRight,
-  Separator
+  ChevronRight
 } from 'lucide-react';
 import { BaseTool, ContextMenuItem } from '@/types/toolbox';
 import { toolboxService } from '@/services/ToolboxService';

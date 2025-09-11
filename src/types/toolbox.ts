@@ -2,7 +2,7 @@ import React from 'react';
 import { DataFormat } from '@/components/DataFormatSelector';
 
 // Re-export DataFormat for convenience
-export { DataFormat };
+export type { DataFormat };
 
 // Tool Categories
 export type ToolCategory =
@@ -13,11 +13,10 @@ export type ToolCategory =
   | 'analysis'
   | 'visualization'
   | 'security'
-  | 'utility'
-  | 'security';
+  | 'utility';
 
 // Protocol Types
-export type Protocol = 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE' | 'HTTP' | 'Custom';
+export type Protocol = 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE' | 'HTTP' | 'Modbus' | 'Custom';
 
 // Connection Status
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
@@ -102,6 +101,8 @@ export interface BaseTool {
   category: ToolCategory;
   icon: React.ComponentType<{ className?: string }>;
   author?: string;
+  priority?: number;
+  tags?: string[];
   
   // Capabilities
   supportedFormats: DataFormat[];

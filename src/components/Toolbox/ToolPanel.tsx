@@ -1,34 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils';
-import { 
-  X, 
-  Play, 
-  Settings, 
-  Info, 
-  Star,
-  Clock,
-  Zap,
-  Download,
+import {
+  X,
+  Play,
+  Settings,
   Upload,
+  Download,
+  Zap,
   RotateCcw
 } from 'lucide-react';
 import { BaseTool, ToolInput, ToolOutput } from '@/types/toolbox';
 import { toolboxService } from '@/services/ToolboxService';
+import { toolRegistry } from '@/services/ToolRegistry';
 import { DataFormatSelector, DataFormat } from '@/components/DataFormatSelector';
 
 interface ToolPanelProps {
-  tool: BaseTool;
+  toolId: string;
   sessionId?: string;
-  onExecute: (toolId: string, input: ToolInput) => void;
+  onExecute: (toolId: string, result: any) => void;
   onClose: () => void;
 }
 
 export const ToolPanel: React.FC<ToolPanelProps> = ({
-  tool,
+  toolId,
   sessionId,
   onExecute,
   onClose
 }) => {
+  const tool = toolRegistry.getById(toolId)?.tool;
+
+  if (!tool) {
+    return (
+      <div className="p-4 text-center">
+        <p className="text-muted-foreground">工具未找到</p>
+      </div>
+    );
+  }
   const [inputData, setInputData] = useState('');
   const [inputFormat, setInputFormat] = useState<DataFormat>('ascii');
   const [outputFormat, setOutputFormat] = useState<DataFormat>('ascii');

@@ -2,7 +2,7 @@ import { BaseTool, ToolInput, ToolOutput, ToolContext, ContextMenuItem } from '@
 import { toolRegistry } from './ToolRegistry';
 import { toolExecutor } from './ToolExecutor';
 import { toolEventBus } from './ToolEventBus';
-import { protocolBridge, dataBridge, sessionBridge } from './ToolBridges';
+
 
 export interface ToolIntegrationConfig {
   enableContextMenus: boolean;
@@ -152,7 +152,7 @@ class ToolIntegrationManager {
     // Handle integration-specific post-processing
     await this.handleToolResult(toolId, result, context);
 
-    return result.output;
+    return result.output || { data: new Uint8Array(), format: 'ascii', metadata: {} };
   }
 
   /**
@@ -307,12 +307,15 @@ class ToolIntegrationManager {
     return {
       sessionId: context.sessionId,
       selectedData: context.selectedData,
-      protocol: context.protocol,
-      connectionState: context.connectionState,
+      protocol: context.protocol as any,
+      connectionStatus: context.connectionState || 'disconnected',
       emit: (event: string, data: any) => toolEventBus.emit(event, data),
+      on: (event: string, handler: (...args: any[]) => void) => toolEventBus.on(event, handler),
+      off: (event: string, handler: (...args: any[]) => void) => toolEventBus.off(event, handler),
       showNotification: (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
         toolEventBus.emit('show-notification', { message, type });
-      }
+      },
+      showDialog: (options: any) => Promise.resolve(false)
     };
   }
 

@@ -75,7 +75,7 @@ class DataConverterTool implements BaseTool {
       let bytes: Uint8Array;
 
       try {
-        bytes = formatData.from[fromFormat](inputText);
+        bytes = (formatData.from as any)[fromFormat](inputText);
       } catch (error) {
         throw new Error(`Invalid ${fromFormat} format: ${error instanceof Error ? error.message : 'conversion failed'}`);
       }
@@ -83,7 +83,7 @@ class DataConverterTool implements BaseTool {
       // Convert bytes to target format
       let outputText: string;
       try {
-        outputText = formatData.to[toFormat](bytes);
+        outputText = (formatData.to as any)[toFormat](bytes);
       } catch (error) {
         throw new Error(`Failed to convert to ${toFormat}: ${error instanceof Error ? error.message : 'conversion failed'}`);
       }

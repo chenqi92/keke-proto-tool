@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils';
-import { 
-  Wrench, 
-  ChevronDown, 
-  Zap,
+import {
+  Wrench,
+  ChevronDown,
   Play,
   X,
   Settings,
   Lightbulb
 } from 'lucide-react';
-import { BaseTool, ToolInput } from '@/types/toolbox';
+import { ToolInput } from '@/types/toolbox';
 import { toolIntegrationManager, ToolSuggestion, IntegrationContext } from '@/services/ToolIntegrationManager';
 import { toolboxService } from '@/services/ToolboxService';
 import { QuickAccessBar } from '@/components/Toolbox/QuickAccessBar';
@@ -270,7 +269,7 @@ export const useToolIntegration = (sessionId: string) => {
   const selectData = (data: Uint8Array) => {
     setSelectedData(data);
     // Trigger integration manager to update suggestions
-    toolboxService.emit('data-selected', data, { sessionId });
+    toolboxService.emit('data-selected', { data, sessionId });
   };
 
   const executeToolOnData = async (toolId: string, data?: Uint8Array) => {

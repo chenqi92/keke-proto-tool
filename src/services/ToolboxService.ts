@@ -1,11 +1,9 @@
-import { 
-  ToolContext, 
-  ToolInput, 
-  ToolOutput, 
+import {
+  ToolContext,
+  ToolInput,
   ToolExecutionResult,
   BaseTool,
   ToolboxConfig,
-  QuickAccessConfig,
   DialogOptions
 } from '@/types/toolbox';
 import { toolRegistry } from './ToolRegistry';
@@ -167,11 +165,11 @@ export class ToolboxService {
   }
 
   // Event handling
-  on(event: string, handler: Function): void {
+  on(event: string, handler: (...args: any[]) => void): void {
     toolEventBus.on(event, handler);
   }
 
-  off(event: string, handler: Function): void {
+  off(event: string, handler: (...args: any[]) => void): void {
     toolEventBus.off(event, handler);
   }
 
@@ -208,10 +206,11 @@ export class ToolboxService {
     const context: ToolContext = {
       sessionId,
       networkService,
-      
+      connectionStatus: 'disconnected',
+
       // Event handling
-      on: (event: string, handler: Function) => toolEventBus.on(event, handler),
-      off: (event: string, handler: Function) => toolEventBus.off(event, handler),
+      on: (event: string, handler: Function) => toolEventBus.on(event, handler as any),
+      off: (event: string, handler: Function) => toolEventBus.off(event, handler as any),
       emit: (event: string, data: any) => toolEventBus.emit(event, data),
       
       // UI utilities

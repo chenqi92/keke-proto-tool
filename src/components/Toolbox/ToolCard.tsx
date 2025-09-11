@@ -1,14 +1,7 @@
 import React from 'react';
 import { cn } from '@/utils';
-import { 
-  Star, 
-  Play, 
-  Clock, 
-  TrendingUp,
-  Zap,
-  Settings
-} from 'lucide-react';
-import { BaseTool, ToolRegistration, ToolCategory } from '@/types/toolbox';
+import { Star } from 'lucide-react';
+import { ToolCategory } from '@/types/toolbox';
 
 interface ToolInfo {
   id: string;
@@ -105,29 +98,16 @@ export const ToolCard: React.FC<ToolCardProps> = ({
         </div>
       </div>
 
-      {/* Capabilities indicators */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-        <div className="flex items-center space-x-2">
-          {tool.requiresConnection && (
-            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-              <Zap className="w-3 h-3" />
-              <span>需要连接</span>
-            </div>
-          )}
-          
-          {tool.canProcessStreaming && (
-            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span>流处理</span>
-            </div>
-          )}
+      {/* Tags */}
+      {tool.tags && tool.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border">
+          {tool.tags.slice(0, 3).map(tag => (
+            <span key={tag} className="text-xs px-2 py-1 bg-muted/50 rounded text-muted-foreground">
+              {tag}
+            </span>
+          ))}
         </div>
-        
-        {/* Supported formats count */}
-        <span className="text-xs text-muted-foreground">
-          {tool.supportedFormats.length} 格式
-        </span>
-      </div>
+      )}
 
       {/* Selection indicator */}
       {selected && (

@@ -1,4 +1,4 @@
-import { BaseTool } from '@/types/toolbox';
+import { BaseTool, ToolCategory } from '@/types/toolbox';
 import { toolRegistry } from './ToolRegistry';
 
 interface LazyToolDefinition {
@@ -37,7 +37,7 @@ class ToolLazyLoader {
     toolRegistry.registerLazy(definition.id, {
       name: definition.name,
       description: definition.description,
-      category: definition.category,
+      category: definition.category as ToolCategory,
       icon: definition.icon,
       priority: definition.priority,
       tags: definition.tags,
@@ -217,7 +217,14 @@ class ToolLazyLoader {
       const tool = new ToolClass();
 
       // Initialize the tool
-      await tool.initialize?.({});
+      await tool.initialize?.({
+        connectionStatus: 'disconnected',
+        on: () => {},
+        emit: () => {},
+        off: () => {},
+        showNotification: () => {},
+        showDialog: () => Promise.resolve(false)
+      } as any);
 
       const loadTime = Date.now() - startTime;
 

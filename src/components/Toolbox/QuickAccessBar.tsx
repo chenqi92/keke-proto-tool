@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils';
-import { 
-  Wrench, 
-  Star, 
-  Clock, 
-  Zap,
-  ChevronDown,
+import {
   Plus,
   Settings,
   X
@@ -20,6 +15,7 @@ interface QuickAccessBarProps {
   orientation?: 'horizontal' | 'vertical';
   maxItems?: number;
   onToolExecute?: (toolId: string, input: any) => void;
+  onToolSelect?: (toolId: string) => void;
 }
 
 export const QuickAccessBar: React.FC<QuickAccessBarProps> = ({

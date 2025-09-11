@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/utils';
-import { Search, Grid, List, Filter, Settings, Star, RotateCcw } from 'lucide-react';
+import { Search, Grid, List, Star, RotateCcw } from 'lucide-react';
 import { ToolCard } from './ToolCard';
 import { ToolPanel } from './ToolPanel';
 import { QuickAccessBar } from './QuickAccessBar';
-import { toolboxService } from '@/services/ToolboxService';
 import { toolRegistry } from '@/services/ToolRegistry';
-import { BaseTool, ToolCategory, ToolExecutionResult } from '@/types/toolbox';
+import { ToolCategory, ToolExecutionResult } from '@/types/toolbox';
 import { ToolRegistryDebug } from '@/components/Debug/ToolRegistryDebug';
 
 interface ToolboxInterfaceProps {
@@ -331,6 +330,7 @@ function getCategoryDisplayName(category: ToolCategory): string {
     conversion: '转换',
     validation: '验证',
     analysis: '分析',
+    visualization: '可视化',
     utility: '工具',
     security: '安全'
   };
