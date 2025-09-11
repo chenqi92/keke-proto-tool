@@ -45,19 +45,24 @@ export const ToolCard: React.FC<ToolCardProps> = ({
     <div
       onClick={handleSelect}
       className={cn(
-        "group relative p-4 border border-border rounded-lg hover:border-accent-foreground hover:shadow-md transition-all cursor-pointer",
-        selected && "border-primary bg-primary/5",
-        tool.isLoaded ? "" : "opacity-50"
+        "group relative p-5 border border-border rounded-xl hover:border-accent-foreground hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 cursor-pointer bg-card",
+        selected && "border-primary bg-primary/5 shadow-lg shadow-primary/10",
+        tool.isLoaded ? "" : "opacity-50",
+        viewMode === 'list' && "flex items-center space-x-4 p-4"
       )}
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-3">
+      <div className={cn(
+        "flex items-start justify-between",
+        viewMode === 'grid' ? "mb-4" : "mb-0"
+      )}>
         <div className={cn(
-          "p-3 rounded-lg transition-all group-hover:scale-105",
-          selected ? "bg-primary/20" : "bg-muted"
+          "p-3 rounded-xl transition-all group-hover:scale-105",
+          selected ? "bg-primary/20" : "bg-muted/50",
+          viewMode === 'list' && "p-2"
         )}>
           <Icon className={cn(
-            "w-6 h-6",
+            viewMode === 'grid' ? "w-6 h-6" : "w-5 h-5",
             selected ? "text-primary" : "text-foreground"
           )} />
         </div>

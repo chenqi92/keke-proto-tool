@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/utils';
-import { Search, Grid, List, Star, RotateCcw } from 'lucide-react';
+import { Search, Grid, List, Star, RotateCcw, X, Bug } from 'lucide-react';
 import { ToolCard } from './ToolCard';
 import { ToolPanel } from './ToolPanel';
 import { QuickAccessBar } from './QuickAccessBar';
 import { toolRegistry } from '@/services/ToolRegistry';
 import { ToolCategory, ToolExecutionResult } from '@/types/toolbox';
-import { ToolRegistryDebug } from '@/components/Debug/ToolRegistryDebug';
+import { CollapsibleDebugPanel } from '@/components/Debug/CollapsibleDebugPanel';
 
 interface ToolboxInterfaceProps {
   mode?: 'page' | 'modal' | 'sidebar';
@@ -175,33 +175,46 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
   };
 
   const renderToolGrid = () => (
-    <div className={cn(
-      "grid gap-4",
-      viewMode === 'grid' 
-        ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-        : "grid-cols-1"
-    )}>
-      {filteredTools.map(tool => (
-        <ToolCard
-          key={tool.id}
-          tool={tool}
-          viewMode={viewMode}
-          onSelect={handleToolSelect}
-          onToggleFavorite={handleToggleFavorite}
-        />
-      ))}
+    <div className="h-full overflow-y-auto">
+      <div className={cn(
+        "grid gap-6 p-2",
+        viewMode === 'grid'
+          ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+          : "grid-cols-1 max-w-4xl mx-auto"
+      )}>
+        {filteredTools.map(tool => (
+          <ToolCard
+            key={tool.id}
+            tool={tool}
+            viewMode={viewMode}
+            selected={selectedTool === tool.id}
+            onSelect={handleToolSelect}
+            onToggleFavorite={handleToggleFavorite}
+          />
+        ))}
+      </div>
+      {/* Bottom padding to ensure last row is visible */}
+      <div className="h-20" />
     </div>
   );
 
   const renderEmptyState = () => (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-        <Search className="w-8 h-8 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center mb-6">
+        <Search className="w-10 h-10 text-primary/60" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">没有找到工具</h3>
-      <p className="text-muted-foreground max-w-md">
+      <h3 className="text-xl font-semibold mb-3">没有找到工具</h3>
+      <p className="text-muted-foreground max-w-md mb-6">
         {searchQuery ? '尝试调整搜索条件或清除筛选器' : '当前分类下没有可用的工具'}
       </p>
+      {searchQuery && (
+        <button
+          onClick={() => setSearchQuery('')}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          清除搜索
+        </button>
+      )}
     </div>
   );
 
@@ -214,17 +227,17 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
   }
 
   return (
-    <div className={cn("flex flex-col h-full", className)}>
+    <div className={cn("flex flex-col h-full relative", className)}>
       {/* Quick Access Bar */}
       {showQuickAccess && (
         <QuickAccessBar
           onToolSelect={handleToolSelect}
-          className="mb-4"
+          className="mb-6"
         />
       )}
 
       {/* Header */}
-      <div className="flex flex-col space-y-4 mb-6">
+      <div className="flex flex-col space-y-4 mb-6 px-1">
         {/* Search and View Controls */}
         <div className="flex items-center space-x-4">
           <div className="relative flex-1">
@@ -300,15 +313,16 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
         </div>
       </div>
 
-      {/* Debug Component */}
-      <div className="mb-4">
-        <ToolRegistryDebug />
-      </div>
-
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {filteredTools.length === 0 ? renderEmptyState() : renderToolGrid()}
       </div>
+
+      {/* Debug Panel - Fixed Position */}
+      <CollapsibleDebugPanel
+        className="fixed bottom-4 left-4 max-w-md z-40"
+        defaultExpanded={false}
+      />
 
       {/* Tool Panel */}
       {selectedTool && (
