@@ -18,6 +18,7 @@ import { ConnectionPage } from './ConnectionPage';
 import { ProtocolTypeOverview } from '@/components/ProtocolTypeOverview';
 import { useActiveSession } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
+import { ToolIntegration, useToolIntegration } from '@/components/Session/ToolIntegration';
 import {
   Play,
   Square,
@@ -25,7 +26,8 @@ import {
   Filter,
   Download,
   Settings,
-  AlertCircle
+  AlertCircle,
+  Wrench
 } from 'lucide-react';
 
 
@@ -43,6 +45,10 @@ export const SessionPage: React.FC = () => {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [viewMode, setViewMode] = useState<'split' | 'hex' | 'tree' | 'timeline'>('split');
   const [filterText, setFilterText] = useState('');
+  const [showToolPanel, setShowToolPanel] = useState(false);
+
+  // Tool integration
+  const toolIntegration = useToolIntegration(currentSession?.id || '');
 
 
   // 数据格式相关状态
@@ -112,6 +118,21 @@ export const SessionPage: React.FC = () => {
 
   const handleMessageSelect = (message: Message) => {
     setSelectedMessage(message);
+    // Select message data for tool integration
+    if (message.data) {
+      toolIntegration.selectData(message.data);
+    }
+  };
+
+  const handleToolResult = async (toolId: string, result: any) => {
+    console.log('Tool result:', toolId, result);
+    // Handle tool execution results
+    // This could update the UI, send data, or trigger other actions
+    if (result.data && result.metadata?.shouldSend) {
+      // Auto-send tool result if requested
+      setSendData(new TextDecoder().decode(result.data));
+      await handleSendMessage();
+    }
   };
 
   // Protocol-specific content renderer
@@ -258,6 +279,17 @@ export const SessionPage: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setShowToolPanel(!showToolPanel)}
+          className={cn(
+            "p-1.5 rounded-md transition-colors",
+            showToolPanel ? "bg-accent" : "hover:bg-accent"
+          )}
+          title="工具面板"
+        >
+          <Wrench className="w-4 h-4" />
+        </button>
+
+        <button
           onClick={handleSettings}
           className="p-1.5 hover:bg-accent rounded-md"
           title="设置"
@@ -271,13 +303,13 @@ export const SessionPage: React.FC = () => {
   const renderSplitView = () => (
     <PanelGroup direction="horizontal">
       {/* Left Panel - Hex Editor */}
-      <Panel defaultSize={40} minSize={25}>
+      <Panel defaultSize={showToolPanel ? 30 : 40} minSize={25}>
         <div className="h-full border-r border-border">
           <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
             <h3 className="text-sm font-medium">Hex 编辑器</h3>
           </div>
-          <HexEditor 
-            data={selectedMessage?.data || new Uint8Array()} 
+          <HexEditor
+            data={selectedMessage?.data || new Uint8Array()}
             readOnly={true}
           />
         </div>
@@ -285,8 +317,8 @@ export const SessionPage: React.FC = () => {
 
       <PanelResizeHandle className="w-1 bg-border hover:bg-accent transition-colors" />
 
-      {/* Right Panel */}
-      <Panel minSize={25}>
+      {/* Middle Panel - Parse Tree & Timeline */}
+      <Panel defaultSize={showToolPanel ? 40 : 60} minSize={25}>
         <PanelGroup direction="vertical">
           {/* Parse Tree */}
           <Panel defaultSize={50} minSize={30}>
@@ -316,6 +348,29 @@ export const SessionPage: React.FC = () => {
           </Panel>
         </PanelGroup>
       </Panel>
+
+      {/* Tool Panel */}
+      {showToolPanel && (
+        <>
+          <PanelResizeHandle className="w-1 bg-border hover:bg-accent transition-colors" />
+          <Panel defaultSize={30} minSize={20}>
+            <div className="h-full border-l border-border">
+              <div className="h-8 border-b border-border flex items-center px-3 bg-muted/50">
+                <h3 className="text-sm font-medium">工具面板</h3>
+              </div>
+              <div className="p-4 h-full overflow-auto">
+                <ToolIntegration
+                  sessionId={currentSession?.id || ''}
+                  protocol={currentSession?.protocol}
+                  connectionState={isConnected ? 'connected' : 'disconnected'}
+                  selectedData={toolIntegration.selectedData}
+                  onToolResult={handleToolResult}
+                />
+              </div>
+            </div>
+          </Panel>
+        </>
+      )}
     </PanelGroup>
   );
 

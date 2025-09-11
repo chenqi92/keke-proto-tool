@@ -22,12 +22,48 @@ import { NewSessionModal, SessionData } from '@/components/NewSessionModal'
 import { SessionProvider } from '@/contexts/SessionContext'
 import { useAppStore } from '@/stores/AppStore'
 
+// Services
+import { toolboxService } from '@/services/ToolboxService'
+import { performanceMonitor } from '@/services/PerformanceMonitor'
+import { keyboardShortcutManager } from '@/services/KeyboardShortcutManager'
+import { initializeLazyLoading } from '@/services/ToolLazyLoader'
+import { initializeTools } from '@/tools'
+
+// Components
+import { ShortcutHelp, useShortcutHelp } from '@/components/ShortcutHelp'
+
 function App() {
   const [showWelcome, setShowWelcome] = useState(false)
   const [activeModal, setActiveModal] = useState<string | null>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   const createSession = useAppStore(state => state.createSession)
+  const shortcutHelp = useShortcutHelp()
 
   useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Start performance monitoring
+        performanceMonitor.start()
+
+        // Initialize tools first
+        await initializeTools()
+
+        // Initialize lazy loading
+        await initializeLazyLoading()
+
+        // Initialize toolbox service
+        await toolboxService.initialize()
+
+        // Initialize keyboard shortcuts
+        keyboardShortcutManager.setEnabled(true)
+
+        setIsInitialized(true)
+        console.log('App initialized successfully')
+      } catch (error) {
+        console.error('Failed to initialize app:', error)
+      }
+    }
+
     // 获取应用版本信息 - 跳过测试环境
     if (typeof window !== 'undefined' && !(window as any).__VITEST__) {
       invoke('get_app_version')
@@ -42,6 +78,9 @@ function App() {
     if (!hasSeenWelcome) {
       setShowWelcome(true)
     }
+
+    // Initialize app
+    initializeApp()
   }, [])
 
   const handleWelcomeComplete = () => {
@@ -163,6 +202,17 @@ function App() {
     }
   }
 
+  if (!isInitialized) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">正在初始化应用...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <SessionProvider>
       <MainLayout onOpenModal={openModal}>
@@ -173,6 +223,11 @@ function App() {
         isOpen={showWelcome}
         onClose={() => setShowWelcome(false)}
         onComplete={handleWelcomeComplete}
+      />
+
+      <ShortcutHelp
+        isOpen={shortcutHelp.isOpen}
+        onClose={shortcutHelp.close}
       />
 
       {activeModal && renderModal()}
