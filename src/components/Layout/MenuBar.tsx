@@ -203,7 +203,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className, onOpenModal }) => {
       <div key={index} className="relative">
         <button
           className={cn(
-            "w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent rounded-sm",
+            "w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent rounded-sm cursor-pointer",
             isSubmenu && "pl-6"
           )}
           onClick={() => hasSubmenu ? setOpenSubmenu(openSubmenu === item.label ? null : item.label || null) : handleItemClick(item)}
@@ -237,7 +237,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className, onOpenModal }) => {
         <div key={menuName} className="relative">
           <button
             className={cn(
-              "px-3 py-1 text-sm hover:bg-accent rounded-sm transition-colors",
+              "px-3 py-1 text-sm hover:bg-accent rounded-sm transition-colors cursor-pointer",
               activeMenu === menuName && "bg-accent"
             )}
             onClick={() => handleMenuClick(menuName)}

@@ -6,6 +6,7 @@ mod session;
 mod commands;
 mod types;
 mod utils;
+mod menu;
 
 use commands::*;
 
@@ -25,6 +26,7 @@ pub fn run() {
             publish_mqtt_message,
             cancel_connection
         ])
+        .plugin(tauri_plugin_os::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -33,6 +35,10 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Create and set the native menu
+            let menu = menu::create_app_menu(app.handle())?;
+            app.set_menu(menu)?;
 
             // Initialize session manager with clean state
             let mut session_manager = session::SessionManager::new();
@@ -48,6 +54,9 @@ pub fn run() {
             });
 
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            menu::handle_menu_event(app, event.id().as_ref());
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
