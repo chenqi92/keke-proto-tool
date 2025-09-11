@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/utils';
-import { Search, Grid, List, Filter, Settings, Star } from 'lucide-react';
+import { Search, Grid, List, Filter, Settings, Star, RotateCcw } from 'lucide-react';
 import { ToolCard } from './ToolCard';
 import { ToolPanel } from './ToolPanel';
 import { QuickAccessBar } from './QuickAccessBar';
 import { toolboxService } from '@/services/ToolboxService';
 import { toolRegistry } from '@/services/ToolRegistry';
 import { BaseTool, ToolCategory, ToolExecutionResult } from '@/types/toolbox';
+import { ToolRegistryDebug } from '@/components/Debug/ToolRegistryDebug';
 
 interface ToolboxInterfaceProps {
   mode?: 'page' | 'modal' | 'sidebar';
@@ -87,6 +88,11 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
 
   // Filter and sort tools
   const filteredTools = useMemo(() => {
+    console.log('Filtering tools. Initial count:', tools.length);
+    console.log('Selected category:', selectedCategory);
+    console.log('Search query:', searchQuery);
+    console.log('Show favorites only:', showFavoritesOnly);
+
     let filtered = tools;
 
     // Filter by search query
@@ -110,7 +116,7 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
     }
 
     // Sort by priority and name
-    return filtered.sort((a, b) => {
+    const sorted = filtered.sort((a, b) => {
       if (a.priority !== b.priority) {
         return b.priority - a.priority;
       }
@@ -119,6 +125,9 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
       const nameB = b.name || '';
       return nameA.localeCompare(nameB);
     });
+
+    console.log('Final filtered tools count:', sorted.length);
+    return sorted;
   }, [tools, searchQuery, selectedCategory, showFavoritesOnly]);
 
   // Get unique categories
@@ -292,6 +301,11 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
         </div>
       </div>
 
+      {/* Debug Component */}
+      <div className="mb-4">
+        <ToolRegistryDebug />
+      </div>
+
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {filteredTools.length === 0 ? renderEmptyState() : renderToolGrid()}
@@ -317,7 +331,8 @@ function getCategoryDisplayName(category: ToolCategory): string {
     conversion: '转换',
     validation: '验证',
     analysis: '分析',
-    utility: '工具'
+    utility: '工具',
+    security: '安全'
   };
   return displayNames[category] || category;
 }

@@ -8,45 +8,53 @@ import {
   Zap,
   Settings
 } from 'lucide-react';
-import { BaseTool, ToolRegistration } from '@/types/toolbox';
+import { BaseTool, ToolRegistration, ToolCategory } from '@/types/toolbox';
+
+interface ToolInfo {
+  id: string;
+  name: string;
+  description: string;
+  category: ToolCategory;
+  icon: any;
+  priority: number;
+  tags: string[];
+  isLoaded: boolean;
+  isFavorite: boolean;
+}
 
 interface ToolCardProps {
-  tool: BaseTool;
-  registration: ToolRegistration;
+  tool: ToolInfo;
+  viewMode?: 'grid' | 'list';
   selected?: boolean;
-  onSelect: () => void;
-  onToggleFavorite: () => void;
-  onExecute: (input: any) => void;
+  onSelect: (toolId: string) => void;
+  onToggleFavorite: (toolId: string) => void;
 }
 
 export const ToolCard: React.FC<ToolCardProps> = ({
   tool,
-  registration,
+  viewMode = 'grid',
   selected = false,
   onSelect,
-  onToggleFavorite,
-  onExecute
+  onToggleFavorite
 }) => {
   const Icon = tool.icon;
 
-  const handleQuickExecute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Execute with default input
-    onExecute({});
-  };
-
   const handleToggleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onToggleFavorite();
+    onToggleFavorite(tool.id);
+  };
+
+  const handleSelect = () => {
+    onSelect(tool.id);
   };
 
   return (
     <div
-      onClick={onSelect}
+      onClick={handleSelect}
       className={cn(
         "group relative p-4 border border-border rounded-lg hover:border-accent-foreground hover:shadow-md transition-all cursor-pointer",
         selected && "border-primary bg-primary/5",
-        !registration.enabled && "opacity-50"
+        tool.isLoaded ? "" : "opacity-50"
       )}
     >
       {/* Header */}
@@ -67,23 +75,15 @@ export const ToolCard: React.FC<ToolCardProps> = ({
             onClick={handleToggleFavorite}
             className={cn(
               "p-1 rounded-md hover:bg-accent transition-colors opacity-0 group-hover:opacity-100",
-              registration.favorite && "opacity-100"
+              tool.isFavorite && "opacity-100"
             )}
           >
             <Star className={cn(
               "w-4 h-4",
-              registration.favorite ? "text-yellow-500 fill-current" : "text-muted-foreground"
+              tool.isFavorite ? "text-yellow-500 fill-current" : "text-muted-foreground"
             )} />
           </button>
-          
-          {/* Quick execute button */}
-          <button
-            onClick={handleQuickExecute}
-            className="p-1 rounded-md hover:bg-accent transition-colors opacity-0 group-hover:opacity-100"
-            title="快速执行"
-          >
-            <Play className="w-4 h-4 text-muted-foreground" />
-          </button>
+
         </div>
       </div>
 
@@ -102,28 +102,7 @@ export const ToolCard: React.FC<ToolCardProps> = ({
           <span className="text-xs px-2 py-1 bg-muted rounded-full">
             {tool.category}
           </span>
-          
-          {/* Usage stats */}
-          {registration.usageCount > 0 && (
-            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-              <TrendingUp className="w-3 h-3" />
-              <span>{registration.usageCount}</span>
-            </div>
-          )}
         </div>
-        
-        {/* Last used */}
-        {registration.lastUsed && (
-          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            <span>
-              {new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' }).format(
-                Math.floor((registration.lastUsed.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
-                'day'
-              )}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Capabilities indicators */}
@@ -156,9 +135,9 @@ export const ToolCard: React.FC<ToolCardProps> = ({
       )}
       
       {/* Disabled overlay */}
-      {!registration.enabled && (
+      {!tool.isLoaded && (
         <div className="absolute inset-0 bg-background/50 rounded-lg flex items-center justify-center">
-          <span className="text-sm text-muted-foreground font-medium">已禁用</span>
+          <span className="text-sm text-muted-foreground font-medium">未加载</span>
         </div>
       )}
     </div>
