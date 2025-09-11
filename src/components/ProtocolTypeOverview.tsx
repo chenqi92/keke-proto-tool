@@ -152,7 +152,7 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
           <div className="p-4 border-b border-border">
             <h3 className="text-lg font-semibold">会话列表</h3>
           </div>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-96 min-h-32 overflow-y-auto table-scroll-container">
             {filteredSessions.length > 0 ? (
               <div className="divide-y divide-border">
                 {filteredSessions.map((session) => (

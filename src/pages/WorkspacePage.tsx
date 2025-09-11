@@ -704,10 +704,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         </div>
 
         {/* Sessions Table */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden max-h-96">
-          <div className="overflow-x-auto overflow-y-auto max-h-full">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="max-h-96 min-h-32 overflow-y-auto table-scroll-container">
             <table className="w-full">
-              <thead className="bg-muted/50 border-b border-border">
+              <thead className="table-header-sticky">
                 <tr>
                   <th className="text-left p-4 font-medium text-sm">会话</th>
                   <th className="text-left p-4 font-medium text-sm">协议</th>
