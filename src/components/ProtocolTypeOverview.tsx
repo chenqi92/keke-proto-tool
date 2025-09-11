@@ -78,7 +78,7 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
             {getProtocolIcon()}
           </div>
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-lg font-bold">
               {protocol} {connectionType === 'client' ? '客户端' : '服务端'}概览
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -99,7 +99,7 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">总会话数</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-xl font-bold">{stats.total}</p>
               </div>
               <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
                 <Database className="w-5 h-5 text-blue-500" />
@@ -112,7 +112,7 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">已连接</p>
-                <p className="text-2xl font-bold text-green-600">{stats.connected}</p>
+                <p className="text-xl font-bold text-green-600">{stats.connected}</p>
               </div>
               <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-green-500" />
@@ -125,7 +125,7 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">总消息数</p>
-                <p className="text-2xl font-bold">{stats.totalMessages.toLocaleString()}</p>
+                <p className="text-xl font-bold">{stats.totalMessages.toLocaleString()}</p>
               </div>
               <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
                 <MessageSquare className="w-5 h-5 text-purple-500" />
@@ -138,7 +138,7 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">数据传输</p>
-                <p className="text-2xl font-bold">{formatBytes(stats.totalBytes)}</p>
+                <p className="text-xl font-bold">{formatBytes(stats.totalBytes)}</p>
               </div>
               <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
                 <Activity className="w-5 h-5 text-orange-500" />

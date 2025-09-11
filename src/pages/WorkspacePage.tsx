@@ -396,7 +396,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               <Folder className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">
+              <h1 className="text-lg font-bold">
                 {viewType === 'workspace-overview' && '默认工作区'}
                 {viewType === 'protocol-type-overview' && `${protocol} ${connectionType === 'client' ? '客户端' : '服务端'}`}
               </h1>
@@ -429,7 +429,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">会话总数</p>
-                <p className="text-2xl font-bold">{stats.totalSessions}</p>
+                <p className="text-xl font-bold">{stats.totalSessions}</p>
                 <p className="text-xs text-green-600">{stats.activeSessions} 活跃</p>
               </div>
               <BarChart3 className="w-8 h-8 text-primary" />
@@ -440,7 +440,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">连接数</p>
-                <p className="text-2xl font-bold">{stats.totalConnections}</p>
+                <p className="text-xl font-bold">{stats.totalConnections}</p>
                 <p className="text-xs text-green-600">{stats.activeConnections} 活跃</p>
               </div>
               <Users className="w-8 h-8 text-primary" />
@@ -451,7 +451,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">消息总数</p>
-                <p className="text-2xl font-bold">{stats.totalMessages.toLocaleString()}</p>
+                <p className="text-xl font-bold">{stats.totalMessages.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">累计处理</p>
               </div>
               <Database className="w-8 h-8 text-primary" />
@@ -462,7 +462,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">运行时间</p>
-                <p className="text-2xl font-bold">{stats.uptime}</p>
+                <p className="text-xl font-bold">{stats.uptime}</p>
                 <p className="text-xs text-muted-foreground">持续运行</p>
               </div>
               <Clock className="w-8 h-8 text-primary" />
