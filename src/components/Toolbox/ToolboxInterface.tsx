@@ -11,6 +11,7 @@ import { CollapsibleDebugPanel } from '@/components/Debug/CollapsibleDebugPanel'
 interface ToolboxInterfaceProps {
   mode?: 'page' | 'modal' | 'sidebar';
   onToolExecute?: (toolId: string, result: ToolExecutionResult) => void;
+  onClose?: () => void;
   className?: string;
   showQuickAccess?: boolean;
   initialCategory?: ToolCategory;
@@ -31,6 +32,7 @@ interface ToolInfo {
 export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
   mode = 'page',
   onToolExecute,
+  onClose,
   className,
   showQuickAccess = true,
   initialCategory
@@ -39,9 +41,10 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ToolCategory | 'all'>(initialCategory || 'all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list'); // Default to list for sidebar
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // Load tools on mount
   useEffect(() => {
@@ -174,27 +177,22 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
     }
   };
 
-  const renderToolGrid = () => (
+  const renderToolList = () => (
     <div className="h-full overflow-y-auto">
-      <div className={cn(
-        "grid gap-6 p-2",
-        viewMode === 'grid'
-          ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-          : "grid-cols-1 max-w-4xl mx-auto"
-      )}>
+      <div className="space-y-2 p-3">
         {filteredTools.map(tool => (
           <ToolCard
             key={tool.id}
             tool={tool}
-            viewMode={viewMode}
+            viewMode="compact"
             selected={selectedTool === tool.id}
             onSelect={handleToolSelect}
             onToggleFavorite={handleToggleFavorite}
           />
         ))}
       </div>
-      {/* Bottom padding to ensure last row is visible */}
-      <div className="h-20" />
+      {/* Bottom padding to ensure last item is visible */}
+      <div className="h-4" />
     </div>
   );
 
@@ -226,6 +224,174 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
     );
   }
 
+  // Modal layout for toolbox
+  if (mode === 'modal') {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
+        <div className="bg-background w-full h-full overflow-hidden flex flex-col">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-border bg-muted/30">
+            <div className="flex items-center space-x-4">
+              <h2 className="text-xl font-semibold">工具箱</h2>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowDebugPanel(!showDebugPanel)}
+                  className={cn(
+                    "p-2 rounded-lg transition-colors",
+                    showDebugPanel ? "bg-orange-100 text-orange-700" : "hover:bg-accent"
+                  )}
+                  title="调试信息"
+                >
+                  <Bug className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={loadTools}
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
+                  title="刷新工具列表"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Debug Panel */}
+          {showDebugPanel && (
+            <div className="border-b border-border bg-orange-50/50 dark:bg-orange-950/20">
+              <CollapsibleDebugPanel
+                className="m-4"
+                defaultExpanded={true}
+                showInProduction={true}
+              />
+            </div>
+          )}
+
+          {/* Main Content - Left-Right Layout */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Left Sidebar - Tool List */}
+            <div className="w-80 border-r border-border flex flex-col bg-muted/20">
+              {/* Search and Filters */}
+              <div className="p-4 border-b border-border space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="搜索工具..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                    className={cn(
+                      "p-2 rounded-lg transition-colors",
+                      showFavoritesOnly
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-accent"
+                    )}
+                    title="只显示收藏的工具"
+                  >
+                    <Star className="w-4 h-4" />
+                  </button>
+
+                  <div className="text-xs text-muted-foreground">
+                    {filteredTools.length} 个工具
+                  </div>
+                </div>
+              </div>
+
+              {/* Category Filter */}
+              <div className="px-4 pb-3">
+                <div className="flex flex-wrap gap-1">
+                  <button
+                    onClick={() => setSelectedCategory('all')}
+                    className={cn(
+                      "px-2 py-1 rounded-md text-xs font-medium transition-colors",
+                      selectedCategory === 'all'
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80"
+                    )}
+                  >
+                    全部
+                  </button>
+                  {categories.map(category => (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={cn(
+                        "px-2 py-1 rounded-md text-xs font-medium transition-colors",
+                        selectedCategory === category
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted hover:bg-muted/80"
+                      )}
+                    >
+                      {getCategoryDisplayName(category)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tool List */}
+              <div className="flex-1 overflow-hidden">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : filteredTools.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                    <Search className="w-8 h-8 text-muted-foreground mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      {searchQuery ? '没有找到匹配的工具' : '当前分类下没有工具'}
+                    </p>
+                  </div>
+                ) : (
+                  renderToolList()
+                )}
+              </div>
+            </div>
+
+            {/* Right Panel - Tool Interface */}
+            <div className="flex-1 flex flex-col">
+              {selectedTool ? (
+                <ToolPanel
+                  toolId={selectedTool}
+                  onClose={() => setSelectedTool(null)}
+                  onExecute={handleToolExecute}
+                  mode="embedded"
+                />
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-muted/50 rounded-2xl flex items-center justify-center mb-4 mx-auto">
+                      <Search className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">选择一个工具</h3>
+                    <p className="text-muted-foreground">
+                      从左侧列表中选择一个工具开始使用
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Original page layout for non-modal mode
   return (
     <div className={cn("flex flex-col h-full relative", className)}>
       {/* Quick Access Bar */}
@@ -236,93 +402,10 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
         />
       )}
 
-      {/* Header */}
-      <div className="flex flex-col space-y-4 mb-6 px-1">
-        {/* Search and View Controls */}
-        <div className="flex items-center space-x-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="搜索工具..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={loadTools}
-              className="p-2 hover:bg-accent rounded-md transition-colors"
-              title="刷新工具列表"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-              className="p-2 hover:bg-accent rounded-md transition-colors"
-              title={viewMode === 'grid' ? '切换到列表视图' : '切换到网格视图'}
-            >
-              {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
-            </button>
-            
-            <button
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className={cn(
-                "p-2 rounded-md transition-colors",
-                showFavoritesOnly 
-                  ? "bg-primary text-primary-foreground" 
-                  : "hover:bg-accent"
-              )}
-              title="只显示收藏的工具"
-            >
-              <Star className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Category Filter */}
-        <div className="flex items-center space-x-2 overflow-x-auto">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={cn(
-              "px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
-              selectedCategory === 'all'
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted hover:bg-muted/80"
-            )}
-          >
-            全部
-          </button>
-          {categories.map(category => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={cn(
-                "px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
-                selectedCategory === category
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted hover:bg-muted/80"
-              )}
-            >
-              {getCategoryDisplayName(category)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
+      {/* Content for page mode */}
       <div className="flex-1 overflow-hidden">
-        {filteredTools.length === 0 ? renderEmptyState() : renderToolGrid()}
+        {filteredTools.length === 0 ? renderEmptyState() : renderToolList()}
       </div>
-
-      {/* Debug Panel - Fixed Position */}
-      <CollapsibleDebugPanel
-        className="fixed bottom-4 left-4 max-w-md z-40"
-        defaultExpanded={false}
-      />
 
       {/* Tool Panel */}
       {selectedTool && (

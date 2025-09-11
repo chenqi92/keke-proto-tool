@@ -13,19 +13,28 @@ import { BaseTool, ToolInput, ToolOutput } from '@/types/toolbox';
 import { toolboxService } from '@/services/ToolboxService';
 import { toolRegistry } from '@/services/ToolRegistry';
 import { DataFormatSelector, DataFormat } from '@/components/DataFormatSelector';
+import {
+  MessageGeneratorInterface,
+  DataConverterInterface,
+  ProtocolParserInterface,
+  CRCCalculatorInterface,
+  TimestampConverterInterface
+} from './ToolInterfaces';
 
 interface ToolPanelProps {
   toolId: string;
   sessionId?: string;
   onExecute: (toolId: string, result: any) => void;
   onClose: () => void;
+  mode?: 'modal' | 'embedded';
 }
 
 export const ToolPanel: React.FC<ToolPanelProps> = ({
   toolId,
   sessionId,
   onExecute,
-  onClose
+  onClose,
+  mode = 'modal'
 }) => {
   const tool = toolRegistry.getById(toolId)?.tool;
 
@@ -120,78 +129,145 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   };
 
   const renderToolSpecificUI = () => {
-    // This would render tool-specific UI based on the tool type
-    // For now, we'll render a generic input/output interface
-    return (
-      <div className="space-y-6">
-        {/* Input section */}
-        <div className="bg-muted/30 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <label className="text-sm font-semibold text-foreground">输入数据</label>
-            <div className="flex items-center space-x-3">
-              <DataFormatSelector
-                value={inputFormat}
-                onChange={setInputFormat}
-                size="sm"
+    // Render tool-specific UI based on the tool ID
+    const commonProps = {
+      onExecute: handleExecute,
+      isExecuting
+    };
+
+    switch (toolId) {
+      case 'message-generator':
+        return <MessageGeneratorInterface {...commonProps} />;
+      case 'data-converter':
+        return <DataConverterInterface {...commonProps} />;
+      case 'protocol-parser':
+        return <ProtocolParserInterface {...commonProps} />;
+      case 'crc-calculator':
+        return <CRCCalculatorInterface {...commonProps} />;
+      case 'timestamp-converter':
+        return <TimestampConverterInterface {...commonProps} />;
+      default:
+        // Fallback generic interface
+        return (
+          <div className="space-y-6">
+            {/* Input section */}
+            <div className="bg-muted/30 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <label className="text-sm font-semibold text-foreground">输入数据</label>
+                <div className="flex items-center space-x-3">
+                  <DataFormatSelector
+                    value={inputFormat}
+                    onChange={setInputFormat}
+                    size="sm"
+                  />
+                  <button
+                    onClick={handleImportData}
+                    className="p-2 hover:bg-accent rounded-lg transition-colors"
+                    title="导入数据"
+                  >
+                    <Upload className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <textarea
+                value={inputData}
+                onChange={(e) => setInputData(e.target.value)}
+                placeholder="输入要处理的数据..."
+                className="w-full h-40 p-4 border border-border rounded-lg bg-background font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               />
+              {inputData && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  字符数: {inputData.length}
+                </div>
+              )}
+            </div>
+
+            {/* Output section */}
+            {lastResult && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">输出结果</label>
+                  <div className="flex items-center space-x-2">
+                    <DataFormatSelector
+                      value={outputFormat}
+                      onChange={setOutputFormat}
+                      size="sm"
+                    />
+                    <button
+                      onClick={handleExportResult}
+                      className="p-1 hover:bg-accent rounded-md transition-colors"
+                      title="导出结果"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-3 border border-border rounded-md bg-muted font-mono text-sm min-h-[8rem] whitespace-pre-wrap">
+                  {lastResult.result || new TextDecoder().decode(lastResult.data)}
+                </div>
+              </div>
+            )}
+
+            {/* Error display */}
+            {error && (
+              <div className="p-3 border border-red-200 bg-red-50 text-red-700 rounded-md text-sm">
+                {error}
+              </div>
+            )}
+
+            {/* Action Bar */}
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleReset}
+                  className="flex items-center space-x-2 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors text-sm font-medium"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>重置</span>
+                </button>
+
+                <button
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
+                  title="工具设置"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              </div>
+
               <button
-                onClick={handleImportData}
-                className="p-2 hover:bg-accent rounded-lg transition-colors"
-                title="导入数据"
+                onClick={handleExecute}
+                disabled={isExecuting || !inputData.trim()}
+                className={cn(
+                  "flex items-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-medium shadow-lg",
+                  (isExecuting || !inputData.trim()) && "opacity-50 cursor-not-allowed"
+                )}
               >
-                <Upload className="w-4 h-4" />
+                <Play className="w-4 h-4" />
+                <span>{isExecuting ? '执行中...' : '执行工具'}</span>
               </button>
             </div>
           </div>
-          <textarea
-            value={inputData}
-            onChange={(e) => setInputData(e.target.value)}
-            placeholder="输入要处理的数据..."
-            className="w-full h-40 p-4 border border-border rounded-lg bg-background font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-          />
-          {inputData && (
-            <div className="mt-2 text-xs text-muted-foreground">
-              字符数: {inputData.length}
-            </div>
-          )}
-        </div>
-
-        {/* Output section */}
-        {lastResult && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">输出结果</label>
-              <div className="flex items-center space-x-2">
-                <DataFormatSelector
-                  value={outputFormat}
-                  onChange={setOutputFormat}
-                  size="sm"
-                />
-                <button
-                  onClick={handleExportResult}
-                  className="p-1 hover:bg-accent rounded-md transition-colors"
-                  title="导出结果"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <div className="p-3 border border-border rounded-md bg-muted font-mono text-sm min-h-[8rem] whitespace-pre-wrap">
-              {lastResult.result || new TextDecoder().decode(lastResult.data)}
-            </div>
-          </div>
-        )}
-
-        {/* Error display */}
-        {error && (
-          <div className="p-3 border border-red-200 bg-red-50 text-red-700 rounded-md text-sm">
-            {error}
-          </div>
-        )}
-      </div>
-    );
+        );
+    }
   };
 
+  // Embedded mode for the new modal layout
+  if (mode === 'embedded') {
+    return (
+      <div className="h-full flex flex-col bg-background">
+        {/* Content - Dynamic height based on content */}
+        <div className="flex-1 min-h-0">
+          <div className="h-full overflow-y-auto">
+            <div className="p-4">
+              {renderToolSpecificUI()}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Original modal mode
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col">

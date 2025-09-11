@@ -17,7 +17,7 @@ interface ToolInfo {
 
 interface ToolCardProps {
   tool: ToolInfo;
-  viewMode?: 'grid' | 'list';
+  viewMode?: 'grid' | 'list' | 'compact';
   selected?: boolean;
   onSelect: (toolId: string) => void;
   onToggleFavorite: (toolId: string) => void;
@@ -32,6 +32,51 @@ export const ToolCard: React.FC<ToolCardProps> = ({
 }) => {
   const Icon = tool.icon;
 
+  // Compact view for sidebar
+  if (viewMode === 'compact') {
+    return (
+      <div
+        onClick={() => onSelect(tool.id)}
+        className={cn(
+          "group flex items-center space-x-3 p-3 rounded-lg hover:bg-accent transition-all cursor-pointer",
+          selected && "bg-primary/10 border border-primary/20",
+          !tool.isLoaded && "opacity-50"
+        )}
+      >
+        <div className={cn(
+          "p-2 rounded-lg transition-all",
+          selected ? "bg-primary/20" : "bg-muted/50"
+        )}>
+          <Icon className={cn(
+            "w-4 h-4",
+            selected ? "text-primary" : "text-foreground"
+          )} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-sm truncate">{tool.name}</h3>
+          <p className="text-xs text-muted-foreground truncate">{tool.description}</p>
+        </div>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(tool.id);
+          }}
+          className={cn(
+            "p-1 rounded-md hover:bg-accent transition-colors opacity-0 group-hover:opacity-100",
+            tool.isFavorite && "opacity-100"
+          )}
+        >
+          <Star className={cn(
+            "w-3 h-3",
+            tool.isFavorite ? "text-yellow-500 fill-current" : "text-muted-foreground"
+          )} />
+        </button>
+      </div>
+    );
+  }
+
   const handleToggleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggleFavorite(tool.id);
@@ -40,6 +85,8 @@ export const ToolCard: React.FC<ToolCardProps> = ({
   const handleSelect = () => {
     onSelect(tool.id);
   };
+
+  // Regular grid/list view
 
   return (
     <div
