@@ -6,6 +6,7 @@ import { StatusBar } from './StatusBar';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession, getDefaultSessionConfig, SelectedNode } from '@/contexts/SessionContext';
+import { useAppStore } from '@/stores/AppStore';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -17,7 +18,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onOpenModal
 }) => {
   const layoutConfig = useLayoutConfig();
-  const { setCurrentSession, setSessionId, setSelectedNode } = useSession();
+  const { setCurrentSession, setSessionId } = useSession();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true); // 默认隐藏检视器
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -50,7 +51,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       sessionData: nodeData.sessionData
     };
 
-    setSelectedNode(selectedNode);
+    // Use the AppStore's setSelectedNode with the complete nodeData
+    const { setSelectedNode: setSelectedNodeInStore } = useAppStore.getState();
+    setSelectedNodeInStore(nodeId, nodeType, nodeData);
 
     // If it's a session node, also set it as the active session
     if (nodeType === 'session' && nodeData.sessionId) {

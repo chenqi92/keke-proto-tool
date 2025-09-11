@@ -40,19 +40,22 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
   const activeSessionId = useAppStore(state => state.activeSessionId);
   const selectedNodeId = useAppStore(state => state.selectedNodeId);
   const selectedNodeType = useAppStore(state => state.selectedNodeType);
+  const selectedNodeData = useAppStore(state => state.selectedNodeData);
   const setActiveSession = useAppStore(state => state.setActiveSession);
   const setSelectedNode = useAppStore(state => state.setSelectedNode);
   const getSession = useAppStore(state => state.getSession);
 
   const currentSession = activeSessionId ? getSession(activeSessionId)?.config || null : null;
 
-  const selectedNode: SelectedNode | null = selectedNodeId ? {
+  const selectedNode: SelectedNode | null = selectedNodeId && selectedNodeData ? {
     id: selectedNodeId,
     type: selectedNodeType || 'workspace',
-    label: selectedNodeId === 'workspace-1' ? '默认工作区' : selectedNodeId,
-    protocol: currentSession?.protocol,
-    config: currentSession || undefined,
-    viewType: selectedNodeId === 'workspace-1' ? 'workspace-overview' : undefined,
+    label: selectedNodeData.label || (selectedNodeId === 'workspace-1' ? '默认工作区' : selectedNodeId),
+    protocol: selectedNodeData.protocol || currentSession?.protocol,
+    config: selectedNodeData.config || currentSession || undefined,
+    viewType: selectedNodeData.viewType || (selectedNodeId === 'workspace-1' ? 'workspace-overview' : undefined),
+    connectionType: selectedNodeData.connectionType,
+    sessionData: selectedNodeData.sessionData,
   } : {
     // Default to workspace overview if no node is selected
     id: 'workspace-1',

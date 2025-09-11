@@ -18,6 +18,7 @@ interface AppStore extends WorkspaceState {
   activeSessionId: string | null;
   selectedNodeId: string | null;
   selectedNodeType: 'workspace' | 'session' | 'connection' | null;
+  selectedNodeData: any;
 
   // Session Management
   createSession: (config: SessionConfig) => void;
@@ -58,7 +59,7 @@ interface AppStore extends WorkspaceState {
   updateSSELastEventId: (sessionId: string, lastEventId: string) => void;
 
   // Node Selection
-  setSelectedNode: (nodeId: string | null, nodeType: 'workspace' | 'session' | 'connection' | null) => void;
+  setSelectedNode: (nodeId: string | null, nodeType: 'workspace' | 'session' | 'connection' | null, nodeData?: any) => void;
 
   // Utility Methods
   getSession: (sessionId: string) => SessionState | undefined;
@@ -142,6 +143,7 @@ export const useAppStore = create<AppStore>()(
     activeSessionId: null,
     selectedNodeId: null,
     selectedNodeType: null,
+    selectedNodeData: null,
 
     // Session Management
     createSession: (config: SessionConfig) => {
@@ -371,10 +373,11 @@ export const useAppStore = create<AppStore>()(
     },
 
     // Node Selection
-    setSelectedNode: (nodeId: string | null, nodeType: 'workspace' | 'session' | 'connection' | null) => {
+    setSelectedNode: (nodeId: string | null, nodeType: 'workspace' | 'session' | 'connection' | null, nodeData?: any) => {
       set({
         selectedNodeId: nodeId,
         selectedNodeType: nodeType,
+        selectedNodeData: nodeData,
       });
     },
 
