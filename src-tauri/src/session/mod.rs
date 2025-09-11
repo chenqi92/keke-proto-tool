@@ -95,8 +95,8 @@ impl Session {
         // Attempt connection with timeout and retry
         self.connection_manager.connect_with_retry(connection_factory, status_tx).await?;
 
-        // TODO: After successful connection, check if any configuration has changed (e.g., port)
-        // This would require a more complex implementation to detect port changes
+        // Check if any configuration has changed after connection (e.g., port changes for TCP server)
+        self.check_and_emit_config_changes().await?;
 
         Ok(())
     }
@@ -104,6 +104,29 @@ impl Session {
     /// Set the app handle for event emission
     pub fn set_app_handle(&mut self, app_handle: AppHandle) {
         self.state.set_app_handle(app_handle);
+    }
+
+    /// Check if configuration has changed after connection and emit updates
+    async fn check_and_emit_config_changes(&self) -> NetworkResult<()> {
+        // Check if this is a TCP server that might have changed ports
+        if self.config.protocol == "tcp" && self.config.connection_type == "server" {
+            // Try to get the actual port from the connection
+            if let Some(actual_port) = self.connection_manager.get_actual_port().await {
+                if actual_port != self.config.port {
+                    eprintln!("Session: Port changed from {} to {} for session {}",
+                        self.config.port, actual_port, self.id);
+
+                    // Emit configuration update to frontend
+                    let config_updates = serde_json::json!({
+                        "port": actual_port,
+                        "originalPort": self.config.port
+                    });
+
+                    self.state.emit_config_update(config_updates);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Cancel ongoing connection attempt

@@ -351,7 +351,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
 
       {/* 发送面板 */}
       <div className={cn("border-b border-border bg-card p-4", isServerMode ? "h-40" : "h-48")}>
-        <div className="flex items-start space-x-3 h-full">
+        <div className="flex items-stretch space-x-3 h-full">
           <div className="flex-1 flex flex-col space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -435,7 +435,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
             )}
           </div>
 
-          <div className="flex flex-col space-y-2">
+          <div className="flex flex-col justify-end space-y-2">
             <button
               onClick={handleSendMessage}
               disabled={

@@ -296,4 +296,13 @@ impl ConnectionManager {
     pub async fn current_attempt(&self) -> u32 {
         *self.current_attempt.read().await
     }
+
+    /// Get the actual port from the current connection (for configuration checks)
+    pub async fn get_actual_port(&self) -> Option<u16> {
+        if let Some(ref connection) = *self.connection.read().await {
+            connection.get_actual_port()
+        } else {
+            None
+        }
+    }
 }

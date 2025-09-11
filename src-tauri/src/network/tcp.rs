@@ -123,6 +123,14 @@ impl Connection for TcpClient {
         }
     }
 
+    fn get_actual_port(&self) -> Option<u16> {
+        if self.connected {
+            Some(self.port)
+        } else {
+            None
+        }
+    }
+
     async fn start_receiving(&mut self) -> NetworkResult<mpsc::Receiver<NetworkEvent>> {
         let (tx, rx) = mpsc::channel(1000);
 

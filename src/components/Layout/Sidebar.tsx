@@ -16,6 +16,7 @@ import {
   Folder
 } from 'lucide-react';
 import { NewSessionModal, SessionData } from '@/components/NewSessionModal';
+import { EditConfigModal } from '@/components/EditConfigModal';
 import { useAppStore, useAllSessions } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { SessionConfig } from '@/types';
@@ -338,6 +339,8 @@ const TreeItem: React.FC<{
 export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, onNodeSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [isEditConfigModalOpen, setIsEditConfigModalOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<SessionConfig | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [connectingNodes, setConnectingNodes] = useState<Set<string>>(new Set());
   const [recordingNodes, setRecordingNodes] = useState<Set<string>>(new Set());
@@ -565,8 +568,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
 
     // 会话级别操作
     onEditConfig: (sessionId: string) => {
-      console.log('编辑配置:', sessionId);
-      // TODO: 打开会话配置编辑器
+      const session = sessionsMap[sessionId];
+      if (session) {
+        setEditingSession(session.config);
+        setIsEditConfigModalOpen(true);
+      }
     },
     onDuplicateSession: (sessionId: string) => {
       const session = sessionsMap[sessionId];
@@ -719,6 +725,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
     setIsNewSessionModalOpen(false);
   };
 
+  const handleSaveConfig = (config: SessionConfig) => {
+    updateSession(config.id, config);
+    setEditingSession(null);
+    setIsEditConfigModalOpen(false);
+  };
+
   const getSidebarContent = () => {
     return (
       <div className="space-y-4">
@@ -784,6 +796,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
         isOpen={isNewSessionModalOpen}
         onClose={() => setIsNewSessionModalOpen(false)}
         onConfirm={handleCreateSession}
+      />
+
+      {/* Edit Configuration Modal */}
+      <EditConfigModal
+        isOpen={isEditConfigModalOpen}
+        onClose={() => {
+          setIsEditConfigModalOpen(false);
+          setEditingSession(null);
+        }}
+        onSave={handleSaveConfig}
+        config={editingSession}
       />
 
       {/* Context Menu */}

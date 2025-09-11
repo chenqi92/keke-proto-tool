@@ -285,7 +285,7 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
 
       {/* 发布面板 */}
       <div className="h-40 border-b border-border bg-card p-4">
-        <div className="flex items-start space-x-3 h-full">
+        <div className="flex items-stretch space-x-3 h-full">
           <div className="flex-1 flex flex-col space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -358,7 +358,7 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
             )}
           </div>
           
-          <div className="flex flex-col space-y-2">
+          <div className="flex flex-col justify-end space-y-2">
             <button
               onClick={handlePublishMessage}
               disabled={!isConnected || !publishData.trim() || !publishTopic.trim() || isPublishing}

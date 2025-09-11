@@ -32,6 +32,11 @@ pub trait Connection: Send + Sync + std::fmt::Debug {
     
     /// Start receiving data (returns a receiver for incoming events)
     async fn start_receiving(&mut self) -> NetworkResult<mpsc::Receiver<NetworkEvent>>;
+
+    /// Get the actual port being used (for servers that might bind to alternative ports)
+    fn get_actual_port(&self) -> Option<u16> {
+        None // Default implementation returns None
+    }
 }
 
 /// Server-specific connection trait for protocols that support server mode
