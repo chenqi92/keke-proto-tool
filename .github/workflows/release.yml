@@ -14,6 +14,10 @@ on:
         default: 'false'
         type: boolean
 
+permissions:
+  contents: write
+  actions: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -178,11 +182,13 @@ jobs:
             target: 'x86_64-unknown-linux-gnu'
             arch: 'x64'
             os: 'linux'
-          - platform: 'ubuntu-latest'
-            args: '--target aarch64-unknown-linux-gnu'
-            target: 'aarch64-unknown-linux-gnu'
-            arch: 'arm64'
-            os: 'linux'
+          # ARM64 Linux build temporarily disabled due to cross-compilation complexity
+          # Will be re-enabled once we have a stable cross-compilation setup
+          # - platform: 'ubuntu-latest'
+          #   args: '--target aarch64-unknown-linux-gnu'
+          #   target: 'aarch64-unknown-linux-gnu'
+          #   arch: 'arm64'
+          #   os: 'linux'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -221,14 +227,16 @@ jobs:
         if: matrix.os == 'linux'
         run: |
           sudo apt-get update
-          # 修复包名问题：在新版本 Ubuntu 中使用正确的包名
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-          # 尝试安装旧版本包作为备选
+          # Install Linux development dependencies
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            pkg-config
+
+          # Try to install older webkit version as fallback
           sudo apt-get install -y libwebkit2gtk-4.0-dev || echo "libwebkit2gtk-4.0-dev not available, using 4.1 version"
-          # For ARM64 cross-compilation
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-          fi
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -240,9 +248,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Cross-compilation environment variables
-          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         with:
           args: ${{ matrix.args }}
           includeDebug: false
@@ -257,47 +262,19 @@ jobs:
             !src-tauri/target/*/release/bundle/**/*.dSYM/
           retention-days: 7
 
-  # Create GitHub release with available platform packages (even if some builds failed)
+  # Create initial GitHub release (without assets)
   create-release:
-    needs: [version-check, build-and-package]
-    if: always() && needs.version-check.outputs.should-release == 'true' && github.event.inputs.skip_release != 'true'
+    needs: [version-check]
+    if: needs.version-check.outputs.should-release == 'true' && github.event.inputs.skip_release != 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release-id: ${{ steps.create-release.outputs.id }}
+      upload-url: ${{ steps.create-release.outputs.upload_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-        continue-on-error: true
-
-      - name: Check build results and available packages
-        id: build-status
-        run: |
-          echo "Checking available build artifacts..."
-          AVAILABLE_PACKAGES=""
-          FAILED_BUILDS=""
-
-          # 检查各平台构建结果
-          if [ -d "artifacts" ]; then
-            echo "Available artifacts:"
-            find artifacts -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" | while read file; do
-              echo "  - $(basename "$file")"
-              AVAILABLE_PACKAGES="$AVAILABLE_PACKAGES\n- $(basename "$file")"
-            done
-          else
-            echo "No artifacts directory found"
-          fi
-
-          # 检查构建状态
-          BUILD_RESULTS="${{ toJSON(needs.build-and-package.result) }}"
-          echo "Build results: $BUILD_RESULTS"
-
-          # 设置输出变量
-          echo "available-packages<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$AVAILABLE_PACKAGES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Prepare release notes
         id: release-notes
@@ -320,7 +297,7 @@ jobs:
           ## 📦 Cross-Platform Release
 
           This release includes packages for:
-          - **Windows**: MSI installer, standalone EXE, and portable ZIP archive
+          - **Windows**: MSI installer and NSIS installer (x64 and x86)
           - **macOS**: Separate packages for Intel x64 and Apple Silicon (ARM64)
           - **Linux**: Packages for x86_64 and ARM64 architectures
 
@@ -332,69 +309,133 @@ jobs:
           EOF
           fi
 
-      - name: Organize release assets
-        run: |
-          mkdir -p release-assets
-
-          # Process each platform's artifacts
-          for artifact_dir in artifacts/*/; do
-            if [ -d "$artifact_dir" ]; then
-              platform=$(basename "$artifact_dir" | sed 's/-artifacts$//')
-              echo "Processing $platform artifacts..."
-
-              # Find and copy all package files
-              find "$artifact_dir" -type f \( \
-                -name "*.msi" -o \
-                -name "*.exe" -o \
-                -name "*.zip" -o \
-                -name "*.dmg" -o \
-                -name "*.app.tar.gz" -o \
-                -name "*.deb" -o \
-                -name "*.rpm" -o \
-                -name "*.AppImage" \
-              \) -exec cp {} release-assets/ \;
-            fi
-          done
-
-          # List all release assets
-          echo "Release assets:"
-          ls -la release-assets/
-
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        id: create-release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.version-check.outputs.current-version }}
           name: Release v${{ needs.version-check.outputs.current-version }}
           body_path: release-notes.md
-          files: release-assets/*
           draft: false
           prerelease: false
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Upload assets to existing release as builds complete
+  upload-assets:
+    needs: [version-check, create-release, build-and-package]
+    if: always() && needs.create-release.result == 'success'
+    strategy:
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            os: 'windows'
+            arch: 'x64'
+            bundle: 'msi'
+          - platform: 'windows-latest'
+            os: 'windows'
+            arch: 'x64'
+            bundle: 'nsis'
+          - platform: 'windows-latest'
+            os: 'windows'
+            arch: 'x86'
+            bundle: 'msi'
+          - platform: 'windows-latest'
+            os: 'windows'
+            arch: 'x86'
+            bundle: 'nsis'
+          - platform: 'macos-latest'
+            os: 'macos'
+            arch: 'x64'
+          - platform: 'macos-latest'
+            os: 'macos'
+            arch: 'arm64'
+          - platform: 'ubuntu-latest'
+            os: 'linux'
+            arch: 'x64'
+          # ARM64 Linux temporarily disabled
+          # - platform: 'ubuntu-latest'
+          #   os: 'linux'
+          #   arch: 'arm64'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download specific artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bundle || 'all' }}-artifacts
+          path: artifacts
+        continue-on-error: true
+
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+          && sudo apt update \
+          && sudo apt install gh -y
+
+      - name: Upload assets to release
+        if: success()
+        run: |
+          # Authenticate with GitHub CLI
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+          # Find and upload all package files
+          if [ -d "artifacts" ]; then
+            find artifacts -type f \( \
+              -name "*.msi" -o \
+              -name "*.exe" -o \
+              -name "*.zip" -o \
+              -name "*.dmg" -o \
+              -name "*.app.tar.gz" -o \
+              -name "*.deb" -o \
+              -name "*.rpm" -o \
+              -name "*.AppImage" \
+            \) | while read file; do
+              if [ -f "$file" ]; then
+                echo "Uploading $(basename "$file")..."
+                gh release upload v${{ needs.version-check.outputs.current-version }} "$file" --clobber || echo "Failed to upload $(basename "$file")"
+              fi
+            done
+          else
+            echo "No artifacts found for ${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bundle || 'all' }}"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Final release summary
+  release-summary:
+    needs: [version-check, create-release, upload-assets]
+    if: always() && needs.create-release.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
       - name: Release Summary
         run: |
           echo "## 🚀 Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** v${{ needs.version-check.outputs.current-version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Previous Version:** ${{ needs.version-check.outputs.previous-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Release ID:** ${{ needs.create-release.outputs.release-id }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Release Assets" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Build Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          for file in release-assets/*; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              size=$(du -h "$file" | cut -f1)
-              echo "- **$filename** ($size)" >> $GITHUB_STEP_SUMMARY
-            fi
-          done
+          echo "- **Windows x64 MSI:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Windows x64 NSIS:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Windows x86 MSI:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Windows x86 NSIS:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **macOS x64:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **macOS ARM64:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Linux x64:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version-check.outputs.current-version }})" >> $GITHUB_STEP_SUMMARY
 
   # Cleanup artifacts after successful release
   cleanup:
-    needs: [create-release]
+    needs: [create-release, upload-assets]
     if: always() && needs.create-release.result == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -402,9 +443,12 @@ jobs:
         uses: geekyeggo/delete-artifact@v4
         with:
           name: |
-            windows-x64-artifacts
-            macos-x64-artifacts
-            macos-arm64-artifacts
-            linux-x64-artifacts
-            linux-arm64-artifacts
+            windows-x64-msi-artifacts
+            windows-x64-nsis-artifacts
+            windows-x86-msi-artifacts
+            windows-x86-nsis-artifacts
+            macos-x64-all-artifacts
+            macos-arm64-all-artifacts
+            linux-x64-all-artifacts
+
           failOnError: false

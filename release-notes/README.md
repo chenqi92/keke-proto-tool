@@ -1,46 +1,61 @@
 # Release Notes
 
-This directory contains version-specific release notes for the application.
+This directory contains release notes for keke-proto-tool versions.
 
-## Structure
+## File Structure
 
-- Each version should have its own markdown file named `{version}.md` (e.g., `1.0.0.md`, `1.2.3.md`)
-- If a version-specific file doesn't exist, the workflow will use `default-template.md` as a fallback
+- `default-template.md` - Default template used when no version-specific notes exist
+- `{version}.md` - Version-specific release notes (e.g., `0.0.5.md`)
 
-## Format
+## Release Process
 
-Release notes should follow this general structure:
+### Automatic Release (Recommended)
 
-```markdown
-# Version {version}
+1. Update the version in `package.json`
+2. Commit and push to the `main` branch
+3. The GitHub Actions workflow will automatically:
+   - Create a new release
+   - Build packages for all supported platforms
+   - Upload packages to the release as they complete
 
-## 🚀 New Features
-- Feature 1
-- Feature 2
+### Manual Release
 
-## 🐛 Bug Fixes
-- Fix 1
-- Fix 2
+You can also trigger a release manually:
 
-## 🔧 Improvements
-- Improvement 1
-- Improvement 2
+1. Go to the Actions tab in GitHub
+2. Select "Release & Package" workflow
+3. Click "Run workflow"
+4. Choose whether to skip release creation (for testing)
 
-## 📦 Dependencies
-- Updated dependency 1
-- Updated dependency 2
 
-## 🔄 Breaking Changes
-- Breaking change 1 (if any)
 
-## 📝 Notes
-- Additional notes
-```
+## Supported Platforms
 
-## Usage
+### Current Support
+- ✅ Windows x64 (MSI, NSIS)
+- ✅ Windows x86 (MSI, NSIS)
+- ✅ macOS Intel x64
+- ✅ macOS Apple Silicon (ARM64)
+- ✅ Linux x64
 
-The GitHub Actions workflow will automatically:
-1. Detect version changes in `package.json`
-2. Look for a release notes file matching the new version
-3. Use the version-specific notes if available, or fall back to the default template
-4. Create a GitHub release with the appropriate notes
+### Planned Support
+- 🔄 Linux ARM64 (cross-compilation setup in progress)
+
+## Release Strategy
+
+The new release process follows a **create-first, upload-later** strategy:
+
+1. **Create Release**: A GitHub release is created immediately with release notes
+2. **Build Packages**: Multiple build jobs run in parallel for different platforms
+3. **Upload Assets**: As each build completes, its packages are uploaded to the existing release
+4. **Cleanup**: Temporary artifacts are cleaned up after successful uploads
+
+This approach ensures:
+- Releases are created even if some builds fail
+- Users can see the release immediately
+- Packages are added as they become available
+- Failed builds don't block the entire release
+
+## Template Variables
+
+- `{version}` - Will be replaced with the actual version number
