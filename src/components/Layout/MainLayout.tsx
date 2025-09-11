@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { MenuBar } from './MenuBar';
 import { ToolBar } from './ToolBar';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
@@ -23,26 +22,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true); // 默认隐藏检视器
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMacOS, setIsMacOS] = useState(false);
 
   // 监听原生菜单事件
   useNativeMenu({ onOpenModal });
-
-  // 检测平台
-  useEffect(() => {
-    const checkPlatform = async () => {
-      try {
-        const { platform } = await import('@tauri-apps/plugin-os');
-        const currentPlatform = await platform();
-        setIsMacOS(currentPlatform === 'macos');
-      } catch (error) {
-        // 如果不是在Tauri环境中，通过userAgent检测
-        setIsMacOS(navigator.userAgent.includes('Mac'));
-      }
-    };
-
-    checkPlatform();
-  }, []);
 
   // 响应式处理：在移动端自动折叠侧边栏
   useEffect(() => {
@@ -86,9 +68,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground">
-      {/* Menu Bar - 在macOS上隐藏，使用原生菜单栏 */}
-      {!isMacOS && <MenuBar onOpenModal={onOpenModal} />}
-
       {/* Tool Bar */}
       <ToolBar onOpenModal={onOpenModal} />
 

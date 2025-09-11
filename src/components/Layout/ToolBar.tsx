@@ -26,7 +26,8 @@ interface ToolBarItem {
   separator?: boolean;
 }
 
-const createToolBarItems = (onOpenModal: (modalType: string) => void): ToolBarItem[] => [
+// 左侧主要功能按钮
+const createLeftToolBarItems = (onOpenModal: (modalType: string) => void): ToolBarItem[] => [
   {
     id: 'new-session',
     label: '新建会话',
@@ -54,8 +55,11 @@ const createToolBarItems = (onOpenModal: (modalType: string) => void): ToolBarIt
     icon: Search,
     shortcut: 'Ctrl+F',
     action: () => console.log('Search')
-  },
-  { separator: true },
+  }
+];
+
+// 右侧工具和设置按钮
+const createRightToolBarItems = (onOpenModal: (modalType: string) => void): ToolBarItem[] => [
   {
     id: 'toolbox',
     label: '工具箱',
@@ -84,7 +88,8 @@ const createToolBarItems = (onOpenModal: (modalType: string) => void): ToolBarIt
 
 export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
   const layoutConfig = useLayoutConfig();
-  const toolBarItems = createToolBarItems(onOpenModal);
+  const leftItems = createLeftToolBarItems(onOpenModal);
+  const rightItems = createRightToolBarItems(onOpenModal);
 
   const handleItemClick = (item: ToolBarItem) => {
     if (item.action) {
@@ -92,24 +97,42 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     }
   };
 
-  // 根据屏幕尺寸决定显示哪些按钮
-  const getVisibleItems = () => {
+  // 根据屏幕尺寸决定显示哪些左侧按钮
+  const getVisibleLeftItems = () => {
     if (layoutConfig.toolbar.showAllButtons) {
-      return toolBarItems;
+      return leftItems;
     } else if (layoutConfig.toolbar.showEssentialButtons) {
       // 平板：显示核心功能
-      return toolBarItems.filter(item =>
+      return leftItems.filter(item =>
         item.id && ['new-session', 'connect', 'capture', 'search'].includes(item.id)
       );
     } else {
       // 移动端：只显示最重要的功能
-      return toolBarItems.filter(item =>
+      return leftItems.filter(item =>
         item.id && ['new-session', 'connect'].includes(item.id)
       );
     }
   };
 
-  const visibleItems = getVisibleItems();
+  // 根据屏幕尺寸决定显示哪些右侧按钮
+  const getVisibleRightItems = () => {
+    if (layoutConfig.toolbar.showAllButtons) {
+      return rightItems;
+    } else if (layoutConfig.toolbar.showEssentialButtons) {
+      // 平板：显示设置和工具箱
+      return rightItems.filter(item =>
+        item.id && ['toolbox', 'settings'].includes(item.id)
+      );
+    } else {
+      // 移动端：只显示设置
+      return rightItems.filter(item =>
+        item.id && ['settings'].includes(item.id)
+      );
+    }
+  };
+
+  const visibleLeftItems = getVisibleLeftItems();
+  const visibleRightItems = getVisibleRightItems();
 
   const renderToolBarItem = (item: ToolBarItem, index: number, compact = false) => {
     if (item.separator) {
@@ -162,50 +185,19 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
 
   return (
     <div className={cn(
-      "h-16 bg-card border-b border-border flex items-center px-4 space-x-1",
+      "h-16 bg-card border-b border-border flex items-center justify-between px-4",
       layoutConfig.isMobile && "px-2 h-14",
       className
     )}>
-      {/* Action buttons */}
+      {/* 左侧主要功能按钮 */}
       <div className="flex items-center space-x-1">
-        {visibleItems.map((item, index) => renderToolBarItem(item, index))}
-
-        {/* 更多按钮（当有隐藏项目时） - 暂时禁用以测试响应式功能 */}
-        {/* {hiddenItems.length > 0 && (
-          <div className="relative group">
-            <button
-              className={cn(
-                "flex items-center justify-center p-2 rounded-md transition-colors",
-                "hover:bg-accent text-muted-foreground hover:text-foreground"
-              )}
-              title="更多工具"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-
-            <div className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-              <div className="py-1 min-w-32">
-                {hiddenItems.map((item, index) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleItemClick(item)}
-                      className="w-full flex items-center px-3 py-2 text-sm hover:bg-accent text-left"
-                    >
-                      <Icon className="w-4 h-4 mr-2" />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )} */}
+        {visibleLeftItems.map((item, index) => renderToolBarItem(item, index))}
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
+      {/* 右侧工具和设置按钮 */}
+      <div className="flex items-center space-x-1">
+        {visibleRightItems.map((item, index) => renderToolBarItem(item, index))}
+      </div>
     </div>
   );
 };
