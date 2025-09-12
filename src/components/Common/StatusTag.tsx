@@ -5,7 +5,7 @@ import { CheckCircle, Activity, AlertCircle, XCircle } from 'lucide-react';
 export type StatusType = 'connected' | 'connecting' | 'disconnected' | 'error';
 
 interface StatusTagProps {
-  status: StatusType;
+  status: StatusType | string | any; // Allow flexible status input
   className?: string;
   showIcon?: boolean;
   size?: 'sm' | 'md';
@@ -40,7 +40,42 @@ export const StatusTag: React.FC<StatusTagProps> = ({
   showIcon = true,
   size = 'sm'
 }) => {
-  const config = statusConfig[status];
+  // Normalize status to string
+  const normalizeStatus = (status: any): StatusType => {
+    if (typeof status === 'string') {
+      return status as StatusType;
+    }
+
+    // Handle Rust enum objects
+    if (typeof status === 'object' && status !== null) {
+      if (status.connected !== undefined) return 'connected';
+      if (status.connecting !== undefined) return 'connecting';
+      if (status.disconnected !== undefined) return 'disconnected';
+      if (status.error !== undefined) return 'error';
+      if (status.reconnecting !== undefined) return 'connecting';
+      if (status.timedOut !== undefined) return 'error';
+
+      // Handle lowercase variants
+      const statusStr = Object.keys(status)[0]?.toLowerCase();
+      if (statusStr === 'connected') return 'connected';
+      if (statusStr === 'connecting') return 'connecting';
+      if (statusStr === 'disconnected') return 'disconnected';
+      if (statusStr === 'error') return 'error';
+      if (statusStr === 'reconnecting') return 'connecting';
+      if (statusStr === 'timedout') return 'error';
+    }
+
+    return 'disconnected'; // Default fallback
+  };
+
+  const normalizedStatus = normalizeStatus(status);
+  const config = statusConfig[normalizedStatus];
+
+  if (!config) {
+    console.warn('StatusTag: Unknown status:', status);
+    return null;
+  }
+
   const Icon = config.icon;
 
   return (
@@ -56,7 +91,7 @@ export const StatusTag: React.FC<StatusTagProps> = ({
         <Icon 
           className={cn(
             size === 'sm' ? 'w-3 h-3' : 'w-4 h-4',
-            status === 'connecting' && 'animate-pulse'
+            normalizedStatus === 'connecting' && 'animate-pulse'
           )} 
         />
       )}

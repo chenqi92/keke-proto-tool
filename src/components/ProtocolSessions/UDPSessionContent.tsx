@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { cn } from '@/utils';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
-import { useSessionById } from '@/stores/AppStore';
+import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { ConnectionManagementPanel } from '@/components/Session';
 import { Message } from '@/types';
 import {
   Send,
@@ -13,7 +14,8 @@ import {
   Settings,
   WifiOff,
   Loader2,
-  Radio
+  Radio,
+  Edit3
 } from 'lucide-react';
 
 interface UDPSessionContentProps {
@@ -33,6 +35,12 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
+  const [showConnectionManagement, setShowConnectionManagement] = useState(false);
+
+  // 编辑状态
+  const [isEditingConnection, setIsEditingConnection] = useState(false);
+  const [editHost, setEditHost] = useState('');
+  const [editPort, setEditPort] = useState('');
 
   // UDP特定状态
   const [targetHost, setTargetHost] = useState('');
@@ -248,6 +256,83 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
     setFormatError(null);
   };
 
+  // 处理连接信息编辑
+  const handleEditConnection = () => {
+    if (!config) return;
+    setEditHost(config.host);
+    setEditPort(config.port.toString());
+    setIsEditingConnection(true);
+  };
+
+  const handleSaveConnection = () => {
+    const port = parseInt(editPort);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      setFormatError('端口号必须在1-65535之间');
+      return;
+    }
+
+    if (!editHost.trim()) {
+      setFormatError('主机地址不能为空');
+      return;
+    }
+
+    // 更新会话配置
+    if (!config) return;
+    const updateSession = useAppStore.getState().updateSession;
+    updateSession(sessionId, {
+      config: {
+        ...config,
+        host: editHost.trim(),
+        port: port
+      }
+    });
+
+    setIsEditingConnection(false);
+    setFormatError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingConnection(false);
+    setEditHost('');
+    setEditPort('');
+    setFormatError(null);
+  };
+
+  // 处理发送消息 - 可被外部调用的版本
+  const handleSend = async (data: string, format: DataFormat): Promise<void> => {
+    if (!config || !isConnected) {
+      throw new Error('Not connected');
+    }
+
+    if (!validateFormat[format](data)) {
+      throw new Error(`Invalid ${format.toUpperCase()} format`);
+    }
+
+    try {
+      const formattedData = formatData.from[format](data);
+
+      if (isServerMode) {
+        // For server mode, send to all connected clients or selected client
+        if (broadcastMode) {
+          const success = await networkService.broadcastMessage(sessionId, formattedData);
+          if (!success) throw new Error('Broadcast failed');
+        } else if (selectedClient) {
+          const success = await networkService.sendToClient(sessionId, selectedClient, formattedData);
+          if (!success) throw new Error('Send to client failed');
+        } else {
+          throw new Error('No client selected for sending');
+        }
+      } else {
+        // For client mode, send to server
+        const success = await networkService.sendMessage(sessionId, formattedData);
+        if (!success) throw new Error('Send to server failed');
+      }
+    } catch (error) {
+      console.error('Send failed:', error);
+      throw error;
+    }
+  };
+
   const formatMessageData = (message: Message): string => {
     try {
       return formatData.to[receiveFormat](message.data);
@@ -283,9 +368,56 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
           {connectionStatus === 'error' && <AlertCircle className="w-4 h-4 text-red-500" />}
           
           <span className="text-sm font-medium">UDP {config.connectionType}</span>
-          <span className="text-xs text-muted-foreground">
-            {isServerMode ? `绑定 ${config.port}` : `${config.host}:${config.port}`}
-          </span>
+
+          {/* 可编辑的连接信息 */}
+          {isEditingConnection ? (
+            <div className="flex items-center space-x-2">
+              {!isServerMode && (
+                <input
+                  type="text"
+                  value={editHost}
+                  onChange={(e) => setEditHost(e.target.value)}
+                  className="w-24 px-2 py-1 text-xs border border-border rounded"
+                  placeholder="主机"
+                />
+              )}
+              <input
+                type="number"
+                value={editPort}
+                onChange={(e) => setEditPort(e.target.value)}
+                className="w-16 px-2 py-1 text-xs border border-border rounded"
+                placeholder="端口"
+                min="1"
+                max="65535"
+              />
+              <button
+                onClick={handleSaveConnection}
+                className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+              >
+                保存
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+              >
+                取消
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-muted-foreground">
+                {isServerMode ? `绑定 ${config.port}` : `${config.host}:${config.port}`}
+              </span>
+              <button
+                onClick={handleEditConnection}
+                disabled={isConnected}
+                className="p-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+                title="编辑连接信息"
+              >
+                <Edit3 className="w-3 h-3" />
+              </button>
+            </div>
+          )}
           
           <button
             onClick={handleConnect}
@@ -397,23 +529,22 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                 )}
               </div>
 
-              <div className="flex items-center space-x-2">
-                <div className={cn(
-                  "w-2 h-2 rounded-full",
-                  connectionStatus === 'connected' ? "bg-green-500" :
-                  connectionStatus === 'connecting' ? "bg-yellow-500 animate-pulse" :
-                  connectionStatus === 'error' ? "bg-red-500" : "bg-gray-500"
-                )} />
-                <span className="text-xs text-muted-foreground">
-                  {isServerMode ? (
-                    isBound ? '监听中' : '未绑定'
-                  ) : (
-                    connectionStatus === 'connected' ? "Socket已创建" :
-                    connectionStatus === 'connecting' ? "创建中" :
-                    connectionStatus === 'error' ? "Socket错误" : "Socket未创建"
+              {/* 连接管理按钮 - 仅客户端模式显示 */}
+              {!isServerMode && (
+                <button
+                  onClick={() => setShowConnectionManagement(!showConnectionManagement)}
+                  className={cn(
+                    "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors",
+                    showConnectionManagement
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
                   )}
-                </span>
-              </div>
+                  title="连接管理"
+                >
+                  <Settings className="w-3 h-3" />
+                  <span>连接管理</span>
+                </button>
+              )}
             </div>
 
             <textarea
@@ -547,6 +678,33 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Connection Management Panel - Only for Client Sessions */}
+      {!isServerMode && showConnectionManagement && (
+        <div className="px-4 py-2">
+          <ConnectionManagementPanel
+            sessionId={sessionId}
+            config={config}
+            status={connectionStatus}
+            onConfigUpdate={(updates) => {
+              // Update session config through the store
+              const updateSession = useAppStore.getState().updateSession;
+              updateSession(sessionId, { config: { ...config, ...updates } });
+            }}
+            onConnect={handleConnect}
+            onDisconnect={handleConnect}
+            onSendMessage={async (data, format) => {
+              try {
+                await handleSend(data, format as DataFormat);
+                return true;
+              } catch (error) {
+                console.error('Auto send failed:', error);
+                return false;
+              }
+            }}
+          />
         </div>
       )}
 

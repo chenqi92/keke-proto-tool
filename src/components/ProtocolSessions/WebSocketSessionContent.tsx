@@ -4,6 +4,7 @@ import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/co
 import { useSessionById, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { ConnectionManagementPanel } from '@/components/Session';
 import { Message } from '@/types';
 import {
   Send,
@@ -14,7 +15,8 @@ import {
   WifiOff,
   Loader2,
   Activity,
-  X
+  X,
+  Edit3
 } from 'lucide-react';
 
 interface WebSocketSessionContentProps {
@@ -34,6 +36,12 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
+  const [showConnectionManagement, setShowConnectionManagement] = useState(false);
+
+  // 编辑状态
+  const [isEditingConnection, setIsEditingConnection] = useState(false);
+  const [editHost, setEditHost] = useState('');
+  const [editPort, setEditPort] = useState('');
 
   // WebSocket特定状态
   const [messageType, setMessageType] = useState<'text' | 'binary'>('text');
@@ -136,6 +144,83 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
     setFormatError(null);
   };
 
+  // 处理连接信息编辑
+  const handleEditConnection = () => {
+    if (!config) return;
+    setEditHost(config.host);
+    setEditPort(config.port.toString());
+    setIsEditingConnection(true);
+  };
+
+  const handleSaveConnection = () => {
+    const port = parseInt(editPort);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      setFormatError('端口号必须在1-65535之间');
+      return;
+    }
+
+    if (!editHost.trim()) {
+      setFormatError('主机地址不能为空');
+      return;
+    }
+
+    // 更新会话配置
+    if (!config) return;
+    const updateSession = useAppStore.getState().updateSession;
+    updateSession(sessionId, {
+      config: {
+        ...config,
+        host: editHost.trim(),
+        port: port
+      }
+    });
+
+    setIsEditingConnection(false);
+    setFormatError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingConnection(false);
+    setEditHost('');
+    setEditPort('');
+    setFormatError(null);
+  };
+
+  // 处理发送消息 - 可被外部调用的版本
+  const handleSend = async (data: string, format: DataFormat): Promise<void> => {
+    if (!config || !isConnected) {
+      throw new Error('Not connected');
+    }
+
+    if (!validateFormat[format](data)) {
+      throw new Error(`Invalid ${format.toUpperCase()} format`);
+    }
+
+    try {
+      const formattedData = formatData.from[format](data);
+
+      if (isServerMode) {
+        // For server mode, send to all connected clients or selected client
+        if (broadcastMode) {
+          const success = await networkService.broadcastMessage(sessionId, formattedData);
+          if (!success) throw new Error('Broadcast failed');
+        } else if (selectedClient) {
+          const success = await networkService.sendToClient(sessionId, selectedClient, formattedData);
+          if (!success) throw new Error('Send to client failed');
+        } else {
+          throw new Error('No client selected for sending');
+        }
+      } else {
+        // For client mode, send to server
+        const success = await networkService.sendMessage(sessionId, formattedData);
+        if (!success) throw new Error('Send to server failed');
+      }
+    } catch (error) {
+      console.error('Send failed:', error);
+      throw error;
+    }
+  };
+
   const formatMessageData = (message: Message): string => {
     try {
       return formatData.to[receiveFormat](message.data);
@@ -195,15 +280,54 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
               />
             </div>
           ) : (
-            // 客户端模式：显示WebSocket URL输入
-            <input
-              type="text"
-              value={websocketUrl}
-              onChange={(e) => setWebsocketUrl(e.target.value)}
-              placeholder="ws://localhost:8080"
-              className="w-48 px-2 py-1 text-xs bg-background border border-border rounded"
-              disabled={isConnected}
-            />
+            // 客户端模式：可编辑的连接信息
+            isEditingConnection ? (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={editHost}
+                  onChange={(e) => setEditHost(e.target.value)}
+                  className="w-24 px-2 py-1 text-xs border border-border rounded"
+                  placeholder="主机"
+                />
+                <span className="text-xs text-muted-foreground">:</span>
+                <input
+                  type="number"
+                  value={editPort}
+                  onChange={(e) => setEditPort(e.target.value)}
+                  className="w-16 px-2 py-1 text-xs border border-border rounded"
+                  placeholder="端口"
+                  min="1"
+                  max="65535"
+                />
+                <button
+                  onClick={handleSaveConnection}
+                  className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+                >
+                  保存
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                >
+                  取消
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-muted-foreground">
+                  ws://{config.host}:{config.port}
+                </span>
+                <button
+                  onClick={handleEditConnection}
+                  disabled={isConnected}
+                  className="p-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  title="编辑连接信息"
+                >
+                  <Edit3 className="w-3 h-3" />
+                </button>
+              </div>
+            )
           )}
 
           <button
@@ -323,23 +447,22 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
                 )}
               </div>
 
-              <div className="flex items-center space-x-2">
-                <div className={cn(
-                  "w-2 h-2 rounded-full",
-                  connectionStatus === 'connected' ? "bg-green-500" :
-                  connectionStatus === 'connecting' ? "bg-yellow-500 animate-pulse" :
-                  connectionStatus === 'error' ? "bg-red-500" : "bg-gray-500"
-                )} />
-                <span className="text-xs text-muted-foreground">
-                  {isServerMode ? (
-                    isListening ? `监听中 (${clientConnections.length} 客户端)` : '未启动'
-                  ) : (
-                    connectionStatus === 'connected' ? "已连接" :
-                    connectionStatus === 'connecting' ? "连接中" :
-                    connectionStatus === 'error' ? "连接错误" : "未连接"
+              {/* 连接管理按钮 - 仅客户端模式显示 */}
+              {!isServerMode && (
+                <button
+                  onClick={() => setShowConnectionManagement(!showConnectionManagement)}
+                  className={cn(
+                    "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors",
+                    showConnectionManagement
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
                   )}
-                </span>
-              </div>
+                  title="连接管理"
+                >
+                  <Settings className="w-3 h-3" />
+                  <span>连接管理</span>
+                </button>
+              )}
             </div>
             
             <textarea
@@ -395,6 +518,33 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
           </div>
         </div>
       </div>
+
+      {/* Connection Management Panel - Only for Client Sessions */}
+      {!isServerMode && showConnectionManagement && (
+        <div className="px-4 py-2">
+          <ConnectionManagementPanel
+            sessionId={sessionId}
+            config={config}
+            status={connectionStatus}
+            onConfigUpdate={(updates) => {
+              // Update session config through the store
+              const updateSession = useAppStore.getState().updateSession;
+              updateSession(sessionId, { config: { ...config, ...updates } });
+            }}
+            onConnect={handleConnect}
+            onDisconnect={handleConnect}
+            onSendMessage={async (data, format) => {
+              try {
+                await handleSend(data, format as DataFormat);
+                return true;
+              } catch (error) {
+                console.error('Auto send failed:', error);
+                return false;
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* 主内容区域 */}
       <div className="flex-1 overflow-hidden">
