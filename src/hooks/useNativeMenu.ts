@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { useTheme } from '@/hooks/useTheme';
 
 interface UseNativeMenuProps {
   onOpenModal: (modalType: string) => void;
 }
 
 export const useNativeMenu = ({ onOpenModal }: UseNativeMenuProps) => {
+  const { setTheme, setColorTheme } = useTheme();
+
   useEffect(() => {
     const unlisten = listen<string>('menu-action', (event) => {
       const action = event.payload;
@@ -57,9 +60,87 @@ export const useNativeMenu = ({ onOpenModal }: UseNativeMenuProps) => {
           console.log('Command Palette');
           // TODO: 实现命令面板逻辑
           break;
-        case 'toggle_dark_mode':
-          console.log('Toggle Dark Mode');
-          // TODO: 实现切换深色模式逻辑
+
+        // 主题风格
+        case 'theme_light':
+          setTheme('light');
+          break;
+        case 'theme_dark':
+          setTheme('dark');
+          break;
+        case 'theme_system':
+          setTheme('system');
+          break;
+
+        // 主题色
+        case 'color_default':
+          setColorTheme('default');
+          break;
+        case 'color_slate':
+          setColorTheme('slate');
+          break;
+        case 'color_gray':
+          setColorTheme('gray');
+          break;
+        case 'color_zinc':
+          setColorTheme('zinc');
+          break;
+        case 'color_neutral':
+          setColorTheme('neutral');
+          break;
+        case 'color_stone':
+          setColorTheme('stone');
+          break;
+        case 'color_red':
+          setColorTheme('red');
+          break;
+        case 'color_orange':
+          setColorTheme('orange');
+          break;
+        case 'color_amber':
+          setColorTheme('amber');
+          break;
+        case 'color_yellow':
+          setColorTheme('yellow');
+          break;
+        case 'color_lime':
+          setColorTheme('lime');
+          break;
+        case 'color_green':
+          setColorTheme('green');
+          break;
+        case 'color_emerald':
+          setColorTheme('emerald');
+          break;
+        case 'color_teal':
+          setColorTheme('teal');
+          break;
+        case 'color_cyan':
+          setColorTheme('cyan');
+          break;
+        case 'color_sky':
+          setColorTheme('sky');
+          break;
+        case 'color_blue':
+          setColorTheme('blue');
+          break;
+        case 'color_indigo':
+          setColorTheme('indigo');
+          break;
+        case 'color_violet':
+          setColorTheme('violet');
+          break;
+        case 'color_purple':
+          setColorTheme('purple');
+          break;
+        case 'color_fuchsia':
+          setColorTheme('fuchsia');
+          break;
+        case 'color_pink':
+          setColorTheme('pink');
+          break;
+        case 'color_rose':
+          setColorTheme('rose');
           break;
         case 'show_sidebar':
           console.log('Show Sidebar');
@@ -211,5 +292,5 @@ export const useNativeMenu = ({ onOpenModal }: UseNativeMenuProps) => {
     return () => {
       unlisten.then(f => f());
     };
-  }, [onOpenModal]);
+  }, [onOpenModal, setTheme, setColorTheme]);
 };

@@ -57,6 +57,117 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 94.1%;
   }
+
+  /* Color Theme Overrides */
+  .theme-slate {
+    --primary: 215.4 16.3% 46.9%;
+    --ring: 215.4 16.3% 46.9%;
+  }
+
+  .theme-gray {
+    --primary: 220 8.9% 46.1%;
+    --ring: 220 8.9% 46.1%;
+  }
+
+  .theme-zinc {
+    --primary: 240 3.8% 46.1%;
+    --ring: 240 3.8% 46.1%;
+  }
+
+  .theme-neutral {
+    --primary: 0 0% 45.1%;
+    --ring: 0 0% 45.1%;
+  }
+
+  .theme-stone {
+    --primary: 25 5.3% 44.7%;
+    --ring: 25 5.3% 44.7%;
+  }
+
+  .theme-red {
+    --primary: 0 72.2% 50.6%;
+    --ring: 0 72.2% 50.6%;
+  }
+
+  .theme-orange {
+    --primary: 24.6 95% 53.1%;
+    --ring: 24.6 95% 53.1%;
+  }
+
+  .theme-amber {
+    --primary: 45.4 93.4% 47.5%;
+    --ring: 45.4 93.4% 47.5%;
+  }
+
+  .theme-yellow {
+    --primary: 54.5 91.7% 54.3%;
+    --ring: 54.5 91.7% 54.3%;
+  }
+
+  .theme-lime {
+    --primary: 84.2 85.2% 60.2%;
+    --ring: 84.2 85.2% 60.2%;
+  }
+
+  .theme-green {
+    --primary: 142.1 76.2% 36.3%;
+    --ring: 142.1 76.2% 36.3%;
+  }
+
+  .theme-emerald {
+    --primary: 160.1 84.1% 39.4%;
+    --ring: 160.1 84.1% 39.4%;
+  }
+
+  .theme-teal {
+    --primary: 173.4 80.4% 40%;
+    --ring: 173.4 80.4% 40%;
+  }
+
+  .theme-cyan {
+    --primary: 188.7 85% 53.3%;
+    --ring: 188.7 85% 53.3%;
+  }
+
+  .theme-sky {
+    --primary: 198.6 88.7% 48.4%;
+    --ring: 198.6 88.7% 48.4%;
+  }
+
+  .theme-blue {
+    --primary: 221.2 83.2% 53.3%;
+    --ring: 221.2 83.2% 53.3%;
+  }
+
+  .theme-indigo {
+    --primary: 239.4 84.2% 67.1%;
+    --ring: 239.4 84.2% 67.1%;
+  }
+
+  .theme-violet {
+    --primary: 262.1 83.3% 57.8%;
+    --ring: 262.1 83.3% 57.8%;
+  }
+
+  .theme-purple {
+    --primary: 270.7 91% 65.1%;
+    --ring: 270.7 91% 65.1%;
+  }
+
+  .theme-fuchsia {
+    --primary: 292.2 84.1% 60.6%;
+    --ring: 292.2 84.1% 60.6%;
+  }
+
+  .theme-pink {
+    --primary: 330.4 81.2% 60.4%;
+    --ring: 330.4 81.2% 60.4%;
+  }
+
+  .theme-rose {
+    --primary: 346.8 77.2% 49.8%;
+    --ring: 346.8 77.2% 49.8%;
+  }
 }
 
 @layer base {

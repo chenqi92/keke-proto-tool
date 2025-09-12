@@ -11,6 +11,7 @@ import {
   Puzzle
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface ToolBarProps {
   className?: string;
@@ -166,8 +167,14 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
       </div>
 
       {/* 右侧工具和设置按钮 */}
-      <div className="flex items-center space-x-1">
-        {visibleRightItems.map((item, index) => renderToolBarItem(item, index))}
+      <div className="flex items-center space-x-2">
+        {/* 主题切换按钮 */}
+        <ThemeToggle compact={true} />
+
+        {/* 设置按钮 */}
+        <div className="flex items-center space-x-1">
+          {visibleRightItems.map((item, index) => renderToolBarItem(item, index))}
+        </div>
       </div>
     </div>
   );

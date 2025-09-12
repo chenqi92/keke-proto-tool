@@ -43,6 +43,53 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         ],
     )?;
 
+    // 主题子菜单
+    let theme_submenu = Submenu::with_items(
+        app,
+        "主题风格",
+        true,
+        &[
+            &MenuItem::with_id(app, "theme_light", "浅色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "theme_dark", "深色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "theme_system", "跟随系统", true, None::<&str>)?,
+        ],
+    )?;
+
+    // 主题色子菜单
+    let color_theme_submenu = Submenu::with_items(
+        app,
+        "主题色",
+        true,
+        &[
+            &MenuItem::with_id(app, "color_default", "默认", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_slate", "石板", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_gray", "灰色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_zinc", "锌色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_neutral", "中性", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_stone", "石色", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "color_red", "红色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_orange", "橙色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_amber", "琥珀", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_yellow", "黄色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_lime", "青柠", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_green", "绿色", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "color_emerald", "翡翠", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_teal", "青色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_cyan", "青蓝", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_sky", "天蓝", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_blue", "蓝色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_indigo", "靛蓝", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "color_violet", "紫罗兰", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_purple", "紫色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_fuchsia", "紫红", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_pink", "粉色", true, None::<&str>)?,
+            &MenuItem::with_id(app, "color_rose", "玫瑰", true, None::<&str>)?,
+        ],
+    )?;
+
     // 视图菜单
     let view_menu = Submenu::with_items(
         app,
@@ -51,7 +98,8 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         &[
             &MenuItem::with_id(app, "command_palette", "命令面板", true, Some("CmdOrCtrl+K"))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "toggle_dark_mode", "切换深色模式", true, Some("CmdOrCtrl+J"))?,
+            &theme_submenu,
+            &color_theme_submenu,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "show_sidebar", "显示侧边栏", true, None::<&str>)?,
             &MenuItem::with_id(app, "show_inspector", "显示检视器", true, None::<&str>)?,
@@ -194,9 +242,89 @@ pub fn handle_menu_event(app: &AppHandle, event: &str) {
         "command_palette" => {
             let _ = app.emit("menu-action", "command_palette");
         }
-        "toggle_dark_mode" => {
-            let _ = app.emit("menu-action", "toggle_dark_mode");
+
+        // 主题风格
+        "theme_light" => {
+            let _ = app.emit("menu-action", "theme_light");
         }
+        "theme_dark" => {
+            let _ = app.emit("menu-action", "theme_dark");
+        }
+        "theme_system" => {
+            let _ = app.emit("menu-action", "theme_system");
+        }
+
+        // 主题色
+        "color_default" => {
+            let _ = app.emit("menu-action", "color_default");
+        }
+        "color_slate" => {
+            let _ = app.emit("menu-action", "color_slate");
+        }
+        "color_gray" => {
+            let _ = app.emit("menu-action", "color_gray");
+        }
+        "color_zinc" => {
+            let _ = app.emit("menu-action", "color_zinc");
+        }
+        "color_neutral" => {
+            let _ = app.emit("menu-action", "color_neutral");
+        }
+        "color_stone" => {
+            let _ = app.emit("menu-action", "color_stone");
+        }
+        "color_red" => {
+            let _ = app.emit("menu-action", "color_red");
+        }
+        "color_orange" => {
+            let _ = app.emit("menu-action", "color_orange");
+        }
+        "color_amber" => {
+            let _ = app.emit("menu-action", "color_amber");
+        }
+        "color_yellow" => {
+            let _ = app.emit("menu-action", "color_yellow");
+        }
+        "color_lime" => {
+            let _ = app.emit("menu-action", "color_lime");
+        }
+        "color_green" => {
+            let _ = app.emit("menu-action", "color_green");
+        }
+        "color_emerald" => {
+            let _ = app.emit("menu-action", "color_emerald");
+        }
+        "color_teal" => {
+            let _ = app.emit("menu-action", "color_teal");
+        }
+        "color_cyan" => {
+            let _ = app.emit("menu-action", "color_cyan");
+        }
+        "color_sky" => {
+            let _ = app.emit("menu-action", "color_sky");
+        }
+        "color_blue" => {
+            let _ = app.emit("menu-action", "color_blue");
+        }
+        "color_indigo" => {
+            let _ = app.emit("menu-action", "color_indigo");
+        }
+        "color_violet" => {
+            let _ = app.emit("menu-action", "color_violet");
+        }
+        "color_purple" => {
+            let _ = app.emit("menu-action", "color_purple");
+        }
+        "color_fuchsia" => {
+            let _ = app.emit("menu-action", "color_fuchsia");
+        }
+        "color_pink" => {
+            let _ = app.emit("menu-action", "color_pink");
+        }
+        "color_rose" => {
+            let _ = app.emit("menu-action", "color_rose");
+        }
+
         "show_sidebar" => {
             let _ = app.emit("menu-action", "show_sidebar");
         }
