@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { cn } from '@/utils';
 import {
   ChevronDown,
@@ -370,9 +370,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   // Generate tree data from real sessions
   const treeData = useMemo(() => createTreeDataFromSessions(sessions), [sessions]);
 
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
-    new Set(['workspace-1'])
-  );
+  // Function to get all node IDs for auto-expansion
+  const getAllNodeIds = (nodes: TreeNode[]): string[] => {
+    const ids: string[] = [];
+    const traverse = (nodeList: TreeNode[]) => {
+      nodeList.forEach(node => {
+        ids.push(node.id);
+        if (node.children && node.children.length > 0) {
+          traverse(node.children);
+        }
+      });
+    };
+    traverse(nodes);
+    return ids;
+  };
+
+  // Auto-expand all nodes by default
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => {
+    const initialTreeData = createTreeDataFromSessions(sessions);
+    const allNodeIds = getAllNodeIds(initialTreeData);
+    return new Set(allNodeIds);
+  });
+
+  // Update expanded nodes when tree data changes (new sessions added)
+  useEffect(() => {
+    const allNodeIds = getAllNodeIds(treeData);
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev);
+      // Add any new node IDs to the expanded set
+      allNodeIds.forEach(id => newSet.add(id));
+      return newSet;
+    });
+  }, [treeData]);
 
   const handleToggle = (id: string) => {
     setExpandedNodes(prev => {

@@ -457,22 +457,24 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                 )}
               </div>
 
-              {/* 连接管理按钮 - 仅客户端模式显示 */}
-              {!isServerMode && (
-                <button
-                  onClick={() => setShowConnectionManagement(!showConnectionManagement)}
-                  className={cn(
-                    "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors",
-                    showConnectionManagement
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  )}
-                  title="连接管理"
-                >
-                  <Settings className="w-3 h-3" />
-                  <span>连接管理</span>
-                </button>
-              )}
+              {/* 连接管理按钮 - 仅客户端模式显示，右对齐 */}
+              <div className="flex justify-end">
+                {!isServerMode && (
+                  <button
+                    onClick={() => setShowConnectionManagement(!showConnectionManagement)}
+                    className={cn(
+                      "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors",
+                      showConnectionManagement
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                    title="连接管理"
+                  >
+                    <Settings className="w-3 h-3" />
+                    <span>连接管理</span>
+                  </button>
+                )}
+              </div>
             </div>
             
             <textarea

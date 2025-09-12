@@ -39,7 +39,7 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
   onSendMessage,
   className
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true); // Default to expanded
   const [currentRetryAttempt, setCurrentRetryAttempt] = useState(0);
   const [maxRetryAttempts, setMaxRetryAttempts] = useState(0);
   const [autoSendStats, setAutoSendStats] = useState<AutoSendStatistics>({
@@ -147,23 +147,15 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
   return (
     <div className={cn("bg-card border border-border rounded-lg", className)}>
       {/* Header */}
-      <div className="p-3 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Settings className="w-4 h-4" />
-            <span className="text-sm font-medium">连接管理</span>
-            <StatusTag status={status} size="sm" />
-          </div>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1 hover:bg-accent rounded-md transition-colors"
-          >
-            <RefreshCw className={cn("w-4 h-4 transition-transform", isExpanded && "rotate-180")} />
-          </button>
+      <div className="p-2 border-b border-border">
+        <div className="flex items-center space-x-2">
+          <Settings className="w-4 h-4" />
+          <span className="text-sm font-medium">连接管理</span>
+          <StatusTag status={status} size="sm" />
         </div>
 
         {/* Connection Status Info */}
-        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+        <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center space-x-4">
             <span>超时: {Math.floor(config.timeout / 1000)}s</span>
             {config.autoReconnect && (
@@ -181,14 +173,14 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="p-3 space-y-4">
+        <div className="p-2 space-y-3">
           {/* Connection Settings */}
           <div>
-            <h4 className="text-sm font-medium mb-2">连接设置</h4>
-            <div className="space-y-2">
+            <h4 className="text-sm font-medium mb-1">连接设置</h4>
+            <div className="space-y-1.5">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium mb-1">超时 (秒)</label>
+                  <label className="block text-xs font-medium mb-0.5">超时 (秒)</label>
                   <input
                     type="number"
                     min="5"
@@ -199,7 +191,7 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1">重试次数</label>
+                  <label className="block text-xs font-medium mb-0.5">重试次数</label>
                   <input
                     type="number"
                     min="1"
@@ -210,7 +202,7 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
                   />
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -225,8 +217,8 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
           </div>
 
           {/* Auto Send Settings */}
-          <div className="border-t border-border pt-3">
-            <div className="flex items-center justify-between mb-2">
+          <div className="border-t border-border pt-2">
+            <div className="flex items-center justify-between mb-1">
               <h4 className="text-sm font-medium flex items-center">
                 <Radio className="w-4 h-4 mr-1" />
                 自动发送
@@ -261,8 +253,8 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
                 )}
               </div>
             </div>
-            
-            <div className="space-y-2">
+
+            <div className="space-y-1.5">
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -275,10 +267,10 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
               </div>
 
               {config.autoSendEnabled && (
-                <div className="ml-4 space-y-2 border-l-2 border-muted pl-2">
+                <div className="ml-4 space-y-1.5 border-l-2 border-muted pl-2">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs font-medium mb-1">间隔 (ms)</label>
+                      <label className="block text-xs font-medium mb-0.5">间隔 (ms)</label>
                       <input
                         type="number"
                         min="100"
@@ -289,7 +281,7 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium mb-1">格式</label>
+                      <label className="block text-xs font-medium mb-0.5">格式</label>
                       <select
                         value={config.autoSendFormat || 'text'}
                         onChange={(e) => handleAutoSendFormatChange(e.target.value as any)}
@@ -302,9 +294,9 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
                       </select>
                     </div>
                   </div>
-                  
+
                   <div>
-                    <label className="block text-xs font-medium mb-1">发送数据</label>
+                    <label className="block text-xs font-medium mb-0.5">发送数据</label>
                     <textarea
                       value={config.autoSendData || ''}
                       onChange={(e) => handleAutoSendDataChange(e.target.value)}
