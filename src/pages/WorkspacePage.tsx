@@ -27,7 +27,9 @@ import { NewSessionModal } from '@/components/NewSessionModal';
 import {
   ContextMenu,
   createSessionMenuItems,
-  useSessionDeleteModal
+  useSessionDeleteModal,
+  StatusTag,
+  StatusType
 } from '@/components/Common';
 
 interface WorkspaceStats {
@@ -228,6 +230,18 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       case 'disconnected':
       default:
         return <AlertCircle className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
+  const mapStatusToStatusType = (status: string): StatusType => {
+    switch (status) {
+      case 'connected':
+      case 'connecting':
+      case 'disconnected':
+      case 'error':
+        return status as StatusType;
+      default:
+        return 'disconnected';
     }
   };
 
@@ -724,7 +738,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                     <td className="p-4">
                       <div className="flex items-center space-x-3">
                         {getProtocolIcon(session.protocol)}
-                        <span className="font-medium">{session.name}</span>
+                        <span className="font-medium text-sm">{session.name}</span>
                       </div>
                     </td>
                     <td className="p-4">
@@ -733,13 +747,11 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                       </span>
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(session.status)}
-                        <span className="text-sm capitalize">{
-                          session.status === 'connected' ? '已连接' :
-                          session.status === 'connecting' ? '连接中' : '已断开'
-                        }</span>
-                      </div>
+                      <StatusTag
+                        status={mapStatusToStatusType(session.status)}
+                        showIcon={true}
+                        size="sm"
+                      />
                     </td>
                     <td className="p-4 text-sm text-muted-foreground">
                       {formatTimeAgo(session.lastActivity)}

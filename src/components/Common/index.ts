@@ -10,3 +10,4 @@ export {
   useSessionDeleteModal,
   useWorkspaceClearModal
 } from './DeleteConfirmationModal';
+export { StatusTag, type StatusType } from './StatusTag';

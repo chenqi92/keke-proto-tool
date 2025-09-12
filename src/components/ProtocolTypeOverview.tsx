@@ -11,6 +11,7 @@ import {
   Monitor
 } from 'lucide-react';
 import { useAllSessions } from '@/stores/AppStore';
+import { StatusTag, StatusType } from '@/components/Common';
 
 interface ProtocolTypeOverviewProps {
   protocol?: string;
@@ -22,6 +23,18 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
   connectionType
 }) => {
   const allSessions = useAllSessions();
+
+  const mapStatusToStatusType = (status: string): StatusType => {
+    switch (status) {
+      case 'connected':
+      case 'connecting':
+      case 'disconnected':
+      case 'error':
+        return status as StatusType;
+      default:
+        return 'disconnected';
+    }
+  };
 
   // Filter sessions for this protocol-type combination
   const filteredSessions = allSessions.filter(session =>
@@ -160,13 +173,13 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
                   <div key={session.config.id} className="p-4 hover:bg-muted/30 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className={cn(
-                          "w-3 h-3 rounded-full",
-                          session.status === 'connected' ? 'bg-green-500' :
-                          session.status === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
-                        )} />
+                        <StatusTag
+                          status={mapStatusToStatusType(session.status)}
+                          showIcon={true}
+                          size="sm"
+                        />
                         <div>
-                          <p className="font-medium">{session.config.name}</p>
+                          <p className="font-medium text-sm">{session.config.name}</p>
                           <p className="text-sm text-muted-foreground">
                             {session.config.host}:{session.config.port}
                           </p>
