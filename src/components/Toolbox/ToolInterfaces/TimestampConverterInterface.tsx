@@ -244,7 +244,7 @@ export const TimestampConverterInterface: React.FC<TimestampConverterInterfacePr
       {Object.keys(results).length > 0 && (
         <div className="bg-muted/30 rounded-lg p-3">
           <label className="text-xs font-semibold text-foreground mb-2 block">转换结果</label>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
+          <div className="space-y-2">
             {results.error ? (
               <div className="p-2 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-xs">
                 {results.error}

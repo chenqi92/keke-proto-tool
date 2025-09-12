@@ -13,8 +13,8 @@ import {
 import { useAllSessions } from '@/stores/AppStore';
 
 interface ProtocolTypeOverviewProps {
-  protocol: string;
-  connectionType: 'client' | 'server';
+  protocol?: string;
+  connectionType?: 'client' | 'server';
 }
 
 export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
@@ -25,7 +25,8 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
 
   // Filter sessions for this protocol-type combination
   const filteredSessions = allSessions.filter(session =>
-    session.config.protocol === protocol && session.config.connectionType === connectionType
+    (!protocol || session.config.protocol === protocol) &&
+    (!connectionType || session.config.connectionType === connectionType)
   );
 
   // Calculate statistics

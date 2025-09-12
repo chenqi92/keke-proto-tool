@@ -64,6 +64,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     }
 
     console.log('Selected node:', selectedNode);
+    console.log('Node data passed to store:', nodeData);
   };
 
   return (
@@ -184,7 +185,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         {/* 左侧面板边缘切换器 */}
         {(sidebarCollapsed || layoutConfig.isMobile) && (
           <div
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 group cursor-auto"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 group cursor-pointer"
             onClick={() => {
               if (layoutConfig.isMobile) {
                 setMobileMenuOpen(true);
@@ -206,7 +207,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         {/* 右侧面板边缘切换器 */}
         {rightPanelCollapsed && layoutConfig.mainContent.showThreeColumns && (
           <div
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 group cursor-auto"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 group cursor-pointer"
             onClick={() => setRightPanelCollapsed(false)}
           >
             <div className="flex items-center bg-card border border-border rounded-md rounded-r-none shadow-sm transition-all duration-200 hover:bg-accent group-hover:scale-105">

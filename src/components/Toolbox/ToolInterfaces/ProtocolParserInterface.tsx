@@ -143,7 +143,7 @@ export const ProtocolParserInterface: React.FC<ProtocolParserInterfaceProps> = (
             </div>
           </div>
 
-          <div className="space-y-1 max-h-64 overflow-y-auto">
+          <div className="space-y-1">
             {parsedFields.map((field, index) => (
               <div
                 key={index}

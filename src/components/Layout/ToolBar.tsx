@@ -61,24 +61,6 @@ const createLeftToolBarItems = (onOpenModal: (modalType: string) => void): ToolB
 // 右侧工具和设置按钮
 const createRightToolBarItems = (onOpenModal: (modalType: string) => void): ToolBarItem[] => [
   {
-    id: 'toolbox',
-    label: '工具箱',
-    icon: Wrench,
-    action: () => onOpenModal('toolbox')
-  },
-  {
-    id: 'logs',
-    label: '日志管理',
-    icon: FileText,
-    action: () => onOpenModal('logs')
-  },
-  {
-    id: 'plugins',
-    label: '插件管理',
-    icon: Puzzle,
-    action: () => onOpenModal('plugins')
-  },
-  {
     id: 'settings',
     label: '设置',
     icon: Settings,
@@ -116,19 +98,8 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
 
   // 根据屏幕尺寸决定显示哪些右侧按钮
   const getVisibleRightItems = () => {
-    if (layoutConfig.toolbar.showAllButtons) {
-      return rightItems;
-    } else if (layoutConfig.toolbar.showEssentialButtons) {
-      // 平板：显示设置和工具箱
-      return rightItems.filter(item =>
-        item.id && ['toolbox', 'settings'].includes(item.id)
-      );
-    } else {
-      // 移动端：只显示设置
-      return rightItems.filter(item =>
-        item.id && ['settings'].includes(item.id)
-      );
-    }
+    // 所有设备都只显示设置按钮，其他功能通过Tab导航访问
+    return rightItems;
   };
 
   const visibleLeftItems = getVisibleLeftItems();

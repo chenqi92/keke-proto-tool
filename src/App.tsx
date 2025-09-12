@@ -7,11 +7,11 @@ import { MainLayout } from '@/components/Layout/MainLayout'
 
 // Pages
 import { SessionPage } from '@/pages/SessionPage'
-import { ToolboxPage } from '@/pages/ToolboxPage'
-import { LogsPage } from '@/pages/LogsPage'
 import { PlaybackPage } from '@/pages/PlaybackPage'
-import { PluginsPage } from '@/pages/PluginsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+
+// Layout Components
+import { MainContent } from '@/components/Layout/MainContent'
 
 // Components
 import { WelcomeDialog } from '@/components/WelcomeDialog'
@@ -131,28 +131,6 @@ function App() {
             onConfirm={handleNewSession}
           />
         )
-      case 'toolbox':
-        return (
-          <Modal
-            isOpen={true}
-            onClose={closeModal}
-            title="工具箱"
-            size="xl"
-          >
-            <ToolboxPage />
-          </Modal>
-        )
-      case 'logs':
-        return (
-          <Modal
-            isOpen={true}
-            onClose={closeModal}
-            title="日志管理"
-            size="xl"
-          >
-            <LogsPage />
-          </Modal>
-        )
       case 'playback':
         return (
           <Modal
@@ -162,17 +140,6 @@ function App() {
             size="xl"
           >
             <PlaybackPage />
-          </Modal>
-        )
-      case 'plugins':
-        return (
-          <Modal
-            isOpen={true}
-            onClose={closeModal}
-            title="插件管理"
-            size="xl"
-          >
-            <PluginsPage />
           </Modal>
         )
       case 'settings':
@@ -216,7 +183,7 @@ function App() {
   return (
     <SessionProvider>
       <MainLayout onOpenModal={openModal}>
-        <SessionPage />
+        <MainContent />
       </MainLayout>
 
       <WelcomeDialog

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/utils';
-import { Search, Grid, List, Star, RotateCcw, X, Bug } from 'lucide-react';
+import { Search, Grid, List, Star, RotateCcw, X, Bug, Wrench } from 'lucide-react';
 import { ToolCard } from './ToolCard';
 import { ToolPanel } from './ToolPanel';
 import { QuickAccessBar } from './QuickAccessBar';
@@ -391,29 +391,119 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
     );
   }
 
-  // Original page layout for non-modal mode
+  // Page layout for non-modal mode (Tab页面模式)
   return (
-    <div className={cn("flex flex-col h-full relative", className)}>
-      {/* Quick Access Bar */}
-      {showQuickAccess && (
-        <QuickAccessBar
-          onToolSelect={handleToolSelect}
-          className="mb-6"
-        />
-      )}
+    <div className={cn("h-full flex", className)}>
+      {/* 左侧工具列表 */}
+      <div className="w-80 border-r border-border flex flex-col bg-muted/30">
+        {/* 搜索和筛选 */}
+        <div className="p-4 border-b border-border">
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="搜索工具..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+            />
+          </div>
 
-      {/* Content for page mode */}
-      <div className="flex-1 overflow-hidden">
-        {filteredTools.length === 0 ? renderEmptyState() : renderToolList()}
+          {/* 分类筛选 */}
+          <div className="flex flex-wrap gap-1">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={cn(
+                "px-2 py-1 text-xs rounded-md transition-colors",
+                selectedCategory === 'all'
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background border border-border hover:bg-accent"
+              )}
+            >
+              全部
+            </button>
+            {categories.map(category => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={cn(
+                  "px-2 py-1 text-xs rounded-md transition-colors",
+                  selectedCategory === category
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background border border-border hover:bg-accent"
+                )}
+              >
+                {getCategoryDisplayName(category)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 工具列表 */}
+        <div className="flex-1 overflow-y-auto p-2">
+          {filteredTools.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Search className="w-12 h-12 text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground">
+                {searchQuery ? '没有找到匹配的工具' : '当前分类下没有工具'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {filteredTools.map(tool => (
+                <button
+                  key={tool.id}
+                  onClick={() => handleToolSelect(tool.id)}
+                  className={cn(
+                    "w-full p-3 text-left rounded-lg border transition-all",
+                    selectedTool === tool.id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-accent-foreground hover:bg-accent"
+                  )}
+                >
+                  <div className="flex items-center space-x-3">
+                    <tool.icon className="w-5 h-5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{tool.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{tool.description}</div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Tool Panel */}
-      {selectedTool && (
-        <ToolPanel
-          toolId={selectedTool}
-          onClose={() => setSelectedTool(null)}
-          onExecute={handleToolExecute}
-        />
+      {/* 右侧工具面板 */}
+      <div className="flex-1 flex flex-col">
+        {selectedTool ? (
+          <ToolPanel
+            toolId={selectedTool}
+            onClose={() => setSelectedTool(null)}
+            onExecute={handleToolExecute}
+            mode="embedded"
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Wrench className="w-10 h-10 text-primary/60" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">选择一个工具</h3>
+              <p className="text-muted-foreground max-w-md">
+                从左侧列表中选择一个工具开始使用
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Debug Panel */}
+      {showDebugPanel && (
+        <div className="absolute bottom-4 right-4 z-10">
+          <CollapsibleDebugPanel />
+        </div>
       )}
     </div>
   );
