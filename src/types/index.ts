@@ -260,6 +260,15 @@ export interface SessionConfig {
   keepAlive: boolean;
   timeout: number;
   retryAttempts: number;
+  // Enhanced connection management (client-only)
+  retryDelay?: number; // Initial retry delay in milliseconds (default: 1000)
+  maxRetryDelay?: number; // Maximum retry delay in milliseconds (default: 30000)
+  // Automatic data sending (client-only)
+  autoSendEnabled?: boolean; // Enable automatic cyclic data sending
+  autoSendInterval?: number; // Send interval in milliseconds (100ms to 3600000ms)
+  autoSendData?: string; // Data to send automatically
+  autoSendFormat?: 'text' | 'hex' | 'binary' | 'json'; // Format of auto-send data
+  autoSendTemplate?: string; // Predefined message template name
   // Protocol-specific configs
   websocketPath?: string; // WebSocket路径
   websocketSubprotocol?: string;
@@ -308,6 +317,11 @@ export interface SessionStatistics {
   uptime: number; // in seconds
   connectionCount: number;
   lastError?: string;
+  // Auto-send statistics
+  autoSentMessages?: number; // Number of automatically sent messages
+  autoSendErrors?: number; // Number of auto-send errors
+  currentRetryAttempt?: number; // Current reconnection attempt (0 if not reconnecting)
+  lastReconnectTime?: Date; // Last reconnection attempt time
 }
 
 export interface WorkspaceState {

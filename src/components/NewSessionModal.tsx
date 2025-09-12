@@ -23,6 +23,15 @@ export interface SessionData {
   keepAlive?: boolean;
   timeout?: number;
   retryAttempts?: number;
+  // Enhanced connection management (client-only)
+  retryDelay?: number;
+  maxRetryDelay?: number;
+  // Automatic data sending (client-only)
+  autoSendEnabled?: boolean;
+  autoSendInterval?: number;
+  autoSendData?: string;
+  autoSendFormat?: 'text' | 'hex' | 'binary' | 'json';
+  autoSendTemplate?: string;
 }
 
 // 监听地址选项
@@ -76,7 +85,19 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
     port: 8080,
     websocketSubprotocol: '',
     mqttTopic: '',
-    sseEventTypes: []
+    sseEventTypes: [],
+    // Connection management defaults
+    autoReconnect: false,
+    keepAlive: true,
+    timeout: 30000, // 30 seconds
+    retryAttempts: 3,
+    retryDelay: 1000, // 1 second
+    maxRetryDelay: 30000, // 30 seconds
+    // Auto send defaults
+    autoSendEnabled: false,
+    autoSendInterval: 1000, // 1 second
+    autoSendData: '',
+    autoSendFormat: 'text'
   });
 
   // 服务端监听地址选择状态
@@ -198,7 +219,19 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
       port: defaultConfig.port,
       websocketSubprotocol: '',
       mqttTopic: '',
-      sseEventTypes: []
+      sseEventTypes: [],
+      // Reset connection management
+      autoReconnect: false,
+      keepAlive: true,
+      timeout: 30000,
+      retryAttempts: 3,
+      retryDelay: 1000,
+      maxRetryDelay: 30000,
+      // Reset auto send
+      autoSendEnabled: false,
+      autoSendInterval: 1000,
+      autoSendData: '',
+      autoSendFormat: 'text'
     });
     setListenAddressType('0.0.0.0');
     setCustomListenAddress('');
@@ -613,7 +646,177 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
             </div>
           )}
 
+          {/* Connection Management Settings - Only for Client Sessions */}
+          {formData.connectionType === 'client' && (
+            <div className="border-t border-border pt-4">
+              <h3 className="text-sm font-medium mb-3 flex items-center">
+                <Wifi className="w-4 h-4 mr-2" />
+                连接管理设置
+              </h3>
 
+              <div className="space-y-3">
+                {/* Connection Timeout */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    连接超时 (秒)
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="300"
+                    value={Math.floor((formData.timeout || 30000) / 1000)}
+                    onChange={(e) => {
+                      const timeoutSeconds = parseInt(e.target.value) || 30;
+                      setFormData({ ...formData, timeout: timeoutSeconds * 1000 });
+                    }}
+                    className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    连接超时时间，范围: 5-300秒，默认: 30秒
+                  </p>
+                </div>
+
+                {/* Auto Reconnect */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="autoReconnect"
+                    checked={formData.autoReconnect || false}
+                    onChange={(e) => setFormData({ ...formData, autoReconnect: e.target.checked })}
+                    className="rounded border-border"
+                  />
+                  <label htmlFor="autoReconnect" className="text-sm font-medium">
+                    启用自动重连
+                  </label>
+                </div>
+
+                {/* Retry Settings - Only show when auto reconnect is enabled */}
+                {formData.autoReconnect && (
+                  <div className="ml-6 space-y-3 border-l-2 border-muted pl-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          重试次数
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={formData.retryAttempts || 3}
+                          onChange={(e) => {
+                            const attempts = parseInt(e.target.value) || 3;
+                            setFormData({ ...formData, retryAttempts: attempts });
+                          }}
+                          className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          初始延迟 (秒)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={Math.floor((formData.retryDelay || 1000) / 1000)}
+                          onChange={(e) => {
+                            const delaySeconds = parseInt(e.target.value) || 1;
+                            setFormData({ ...formData, retryDelay: delaySeconds * 1000 });
+                          }}
+                          className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      重试次数: 1-10次，初始延迟: 1-30秒 (使用指数退避算法)
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Automatic Data Sending - Only for Client Sessions */}
+          {formData.connectionType === 'client' && (
+            <div className="border-t border-border pt-4">
+              <h3 className="text-sm font-medium mb-3 flex items-center">
+                <Radio className="w-4 h-4 mr-2" />
+                自动数据发送
+              </h3>
+
+              <div className="space-y-3">
+                {/* Enable Auto Send */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="autoSendEnabled"
+                    checked={formData.autoSendEnabled || false}
+                    onChange={(e) => setFormData({ ...formData, autoSendEnabled: e.target.checked })}
+                    className="rounded border-border"
+                  />
+                  <label htmlFor="autoSendEnabled" className="text-sm font-medium">
+                    启用自动循环发送
+                  </label>
+                </div>
+
+                {/* Auto Send Settings - Only show when enabled */}
+                {formData.autoSendEnabled && (
+                  <div className="ml-6 space-y-3 border-l-2 border-muted pl-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          发送间隔 (毫秒)
+                        </label>
+                        <input
+                          type="number"
+                          min="100"
+                          max="3600000"
+                          value={formData.autoSendInterval || 1000}
+                          onChange={(e) => {
+                            const interval = parseInt(e.target.value) || 1000;
+                            setFormData({ ...formData, autoSendInterval: interval });
+                          }}
+                          className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          数据格式
+                        </label>
+                        <select
+                          value={formData.autoSendFormat || 'text'}
+                          onChange={(e) => setFormData({ ...formData, autoSendFormat: e.target.value as any })}
+                          className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="text">文本</option>
+                          <option value="hex">十六进制</option>
+                          <option value="binary">二进制</option>
+                          <option value="json">JSON</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        发送数据
+                      </label>
+                      <textarea
+                        value={formData.autoSendData || ''}
+                        onChange={(e) => setFormData({ ...formData, autoSendData: e.target.value })}
+                        className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        rows={3}
+                        placeholder="输入要自动发送的数据..."
+                      />
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      发送间隔: 100毫秒-1小时，默认: 1秒 (1000毫秒)
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2 pt-4">

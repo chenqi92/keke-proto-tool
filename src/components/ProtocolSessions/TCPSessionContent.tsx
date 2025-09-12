@@ -4,6 +4,7 @@ import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/co
 import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { ConnectionManagementPanel } from '@/components/Session';
 import { Message } from '@/types';
 import {
   Wifi,
@@ -172,7 +173,40 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
     }
   };
 
+  // 处理发送消息 - 可被外部调用的版本
+  const handleSend = async (data: string, format: DataFormat): Promise<void> => {
+    if (!config || !isConnected) {
+      throw new Error('Not connected');
+    }
 
+    if (!validateFormat[format](data)) {
+      throw new Error(`Invalid ${format.toUpperCase()} format`);
+    }
+
+    try {
+      const formattedData = formatData.from[format](data);
+
+      if (isServerMode) {
+        // For server mode, send to all connected clients or selected client
+        if (broadcastMode) {
+          const success = await networkService.broadcastMessage(sessionId, formattedData);
+          if (!success) throw new Error('Broadcast failed');
+        } else if (selectedClient) {
+          const success = await networkService.sendToClient(sessionId, selectedClient, formattedData);
+          if (!success) throw new Error('Send to client failed');
+        } else {
+          throw new Error('No client selected for sending');
+        }
+      } else {
+        // For client mode, send to server
+        const success = await networkService.sendMessage(sessionId, formattedData);
+        if (!success) throw new Error('Send to server failed');
+      }
+    } catch (error) {
+      console.error('Send failed:', error);
+      throw error;
+    }
+  };
 
   const handleSendDataChange = (value: string) => {
     setSendData(value);
@@ -475,6 +509,33 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Connection Management Panel - Only for Client Sessions */}
+      {!isServerMode && (
+        <div className="px-4 py-2">
+          <ConnectionManagementPanel
+            sessionId={sessionId}
+            config={config}
+            status={connectionStatus}
+            onConfigUpdate={(updates) => {
+              // Update session config through the store
+              const updateSession = useAppStore.getState().updateSession;
+              updateSession(sessionId, { config: { ...config, ...updates } });
+            }}
+            onConnect={handleConnect}
+            onDisconnect={handleConnect}
+            onSendMessage={async (data, format) => {
+              try {
+                await handleSend(data, format as DataFormat);
+                return true;
+              } catch (error) {
+                console.error('Auto send failed:', error);
+                return false;
+              }
+            }}
+          />
         </div>
       )}
 
