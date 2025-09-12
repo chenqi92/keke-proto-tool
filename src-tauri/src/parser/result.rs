@@ -144,7 +144,7 @@ pub struct ParsedField {
 }
 
 /// Field value types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum FieldValue {
     /// Unsigned integer

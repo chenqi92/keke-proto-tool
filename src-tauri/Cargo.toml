@@ -56,4 +56,5 @@ crc = "3.0"         # CRC calculations for validation
 lru = "0.12"        # LRU cache for compiled rules
 nom = "7.1"         # Parser combinators for complex parsing
 bitflags = "2.4"    # Bit manipulation utilities
-chrono = { version = "0.4", features = ["serde"] }  # Timestamp handling
+chrono = { version = "0.4", features = ["serde"] }
+tempfile = "3.8"  # Timestamp handling
