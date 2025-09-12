@@ -420,14 +420,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
   return (
     <div className="h-full flex">
       {/* Settings Navigation */}
-      <div className="w-64 border-r border-border bg-card">
-        <div className="p-4 border-b border-border">
+      <div className="w-64 border-r border-border bg-card flex flex-col">
+        <div className="p-4 border-b border-border shrink-0">
           <h2 className="font-semibold flex items-center space-x-2">
             <Settings className="w-5 h-5" />
             <span>设置</span>
           </h2>
         </div>
-        <div className="p-2">
+        <div className="p-2 flex-1 overflow-y-auto">
           {settingsSections.map((section) => {
             const Icon = section.icon;
             return (
@@ -450,20 +450,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
       </div>
 
       {/* Settings Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="p-6 max-w-2xl">
-          {renderContent()}
-          
-          {/* Save Button */}
-          <div className="mt-8 pt-6 border-t border-border">
-            <div className="flex items-center space-x-3">
-              <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
-                保存设置
-              </button>
-              <button className="px-4 py-2 border border-border rounded-md hover:bg-accent">
-                重置为默认
-              </button>
-            </div>
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6 max-w-2xl">
+            {renderContent()}
+          </div>
+        </div>
+
+        {/* Save Button - Fixed at bottom */}
+        <div className="shrink-0 p-6 border-t border-border bg-card">
+          <div className="flex items-center space-x-3 max-w-2xl">
+            <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
+              保存设置
+            </button>
+            <button className="px-4 py-2 border border-border rounded-md hover:bg-accent">
+              重置为默认
+            </button>
           </div>
         </div>
       </div>

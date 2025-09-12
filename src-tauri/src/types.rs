@@ -129,6 +129,9 @@ pub enum NetworkError {
     #[allow(dead_code)]
     ReceiveFailed(String),
 
+    #[error("Parse error: {0}")]
+    ParseError(String),
+
     #[error("Protocol error: {0}")]
     #[allow(dead_code)]
     ProtocolError(String),

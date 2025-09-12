@@ -3,6 +3,7 @@ use tauri::Manager;
 // Modules
 mod network;
 mod session;
+mod parser;
 mod commands;
 mod types;
 mod utils;
@@ -24,7 +25,15 @@ pub fn run() {
             subscribe_mqtt_topic,
             unsubscribe_mqtt_topic,
             publish_mqtt_message,
-            cancel_connection
+            cancel_connection,
+            // Parsing commands
+            load_protocol_rule,
+            load_protocol_rule_from_string,
+            parse_data_with_rule,
+            parse_data_auto,
+            validate_parsed_data,
+            get_available_parsers,
+            register_parser
         ])
         .plugin(tauri_plugin_os::init())
         .setup(|app| {
@@ -45,6 +54,11 @@ pub fn run() {
             let app_handle = app.handle().clone();
             session_manager.set_app_handle(app_handle.clone());
             app.manage(session_manager);
+
+            // Initialize parser system
+            if let Err(e) = parser::initialize_parser_system() {
+                log::error!("Failed to initialize parser system: {}", e);
+            }
 
             // Setup cleanup on app exit
             tauri::async_runtime::spawn(async move {

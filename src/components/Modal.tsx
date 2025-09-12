@@ -9,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   className?: string;
+  fixedHeight?: boolean;
 }
 
 const sizeClasses = {
@@ -25,7 +26,8 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   children,
   size = 'lg',
-  className
+  className,
+  fixedHeight = false
 }) => {
   // Handle ESC key
   useEffect(() => {
@@ -58,9 +60,10 @@ export const Modal: React.FC<ModalProps> = ({
       />
       
       {/* Modal */}
-      <div 
+      <div
         className={cn(
-          "relative bg-card border border-border rounded-lg shadow-lg w-full max-h-[90vh] flex flex-col",
+          "relative bg-card border border-border rounded-lg shadow-lg w-full flex flex-col",
+          fixedHeight ? "h-[80vh] min-h-[600px]" : "max-h-[90vh]",
           sizeClasses[size],
           className
         )}

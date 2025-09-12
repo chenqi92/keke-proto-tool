@@ -1,6 +1,7 @@
 use crate::session::SessionManager;
 use crate::types::SessionConfig;
 use crate::utils::{validate_port, is_common_port};
+use crate::parser::{ProtocolParser, ParseResult, ValidationReport, get_parser_registry, Parser};
 use tauri::State;
 
 /// Get application version
@@ -172,4 +173,112 @@ pub async fn publish_mqtt_message(
     // TODO: Implement MQTT-specific functionality
     // For now, return an error indicating this needs implementation
     Err("MQTT functionality not yet implemented".to_string())
+}
+
+
+
+// ============================================================================
+// PARSING COMMANDS
+// ============================================================================
+
+/// Load a protocol rule from file
+#[tauri::command]
+pub async fn load_protocol_rule(rule_file_path: String) -> Result<String, String> {
+    match ProtocolParser::from_rule_file("temp".to_string(), &rule_file_path) {
+        Ok(parser) => {
+            let info = parser.get_protocol_info();
+            Ok(serde_json::to_string(&info).unwrap_or_default())
+        }
+        Err(e) => Err(format!("Failed to load protocol rule: {}", e)),
+    }
+}
+
+/// Load a protocol rule from YAML string
+#[tauri::command]
+pub async fn load_protocol_rule_from_string(rule_content: String) -> Result<String, String> {
+    match ProtocolParser::from_rule_string("temp".to_string(), &rule_content) {
+        Ok(parser) => {
+            let info = parser.get_protocol_info();
+            Ok(serde_json::to_string(&info).unwrap_or_default())
+        }
+        Err(e) => Err(format!("Failed to load protocol rule: {}", e)),
+    }
+}
+
+/// Parse data using a specific protocol rule
+#[tauri::command]
+pub async fn parse_data_with_rule(
+    data: Vec<u8>,
+    rule_content: String,
+    parser_id: Option<String>,
+) -> Result<String, String> {
+    let id = parser_id.unwrap_or_else(|| "temp".to_string());
+
+    match ProtocolParser::from_rule_string(id, &rule_content) {
+        Ok(parser) => {
+            match parser.parse(&data) {
+                Ok(result) => {
+                    Ok(serde_json::to_string(&result).unwrap_or_default())
+                }
+                Err(e) => Err(format!("Failed to parse data: {}", e)),
+            }
+        }
+        Err(e) => Err(format!("Failed to create parser: {}", e)),
+    }
+}
+
+/// Parse data with auto-detection
+#[tauri::command]
+pub async fn parse_data_auto(data: Vec<u8>) -> Result<String, String> {
+    let registry = get_parser_registry();
+
+    match registry.parse_auto(&data) {
+        Ok(result) => {
+            Ok(serde_json::to_string(&result).unwrap_or_default())
+        }
+        Err(e) => Err(format!("Failed to parse data: {}", e)),
+    }
+}
+
+/// Validate parsed data
+#[tauri::command]
+pub async fn validate_parsed_data(
+    data: Vec<u8>,
+    rule_content: String,
+) -> Result<String, String> {
+    match ProtocolParser::from_rule_string("temp".to_string(), &rule_content) {
+        Ok(parser) => {
+            match parser.parse(&data) {
+                Ok(result) => {
+                    let validation_report = parser.validate(&result);
+                    Ok(serde_json::to_string(&validation_report).unwrap_or_default())
+                }
+                Err(e) => Err(format!("Failed to parse data for validation: {}", e)),
+            }
+        }
+        Err(e) => Err(format!("Failed to create parser: {}", e)),
+    }
+}
+
+/// Get list of available parsers
+#[tauri::command]
+pub async fn get_available_parsers() -> Result<Vec<String>, String> {
+    let registry = get_parser_registry();
+    Ok(registry.get_parser_ids())
+}
+
+/// Register a new parser from rule content
+#[tauri::command]
+pub async fn register_parser(
+    parser_id: String,
+    rule_content: String,
+) -> Result<bool, String> {
+    match ProtocolParser::from_rule_string(parser_id.clone(), &rule_content) {
+        Ok(parser) => {
+            let registry = get_parser_registry();
+            registry.register_parser(Box::new(parser));
+            Ok(true)
+        }
+        Err(e) => Err(format!("Failed to register parser: {}", e)),
+    }
 }

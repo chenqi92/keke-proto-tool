@@ -149,6 +149,7 @@ function App() {
             onClose={closeModal}
             title="设置"
             size="lg"
+            fixedHeight={true}
           >
             <SettingsPage />
           </Modal>
@@ -160,6 +161,7 @@ function App() {
             onClose={closeModal}
             title="关于"
             size="lg"
+            fixedHeight={true}
           >
             <SettingsPage defaultSection="about" />
           </Modal>

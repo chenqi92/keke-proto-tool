@@ -1,6 +1,6 @@
 [package]
 name = "keke-proto-tool"
-version = "0.0.8"
+version = "0.0.9"
 description = "跨平台的网络报文工作站，集连接调试、协议解析、规则/插件扩展、数据筛选存储、AI 辅助与批量导出为一体"
 authors = ["ProtoTool Team <team@prototool.dev>"]
 license = "MIT"
@@ -48,3 +48,12 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 bytes = "1.0"
 dashmap = "5.5"  # Concurrent HashMap for session management
 hex = "0.4"
+
+# Parsing system dependencies
+serde_yaml = "0.9"  # YAML parsing for .kkp.yaml rules
+regex = "1.10"      # Pattern matching for protocol detection
+crc = "3.0"         # CRC calculations for validation
+lru = "0.12"        # LRU cache for compiled rules
+nom = "7.1"         # Parser combinators for complex parsing
+bitflags = "2.4"    # Bit manipulation utilities
+chrono = { version = "0.4", features = ["serde"] }  # Timestamp handling
