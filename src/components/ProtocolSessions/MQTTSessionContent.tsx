@@ -204,9 +204,9 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
           <div className="flex items-center space-x-2">
             <input
               type="text"
-              value={config?.host || 'localhost'}
+              value={config?.host || 'broker.hivemq.com'}
               placeholder="Broker地址"
-              className="w-24 px-2 py-1 text-xs bg-background border border-border rounded"
+              className="w-40 px-2 py-1 text-xs bg-background border border-border rounded"
               disabled={isConnected}
               readOnly
             />
@@ -265,10 +265,6 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
             <Settings className="w-3 h-3" />
             <span>统计</span>
           </button>
-
-          <span className="text-xs text-muted-foreground">
-            {isConnected ? `已连接 (${subscriptions.length} 订阅)` : '未连接'}
-          </span>
         </div>
       </div>
 

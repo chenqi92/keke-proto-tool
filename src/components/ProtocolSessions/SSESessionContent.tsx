@@ -218,10 +218,6 @@ export const SSESessionContent: React.FC<SSESessionContentProps> = ({ sessionId 
             <Settings className="w-3 h-3" />
             <span>统计</span>
           </button>
-
-          <span className="text-xs text-muted-foreground">
-            {isConnected ? `已连接 (${eventFilters.length} 过滤器)` : '未连接'}
-          </span>
         </div>
       </div>
 
@@ -237,57 +233,41 @@ export const SSESessionContent: React.FC<SSESessionContentProps> = ({ sessionId 
       )}
 
       {/* 事件过滤器配置面板 */}
-      <div className="h-32 border-b border-border bg-card p-4">
+      <div className="h-40 border-b border-border bg-card p-4">
         <div className="flex items-start space-x-3 h-full">
-          <div className="flex-1 flex flex-col space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Filter className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground">事件过滤器:</span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-medium text-muted-foreground">重连间隔:</span>
-                  <input
-                    type="number"
-                    value={reconnectTime}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReconnectTime(parseInt(e.target.value) || 3000)}
-                    className="w-16 px-2 py-1 text-xs bg-background border border-border rounded"
-                    disabled={isConnected}
-                    min="1000"
-                    max="60000"
-                    step="1000"
-                  />
-                  <span className="text-xs text-muted-foreground">ms</span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <label className="flex items-center space-x-1 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={withCredentials}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWithCredentials(e.target.checked)}
-                      className="w-3 h-3"
-                      disabled={isConnected}
-                    />
-                    <span>发送凭据</span>
-                  </label>
-                </div>
+          <div className="flex-1 flex flex-col space-y-3">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">事件过滤器配置</span>
               </div>
 
               <div className="flex items-center space-x-2">
-                <div className={cn(
-                  "w-2 h-2 rounded-full",
-                  connectionStatus === 'connected' ? "bg-green-500" :
-                  connectionStatus === 'connecting' ? "bg-yellow-500 animate-pulse" :
-                  connectionStatus === 'error' ? "bg-red-500" : "bg-gray-500"
-                )} />
-                <span className="text-xs text-muted-foreground">
-                  {connectionStatus === 'connected' ? "已连接" :
-                   connectionStatus === 'connecting' ? "连接中" :
-                   connectionStatus === 'error' ? "连接错误" : "未连接"}
-                </span>
+                <span className="text-xs font-medium text-muted-foreground">重连间隔:</span>
+                <input
+                  type="number"
+                  value={reconnectTime}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReconnectTime(parseInt(e.target.value) || 3000)}
+                  className="w-16 px-2 py-1 text-xs bg-background border border-border rounded"
+                  disabled={isConnected}
+                  min="1000"
+                  max="60000"
+                  step="1000"
+                />
+                <span className="text-xs text-muted-foreground">ms</span>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <label className="flex items-center space-x-1 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={withCredentials}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWithCredentials(e.target.checked)}
+                    className="w-3 h-3"
+                    disabled={isConnected}
+                  />
+                  <span>发送凭据</span>
+                </label>
               </div>
             </div>
 
@@ -301,14 +281,17 @@ export const SSESessionContent: React.FC<SSESessionContentProps> = ({ sessionId 
                 className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded"
               />
             </div>
-            
-            <textarea
-              value={customHeaders}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCustomHeaders(e.target.value)}
-              placeholder="自定义请求头 (每行一个，格式: Header-Name: value)"
-              className="flex-1 resize-none bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              disabled={isConnected}
-            />
+
+            <div className="flex-1">
+              <div className="text-xs font-medium text-muted-foreground mb-1">自定义请求头:</div>
+              <textarea
+                value={customHeaders}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCustomHeaders(e.target.value)}
+                placeholder="每行一个，格式: Header-Name: value"
+                className="w-full h-16 resize-none bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                disabled={isConnected}
+              />
+            </div>
           </div>
           
           <div className="flex flex-col space-y-2">

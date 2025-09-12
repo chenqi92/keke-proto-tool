@@ -724,12 +724,12 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               <thead className="table-header-sticky">
                 <tr>
                   <th className="text-left p-4 font-medium text-sm">会话</th>
-                  <th className="text-left p-4 font-medium text-sm">协议</th>
-                  <th className="text-left p-4 font-medium text-sm">状态</th>
-                  <th className="text-left p-4 font-medium text-sm">最后活动</th>
-                  <th className="text-left p-4 font-medium text-sm">消息数</th>
-                  <th className="text-left p-4 font-medium text-sm">传输量</th>
-                  <th className="text-left p-4 font-medium text-sm">操作</th>
+                  <th className="text-left p-4 font-medium text-sm w-20">协议</th>
+                  <th className="text-left p-4 font-medium text-sm w-28">状态</th>
+                  <th className="text-left p-4 font-medium text-sm w-24">最后活动</th>
+                  <th className="text-left p-4 font-medium text-sm w-20">消息数</th>
+                  <th className="text-left p-4 font-medium text-sm w-20">传输量</th>
+                  <th className="text-left p-4 font-medium text-sm w-20">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -741,12 +741,12 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                         <span className="font-medium text-sm">{session.name}</span>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <span className="px-2 py-1 bg-muted rounded text-xs font-medium">
+                    <td className="p-4 w-20">
+                      <span className="px-2 py-1 bg-muted rounded text-xs font-medium whitespace-nowrap">
                         {session.protocol}
                       </span>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 w-28">
                       <StatusTag
                         status={mapStatusToStatusType(session.status)}
                         showIcon={true}
