@@ -2,6 +2,19 @@
 
 本文档定义了 ProtoTool 项目的开发规范和最佳实践。
 
+## 📦 发布和分发
+
+### Microsoft Store 自动发布
+项目现已支持自动构建 MSIX 包并提交到微软商店：
+
+- **MSIX 包构建**: 自动构建适用于微软商店的 MSIX 包
+- **自动提交**: 配置后可自动提交到微软商店
+- **独立流程**: 不影响现有的 MSI/NSIS 包构建和 GitHub Release
+
+配置指南：
+- [完整配置文档](./MICROSOFT_STORE_SETUP.md)
+- [快速配置指南](./MICROSOFT_STORE_QUICK_SETUP.md)
+
 ## 代码规范
 
 ### TypeScript/JavaScript 规范

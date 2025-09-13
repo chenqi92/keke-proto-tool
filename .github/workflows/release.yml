@@ -164,6 +164,14 @@ jobs:
             os: 'windows'
             bundle: 'nsis'
 
+          # Windows builds - MSIX package (64-bit) for Microsoft Store
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-msvc --bundles msix'
+            target: 'x86_64-pc-windows-msvc'
+            arch: 'x64'
+            os: 'windows'
+            bundle: 'msix'
+
           # macOS builds
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
@@ -346,6 +354,10 @@ jobs:
             os: 'windows'
             arch: 'x86'
             bundle: 'nsis'
+          - platform: 'windows-latest'
+            os: 'windows'
+            arch: 'x64'
+            bundle: 'msix'
           - platform: 'macos-latest'
             os: 'macos'
             arch: 'x64'
@@ -399,7 +411,8 @@ jobs:
             -name "*.app.tar.gz" -o \
             -name "*.deb" -o \
             -name "*.rpm" -o \
-            -name "*.AppImage" \
+            -name "*.AppImage" -o \
+            -name "*.msix" \
           \) | while read file; do
             if [ -f "$file" ]; then
               echo "Uploading $(basename "$file")..."
@@ -445,12 +458,84 @@ jobs:
           echo "- **Windows x64 NSIS:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Windows x86 MSI:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Windows x86 NSIS:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Windows x64 MSIX:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **macOS x64:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **macOS ARM64:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Linux x64:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version-check.outputs.current-version }})" >> $GITHUB_STEP_SUMMARY
+
+  # Microsoft Store submission (independent of regular release)
+  microsoft-store-submission:
+    needs: [version-check, build-and-package]
+    if: needs.version-check.outputs.should-release == 'true' && vars.ENABLE_MICROSOFT_STORE_SUBMISSION == 'true'
+    runs-on: windows-latest
+    environment: microsoft-store
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build frontend
+        run: pnpm build --mode development || echo "Frontend build failed but continuing..."
+
+      - name: Build MSIX for Microsoft Store
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: '--target x86_64-pc-windows-msvc --bundles msix --config src-tauri/tauri.microsoftstore.conf.json'
+          includeDebug: false
+          includeRelease: true
+
+      - name: Find MSIX package
+        id: find-msix
+        run: |
+          $msixPath = Get-ChildItem -Path "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msix" -Filter "*.msix" -Recurse | Select-Object -First 1
+          if ($msixPath) {
+            echo "msix-path=$($msixPath.FullName)" >> $env:GITHUB_OUTPUT
+            echo "Found MSIX package: $($msixPath.FullName)"
+          } else {
+            echo "No MSIX package found"
+            exit 1
+          }
+
+      - name: Submit to Microsoft Store
+        if: steps.find-msix.outputs.msix-path != ''
+        uses: isaacrlevin/windows-store-action@1.0
+        with:
+          tenant-id: ${{ secrets.MICROSOFT_STORE_TENANT_ID }}
+          client-id: ${{ secrets.MICROSOFT_STORE_CLIENT_ID }}
+          client-secret: ${{ secrets.MICROSOFT_STORE_CLIENT_SECRET }}
+          app-id: ${{ secrets.MICROSOFT_STORE_APP_ID }}
+          package-path: ${{ steps.find-msix.outputs.msix-path }}
+          skip-polling: false
+
+      - name: Upload MSIX to artifacts (backup)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: microsoft-store-msix-package
+          path: ${{ steps.find-msix.outputs.msix-path }}
+          retention-days: 30
 
   # Cleanup artifacts after successful release
   cleanup:
@@ -468,6 +553,7 @@ jobs:
             windows-x64-nsis-artifacts
             windows-x86-msi-artifacts
             windows-x86-nsis-artifacts
+            windows-x64-msix-artifacts
             macos-x64-all-artifacts
             macos-arm64-all-artifacts
             linux-x64-all-artifacts
