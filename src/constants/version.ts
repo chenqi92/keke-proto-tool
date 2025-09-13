@@ -3,7 +3,7 @@
  * 此文件由版本管理脚本自动更新，请勿手动修改
  */
 
-export const APP_VERSION = '0.0.9';
+export const APP_VERSION = '0.0.10';
 export const APP_NAME = 'ProtoTool';
 export const APP_DESCRIPTION = '跨平台的网络报文工作站，集连接调试、协议解析、规则/插件扩展、数据筛选存储、AI 辅助与批量导出为一体';
 

@@ -33,26 +33,26 @@ ProtoTool 是一个专为工业/物联网/环保/交通等行业设计的网络�
 
 ## 📦 快速下载
 
-### 🔥 最新版本 v0.0.9
+### 🔥 最新版本 v0.0.10
 
 #### Windows 系统
-- **推荐**: [MSI 安装包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/ProtoTool_0.0.9_x64_en-US.msi)
-- **推荐**: [MSI 安装包 (x86)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/ProtoTool_0.0.9_x86_en-US.msi)
-- [NSIS 安装包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/ProtoTool_0.0.9_x64-setup.exe)
-- [NSIS 安装包 (x86)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/ProtoTool_0.0.9_x86-setup.exe)
-- **Microsoft Store**: [MSIX 包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/ProtoTool_0.0.9_x64.msix) - 支持自动更新
+- **推荐**: [MSI 安装包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x64_en-US.msi)
+- **推荐**: [MSI 安装包 (x86)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x86_en-US.msi)
+- [NSIS 安装包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x64-setup.exe)
+- [NSIS 安装包 (x86)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x86-setup.exe)
+- **Microsoft Store**: [MSIX 包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x64.msix) - 支持自动更新
 
 #### macOS 系统
-- [Intel 芯片 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/ProtoTool_0.0.9_x64.dmg)
-- [Apple Silicon (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/ProtoTool_0.0.9_aarch64.dmg)
+- [Intel 芯片 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x64.dmg)
+- [Apple Silicon (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_aarch64.dmg)
 
 #### Linux 系统
-- **通用**: [AppImage (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/proto-tool_0.0.9_amd64.AppImage)
-- **通用**: [AppImage (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/proto-tool_0.0.9_arm64.AppImage)
-- **Ubuntu/Debian**: [DEB 包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/proto-tool_0.0.9_amd64.deb)
-- **Ubuntu/Debian**: [DEB 包 (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/proto-tool_0.0.9_arm64.deb)
-- **RHEL/CentOS**: [RPM 包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/proto-tool-0.0.9-1.x86_64.rpm)
-- **RHEL/CentOS**: [RPM 包 (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.9/proto-tool-0.0.9-1.aarch64.rpm)
+- **通用**: [AppImage (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/proto-tool_0.0.10_amd64.AppImage)
+- **通用**: [AppImage (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/proto-tool_0.0.10_arm64.AppImage)
+- **Ubuntu/Debian**: [DEB 包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/proto-tool_0.0.10_amd64.deb)
+- **Ubuntu/Debian**: [DEB 包 (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/proto-tool_0.0.10_arm64.deb)
+- **RHEL/CentOS**: [RPM 包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/proto-tool-0.0.10-1.x86_64.rpm)
+- **RHEL/CentOS**: [RPM 包 (ARM64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/proto-tool-0.0.10-1.aarch64.rpm)
 
 > 💡 **安装提示**:
 > - Windows 用户推荐使用 MSI 安装包，支持自动更新
