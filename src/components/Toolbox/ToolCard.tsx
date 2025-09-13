@@ -38,7 +38,7 @@ export const ToolCard: React.FC<ToolCardProps> = ({
       <div
         onClick={() => onSelect(tool.id)}
         className={cn(
-          "group flex items-center space-x-3 p-3 rounded-lg hover:bg-accent transition-all cursor-pointer",
+          "group flex items-center space-x-3 p-3 rounded-lg hover:bg-accent transition-all cursor-auto",
           selected && "bg-primary/10 border border-primary/20",
           !tool.isLoaded && "opacity-50"
         )}
@@ -92,7 +92,7 @@ export const ToolCard: React.FC<ToolCardProps> = ({
     <div
       onClick={handleSelect}
       className={cn(
-        "group relative p-5 border border-border rounded-xl hover:border-accent-foreground hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 cursor-pointer bg-card",
+        "group relative p-5 border border-border rounded-xl hover:border-accent-foreground hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 cursor-auto bg-card",
         selected && "border-primary bg-primary/5 shadow-lg shadow-primary/10",
         tool.isLoaded ? "" : "opacity-50",
         viewMode === 'list' && "flex items-center space-x-4 p-4"

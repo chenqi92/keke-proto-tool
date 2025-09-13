@@ -3,6 +3,7 @@ use crate::types::SessionConfig;
 use crate::utils::{validate_port, is_common_port};
 use crate::parser::{ProtocolParser, get_parser_registry, Parser};
 use tauri::{State, AppHandle, Theme, Manager};
+use tauri::window::Color;
 
 /// Get application version
 #[tauri::command]
@@ -283,7 +284,7 @@ pub async fn register_parser(
     }
 }
 
-/// Set the application theme for window chrome
+/// Set the application theme for window chrome and system menu integration
 #[tauri::command]
 pub async fn set_window_theme(
     app_handle: AppHandle,
@@ -298,8 +299,60 @@ pub async fn set_window_theme(
         _ => None, // For "system" or any other value, let OS decide
     };
 
+    // Set the primary window theme
     window.set_theme(tauri_theme)
         .map_err(|e| format!("Failed to set window theme: {}", e))?;
+
+    // Set custom background color to match the application theme
+    match theme.as_str() {
+        "dark" => {
+            // Set dark theme background color to match main application area (#020817)
+            #[cfg(target_os = "windows")]
+            {
+                // On Windows, try to set the window background color
+                // This may help with title bar and system integration
+                if let Err(e) = window.set_background_color(Some(Color(2, 8, 23, 255))) {
+                    eprintln!("Failed to set dark background color on Windows: {}", e);
+                }
+            }
+
+            #[cfg(target_os = "macos")]
+            {
+                // On macOS, the system menu bar is controlled by system preferences
+                // but we can try to influence the window appearance
+                if let Err(e) = window.set_background_color(Some(Color(2, 8, 23, 255))) {
+                    eprintln!("Failed to set dark background color on macOS: {}", e);
+                }
+            }
+
+            #[cfg(target_os = "linux")]
+            {
+                // On Linux, set the background color for better integration
+                if let Err(e) = window.set_background_color(Some(Color(2, 8, 23, 255))) {
+                    eprintln!("Failed to set dark background color on Linux: {}", e);
+                }
+            }
+        },
+        "light" => {
+            // Set light theme background color
+            #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+            {
+                if let Err(e) = window.set_background_color(Some(Color(255, 255, 255, 255))) {
+                    eprintln!("Failed to set light background color: {}", e);
+                }
+            }
+        },
+        _ => {
+            // System theme - let OS decide the background color
+            #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+            {
+                // Reset to default/transparent background for system theme
+                if let Err(e) = window.set_background_color(None) {
+                    eprintln!("Failed to reset background color for system theme: {}", e);
+                }
+            }
+        }
+    }
 
     Ok(())
 }

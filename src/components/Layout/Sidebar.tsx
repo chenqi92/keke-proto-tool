@@ -395,7 +395,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   // Update expanded nodes when tree data changes (new sessions added)
   useEffect(() => {
     const allNodeIds = getAllNodeIds(treeData);
+
+    // Only update if there are actually new nodes to add
     setExpandedNodes(prev => {
+      const hasNewNodes = allNodeIds.some(id => !prev.has(id));
+      if (!hasNewNodes) {
+        return prev; // Return same reference to prevent unnecessary re-renders
+      }
+
       const newSet = new Set(prev);
       // Add any new node IDs to the expanded set
       allNodeIds.forEach(id => newSet.add(id));

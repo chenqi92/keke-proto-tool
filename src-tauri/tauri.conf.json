@@ -18,7 +18,15 @@
         "resizable": true,
         "fullscreen": false,
         "titleBarStyle": "Visible",
-        "theme": "Auto"
+        "decorations": true,
+        "transparent": false,
+        "shadow": true,
+        "center": true,
+        "focus": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "visible": true,
+        "backgroundColor": "#020817"
       }
     ],
     "security": {

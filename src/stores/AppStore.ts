@@ -776,19 +776,30 @@ export const useAppStore = create<AppStore>()(
 );
 
 // Selectors for common use cases
-export const useSessionById = (sessionId: string | null) => 
+export const useSessionById = (sessionId: string | null) =>
   useAppStore((state) => sessionId ? state.sessions[sessionId] : undefined);
 
-export const useActiveSession = () => 
+export const useActiveSession = () =>
   useAppStore((state) => state.activeSessionId ? state.sessions[state.activeSessionId] : undefined);
 
-export const useAllSessions = () => 
-  useAppStore((state) => Object.values(state.sessions));
+// Fixed: Use shallow comparison to prevent unnecessary re-renders
+export const useAllSessions = () =>
+  useAppStore((state) => Object.values(state.sessions), (a, b) => {
+    // Compare arrays by length and content
+    if (a.length !== b.length) return false;
+    return a.every((session, index) => session === b[index]);
+  });
 
-export const useSessionCount = () => 
+export const useSessionCount = () =>
   useAppStore((state) => Object.keys(state.sessions).length);
 
-export const useConnectedSessions = () => 
-  useAppStore((state) => 
-    Object.values(state.sessions).filter(session => session.status === 'connected')
+// Fixed: Use shallow comparison for filtered sessions
+export const useConnectedSessions = () =>
+  useAppStore((state) =>
+    Object.values(state.sessions).filter(session => session.status === 'connected'),
+    (a, b) => {
+      // Compare arrays by length and content
+      if (a.length !== b.length) return false;
+      return a.every((session, index) => session === b[index]);
+    }
   );

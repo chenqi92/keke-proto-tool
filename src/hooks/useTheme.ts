@@ -67,18 +67,21 @@ export const useTheme = () => {
     // Remove all existing theme classes
     root.classList.remove('light', 'dark');
 
-    // Remove all existing color theme classes
+    // Remove all existing color theme classes (excluding 'default' since it's not a CSS class)
     const colorThemes: ColorTheme[] = [
-      'default', 'slate', 'gray', 'zinc', 'neutral', 'stone',
+      'slate', 'gray', 'zinc', 'neutral', 'stone',
       'red', 'orange', 'amber', 'yellow', 'lime', 'green',
       'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo',
       'violet', 'purple', 'fuchsia', 'pink', 'rose'
     ];
     colorThemes.forEach(ct => root.classList.remove(`theme-${ct}`));
 
-    // Apply color theme first
+    // Apply color theme first (before dark/light theme for proper cascade)
     if (colorTheme !== 'default') {
       root.classList.add(`theme-${colorTheme}`);
+      console.log(`Applied color theme: theme-${colorTheme}`);
+    } else {
+      console.log('Using default color theme');
     }
 
     // Apply dark/light theme
@@ -90,6 +93,12 @@ export const useTheme = () => {
     } else {
       root.classList.add(theme);
     }
+
+    // Debug: Log current classes and computed styles
+    console.log('Current root classes:', root.className);
+    const computedStyle = getComputedStyle(root);
+    console.log('Current --primary value:', computedStyle.getPropertyValue('--primary'));
+    console.log('Current --background value:', computedStyle.getPropertyValue('--background'));
 
     // Update Tauri window theme for proper window chrome theming
     invoke('set_window_theme', { theme: effectiveTheme })
