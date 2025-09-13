@@ -1,8 +1,8 @@
 use crate::session::SessionManager;
 use crate::types::SessionConfig;
 use crate::utils::{validate_port, is_common_port};
-use crate::parser::{ProtocolParser, ParseResult, ValidationReport, get_parser_registry, Parser};
-use tauri::State;
+use crate::parser::{ProtocolParser, get_parser_registry, Parser};
+use tauri::{State, AppHandle, Theme, Manager};
 
 /// Get application version
 #[tauri::command]
@@ -281,4 +281,25 @@ pub async fn register_parser(
         }
         Err(e) => Err(format!("Failed to register parser: {}", e)),
     }
+}
+
+/// Set the application theme for window chrome
+#[tauri::command]
+pub async fn set_window_theme(
+    app_handle: AppHandle,
+    theme: String,
+) -> Result<(), String> {
+    let window = app_handle.get_webview_window("main")
+        .ok_or("Failed to get main window")?;
+
+    let tauri_theme = match theme.as_str() {
+        "light" => Some(Theme::Light),
+        "dark" => Some(Theme::Dark),
+        _ => None, // For "system" or any other value, let OS decide
+    };
+
+    window.set_theme(tauri_theme)
+        .map_err(|e| format!("Failed to set window theme: {}", e))?;
+
+    Ok(())
 }

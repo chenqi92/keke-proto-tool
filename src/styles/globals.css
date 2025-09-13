@@ -58,115 +58,115 @@
     --ring: 224.3 76.3% 94.1%;
   }
 
-  /* Color Theme Overrides - Higher specificity to ensure they override base theme */
-  :root.theme-slate {
-    --primary: 215.4 16.3% 46.9% !important;
-    --ring: 215.4 16.3% 46.9% !important;
+  /* Color Theme Overrides */
+  .theme-slate {
+    --primary: 215.4 16.3% 46.9%;
+    --ring: 215.4 16.3% 46.9%;
   }
 
-  :root.theme-gray {
-    --primary: 220 8.9% 46.1% !important;
-    --ring: 220 8.9% 46.1% !important;
+  .theme-gray {
+    --primary: 220 8.9% 46.1%;
+    --ring: 220 8.9% 46.1%;
   }
 
-  :root.theme-zinc {
-    --primary: 240 3.8% 46.1% !important;
-    --ring: 240 3.8% 46.1% !important;
+  .theme-zinc {
+    --primary: 240 3.8% 46.1%;
+    --ring: 240 3.8% 46.1%;
   }
 
-  :root.theme-neutral {
-    --primary: 0 0% 45.1% !important;
-    --ring: 0 0% 45.1% !important;
+  .theme-neutral {
+    --primary: 0 0% 45.1%;
+    --ring: 0 0% 45.1%;
   }
 
-  :root.theme-stone {
-    --primary: 25 5.3% 44.7% !important;
-    --ring: 25 5.3% 44.7% !important;
+  .theme-stone {
+    --primary: 25 5.3% 44.7%;
+    --ring: 25 5.3% 44.7%;
   }
 
-  :root.theme-red {
-    --primary: 0 72.2% 50.6% !important;
-    --ring: 0 72.2% 50.6% !important;
+  .theme-red {
+    --primary: 0 72.2% 50.6%;
+    --ring: 0 72.2% 50.6%;
   }
 
-  :root.theme-orange {
-    --primary: 24.6 95% 53.1% !important;
-    --ring: 24.6 95% 53.1% !important;
+  .theme-orange {
+    --primary: 24.6 95% 53.1%;
+    --ring: 24.6 95% 53.1%;
   }
 
-  :root.theme-amber {
-    --primary: 45.4 93.4% 47.5% !important;
-    --ring: 45.4 93.4% 47.5% !important;
+  .theme-amber {
+    --primary: 45.4 93.4% 47.5%;
+    --ring: 45.4 93.4% 47.5%;
   }
 
-  :root.theme-yellow {
-    --primary: 54.5 91.7% 54.3% !important;
-    --ring: 54.5 91.7% 54.3% !important;
+  .theme-yellow {
+    --primary: 54.5 91.7% 54.3%;
+    --ring: 54.5 91.7% 54.3%;
   }
 
-  :root.theme-lime {
-    --primary: 84.2 85.2% 60.2% !important;
-    --ring: 84.2 85.2% 60.2% !important;
+  .theme-lime {
+    --primary: 84.2 85.2% 60.2%;
+    --ring: 84.2 85.2% 60.2%;
   }
 
-  :root.theme-green {
-    --primary: 142.1 76.2% 36.3% !important;
-    --ring: 142.1 76.2% 36.3% !important;
+  .theme-green {
+    --primary: 142.1 76.2% 36.3%;
+    --ring: 142.1 76.2% 36.3%;
   }
 
-  :root.theme-emerald {
-    --primary: 160.1 84.1% 39.4% !important;
-    --ring: 160.1 84.1% 39.4% !important;
+  .theme-emerald {
+    --primary: 160.1 84.1% 39.4%;
+    --ring: 160.1 84.1% 39.4%;
   }
 
-  :root.theme-teal {
-    --primary: 173.4 80.4% 40% !important;
-    --ring: 173.4 80.4% 40% !important;
+  .theme-teal {
+    --primary: 173.4 80.4% 40%;
+    --ring: 173.4 80.4% 40%;
   }
 
-  :root.theme-cyan {
-    --primary: 188.7 85% 53.3% !important;
-    --ring: 188.7 85% 53.3% !important;
+  .theme-cyan {
+    --primary: 188.7 85% 53.3%;
+    --ring: 188.7 85% 53.3%;
   }
 
-  :root.theme-sky {
-    --primary: 198.6 88.7% 48.4% !important;
-    --ring: 198.6 88.7% 48.4% !important;
+  .theme-sky {
+    --primary: 198.6 88.7% 48.4%;
+    --ring: 198.6 88.7% 48.4%;
   }
 
-  :root.theme-blue {
-    --primary: 221.2 83.2% 53.3% !important;
-    --ring: 221.2 83.2% 53.3% !important;
+  .theme-blue {
+    --primary: 221.2 83.2% 53.3%;
+    --ring: 221.2 83.2% 53.3%;
   }
 
-  :root.theme-indigo {
-    --primary: 239.4 84.2% 67.1% !important;
-    --ring: 239.4 84.2% 67.1% !important;
+  .theme-indigo {
+    --primary: 239.4 84.2% 67.1%;
+    --ring: 239.4 84.2% 67.1%;
   }
 
-  :root.theme-violet {
-    --primary: 262.1 83.3% 57.8% !important;
-    --ring: 262.1 83.3% 57.8% !important;
+  .theme-violet {
+    --primary: 262.1 83.3% 57.8%;
+    --ring: 262.1 83.3% 57.8%;
   }
 
-  :root.theme-purple {
-    --primary: 270.7 91% 65.1% !important;
-    --ring: 270.7 91% 65.1% !important;
+  .theme-purple {
+    --primary: 270.7 91% 65.1%;
+    --ring: 270.7 91% 65.1%;
   }
 
-  :root.theme-fuchsia {
-    --primary: 292.2 84.1% 60.6% !important;
-    --ring: 292.2 84.1% 60.6% !important;
+  .theme-fuchsia {
+    --primary: 292.2 84.1% 60.6%;
+    --ring: 292.2 84.1% 60.6%;
   }
 
-  :root.theme-pink {
-    --primary: 330.4 81.2% 60.4% !important;
-    --ring: 330.4 81.2% 60.4% !important;
+  .theme-pink {
+    --primary: 330.4 81.2% 60.4%;
+    --ring: 330.4 81.2% 60.4%;
   }
 
-  :root.theme-rose {
-    --primary: 346.8 77.2% 49.8% !important;
-    --ring: 346.8 77.2% 49.8% !important;
+  .theme-rose {
+    --primary: 346.8 77.2% 49.8%;
+    --ring: 346.8 77.2% 49.8%;
   }
 }
 

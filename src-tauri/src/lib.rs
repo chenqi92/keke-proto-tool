@@ -33,7 +33,9 @@ pub fn run() {
             parse_data_auto,
             validate_parsed_data,
             get_available_parsers,
-            register_parser
+            register_parser,
+            // Theme commands
+            set_window_theme
         ])
         .plugin(tauri_plugin_os::init())
         .setup(|app| {

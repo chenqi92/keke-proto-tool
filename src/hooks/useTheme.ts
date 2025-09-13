@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -81,12 +82,18 @@ export const useTheme = () => {
     }
 
     // Apply dark/light theme
+    let effectiveTheme = theme;
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       root.classList.add(systemTheme);
+      effectiveTheme = systemTheme;
     } else {
       root.classList.add(theme);
     }
+
+    // Update Tauri window theme for proper window chrome theming
+    invoke('set_window_theme', { theme: effectiveTheme })
+      .catch(err => console.warn('Failed to set window theme:', err));
   }, [theme, colorTheme]);
 
   // Listen for system theme changes
