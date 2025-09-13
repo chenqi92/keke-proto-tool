@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { cn } from '@/utils';
-import { 
-  Sun, 
-  Moon, 
-  Monitor, 
+import {
+  Sun,
+  Moon,
+  Monitor,
   Palette,
   ChevronDown,
   Check
@@ -58,22 +58,41 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className, compact = f
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
   const [showColorDropdown, setShowColorDropdown] = useState(false);
 
+  const themeDropdownRef = useRef<HTMLDivElement>(null);
+  const colorDropdownRef = useRef<HTMLDivElement>(null);
+
   const ThemeIcon = themeIcons[theme];
   const currentColorTheme = colorThemes.find(ct => ct.value === colorTheme) || colorThemes[0];
+
+  // Click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (themeDropdownRef.current && !themeDropdownRef.current.contains(event.target as Node)) {
+        setShowThemeDropdown(false);
+      }
+      if (colorDropdownRef.current && !colorDropdownRef.current.contains(event.target as Node)) {
+        setShowColorDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (compact) {
     return (
       <div className={cn("flex items-center space-x-1", className)}>
-        {/* Theme Toggle Button */}
-        <div className="relative">
+        {/* Theme Toggle Button - Vertical Layout */}
+        <div className="relative" ref={themeDropdownRef}>
           <button
             onClick={() => setShowThemeDropdown(!showThemeDropdown)}
-            className="flex items-center justify-center p-2 rounded-md transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+            className="flex flex-col items-center justify-center px-3 py-2 text-xs rounded-md transition-colors min-w-16 h-12 hover:bg-accent text-muted-foreground hover:text-foreground"
             title={`当前主题: ${themeLabels[theme]}`}
           >
-            <ThemeIcon className="w-4 h-4" />
+            <ThemeIcon className="w-4 h-4 mb-1" />
+            <span className="leading-none">主题</span>
           </button>
-          
+
           {showThemeDropdown && (
             <div className="absolute right-0 top-full mt-1 w-32 bg-popover border border-border rounded-md shadow-lg z-50">
               {Object.entries(themeLabels).map(([key, label]) => {
@@ -100,16 +119,17 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className, compact = f
           )}
         </div>
 
-        {/* Color Theme Toggle Button */}
-        <div className="relative">
+        {/* Color Theme Toggle Button - Vertical Layout */}
+        <div className="relative" ref={colorDropdownRef}>
           <button
             onClick={() => setShowColorDropdown(!showColorDropdown)}
-            className="flex items-center justify-center p-2 rounded-md transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+            className="flex flex-col items-center justify-center px-3 py-2 text-xs rounded-md transition-colors min-w-16 h-12 hover:bg-accent text-muted-foreground hover:text-foreground"
             title={`当前主题色: ${currentColorTheme.label}`}
           >
-            <Palette className="w-4 h-4" />
+            <Palette className="w-4 h-4 mb-1" />
+            <span className="leading-none">主题色</span>
           </button>
-          
+
           {showColorDropdown && (
             <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
               {colorThemes.map((ct) => (
@@ -124,7 +144,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className, compact = f
                     colorTheme === ct.value && "bg-accent"
                   )}
                 >
-                  <div 
+                  <div
                     className="w-3 h-3 rounded-full border border-border"
                     style={{ backgroundColor: ct.color }}
                   />

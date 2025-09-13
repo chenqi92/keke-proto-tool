@@ -62,10 +62,10 @@ export const useTheme = () => {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    
+
     // Remove all existing theme classes
     root.classList.remove('light', 'dark');
-    
+
     // Remove all existing color theme classes
     const colorThemes: ColorTheme[] = [
       'default', 'slate', 'gray', 'zinc', 'neutral', 'stone',
@@ -75,7 +75,7 @@ export const useTheme = () => {
     ];
     colorThemes.forEach(ct => root.classList.remove(`theme-${ct}`));
 
-    // Apply color theme
+    // Apply color theme first
     if (colorTheme !== 'default') {
       root.classList.add(`theme-${colorTheme}`);
     }

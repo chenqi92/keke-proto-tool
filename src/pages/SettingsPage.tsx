@@ -14,6 +14,7 @@ import {
   Info
 } from 'lucide-react';
 import { VERSION_INFO, getFullVersionString } from '@/constants/version';
+import { useTheme, ColorTheme } from '@/hooks/useTheme';
 
 interface SettingsSection {
   id: string;
@@ -35,9 +36,35 @@ const settingsSections: SettingsSection[] = [
   { id: 'about', name: '关于', icon: Info },
 ];
 
+const colorThemes: { value: ColorTheme; label: string; color: string }[] = [
+  { value: 'default', label: '默认', color: 'hsl(221.2 83.2% 53.3%)' },
+  { value: 'slate', label: '石板', color: 'hsl(215.4 16.3% 46.9%)' },
+  { value: 'gray', label: '灰色', color: 'hsl(220 8.9% 46.1%)' },
+  { value: 'zinc', label: '锌色', color: 'hsl(240 3.8% 46.1%)' },
+  { value: 'neutral', label: '中性', color: 'hsl(0 0% 45.1%)' },
+  { value: 'stone', label: '石色', color: 'hsl(25 5.3% 44.7%)' },
+  { value: 'red', label: '红色', color: 'hsl(0 72.2% 50.6%)' },
+  { value: 'orange', label: '橙色', color: 'hsl(24.6 95% 53.1%)' },
+  { value: 'amber', label: '琥珀', color: 'hsl(45.4 93.4% 47.5%)' },
+  { value: 'yellow', label: '黄色', color: 'hsl(54.5 91.7% 54.3%)' },
+  { value: 'lime', label: '青柠', color: 'hsl(84.2 85.2% 60.2%)' },
+  { value: 'green', label: '绿色', color: 'hsl(142.1 76.2% 36.3%)' },
+  { value: 'emerald', label: '翡翠', color: 'hsl(160.1 84.1% 39.4%)' },
+  { value: 'teal', label: '青色', color: 'hsl(173.4 80.4% 40%)' },
+  { value: 'cyan', label: '青蓝', color: 'hsl(188.7 85% 53.3%)' },
+  { value: 'sky', label: '天蓝', color: 'hsl(198.6 88.7% 48.4%)' },
+  { value: 'blue', label: '蓝色', color: 'hsl(221.2 83.2% 53.3%)' },
+  { value: 'indigo', label: '靛蓝', color: 'hsl(239.4 84.2% 67.1%)' },
+  { value: 'violet', label: '紫罗兰', color: 'hsl(262.1 83.3% 57.8%)' },
+  { value: 'purple', label: '紫色', color: 'hsl(270.7 91% 65.1%)' },
+  { value: 'fuchsia', label: '紫红', color: 'hsl(292.2 84.1% 60.6%)' },
+  { value: 'pink', label: '粉色', color: 'hsl(330.4 81.2% 60.4%)' },
+  { value: 'rose', label: '玫瑰', color: 'hsl(346.8 77.2% 49.8%)' },
+];
+
 export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'appearance' }) => {
   const [activeSection, setActiveSection] = useState(defaultSection);
-  const [theme, setTheme] = useState('system');
+  const { theme, colorTheme, setTheme, setColorTheme } = useTheme();
   const [fontSize, setFontSize] = useState(14);
   const [language, setLanguage] = useState('zh-CN');
 
@@ -48,7 +75,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
         
         {/* Theme */}
         <div className="space-y-3">
-          <label className="text-sm font-medium">主题</label>
+          <label className="text-sm font-medium">主题风格</label>
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => setTheme('light')}
@@ -80,6 +107,30 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
               <Laptop className="w-6 h-6" />
               <span className="text-sm">跟随系统</span>
             </button>
+          </div>
+        </div>
+
+        {/* Color Theme */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium">主题色</label>
+          <div className="grid grid-cols-6 gap-2">
+            {colorThemes.map((ct) => (
+              <button
+                key={ct.value}
+                onClick={() => setColorTheme(ct.value)}
+                className={cn(
+                  "p-3 border rounded-lg flex flex-col items-center space-y-2 transition-colors",
+                  colorTheme === ct.value ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
+                )}
+                title={ct.label}
+              >
+                <div
+                  className="w-6 h-6 rounded-full border border-border"
+                  style={{ backgroundColor: ct.color }}
+                />
+                <span className="text-xs">{ct.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
