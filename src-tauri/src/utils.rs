@@ -180,7 +180,15 @@ mod tests {
     fn test_parse_socket_addr() {
         assert!(parse_socket_addr("127.0.0.1", 8080).is_ok());
         assert!(parse_socket_addr("::1", 8080).is_ok());
-        assert!(parse_socket_addr("localhost", 8080).is_err()); // hostname resolution not supported
+        assert!(parse_socket_addr("localhost", 8080).is_ok()); // hostname resolution is supported
+
+        // Test that localhost resolves to a valid address
+        let result = parse_socket_addr("localhost", 8080);
+        assert!(result.is_ok());
+        let addr = result.unwrap();
+        assert_eq!(addr.port(), 8080);
+        // localhost should resolve to either 127.0.0.1 or ::1
+        assert!(addr.ip().is_loopback());
     }
 
     #[test]

@@ -356,8 +356,34 @@ impl TcpServer {
             }
 
             eprintln!("TCPServer: Entering connection acceptance loop");
+
+            // Double-check that the listener is still bound and working
+            match listener.local_addr() {
+                Ok(addr) => {
+                    eprintln!("TCPServer: Confirmed listener is bound to: {} before entering accept loop", addr);
+                }
+                Err(e) => {
+                    eprintln!("TCPServer: ERROR - Listener lost binding before accept loop: {}", e);
+                    return;
+                }
+            }
+
+            let mut accept_count = 0;
             loop {
-                eprintln!("TCPServer: Waiting for incoming connections...");
+                accept_count += 1;
+                eprintln!("TCPServer: Waiting for incoming connections... (iteration {})", accept_count);
+
+                // Verify listener is still valid before each accept
+                match listener.local_addr() {
+                    Ok(addr) => {
+                        eprintln!("TCPServer: Listener still bound to: {}", addr);
+                    }
+                    Err(e) => {
+                        eprintln!("TCPServer: ERROR - Listener lost binding during accept loop: {}", e);
+                        break;
+                    }
+                }
+
                 match listener.accept().await {
                     Ok((stream, addr)) => {
                         let client_id = format!("{}:{}", addr.ip(), addr.port());
@@ -411,11 +437,18 @@ impl TcpServer {
                     }
                     Err(e) => {
                         eprintln!("TCPServer: Error accepting connection: {}", e);
-                        // Continue accepting other connections instead of breaking
+                        // Check if this is a fatal error
+                        if e.kind() == std::io::ErrorKind::InvalidInput ||
+                           e.kind() == std::io::ErrorKind::AddrNotAvailable {
+                            eprintln!("TCPServer: Fatal error in accept loop, terminating: {}", e);
+                            break;
+                        }
+                        // Continue accepting other connections for non-fatal errors
                         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                     }
                 }
             }
+            eprintln!("TCPServer: Accept loop terminated");
         });
 
         eprintln!("TCPServer: Background task spawned, waiting for startup confirmation");

@@ -253,9 +253,29 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))  } ${  sizes[i]}`;
   };
 
-  const formatTimeAgo = (date: Date): string => {
+  const formatTimeAgo = (date: Date | string | number | undefined): string => {
+    if (!date) return '从未';
+
+    let dateObj: Date;
+
+    // Handle different date input types
+    if (date instanceof Date) {
+      dateObj = date;
+    } else if (typeof date === 'string') {
+      dateObj = new Date(date);
+    } else if (typeof date === 'number') {
+      dateObj = new Date(date);
+    } else {
+      return '无效时间';
+    }
+
+    // Check if the date is valid
+    if (isNaN(dateObj.getTime())) {
+      return '无效时间';
+    }
+
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+    const diffMs = now.getTime() - dateObj.getTime();
     const diffMins = Math.floor(diffMs / 60000);
 
     if (diffMins < 1) return '刚刚';
