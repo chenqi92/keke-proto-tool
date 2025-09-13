@@ -22,7 +22,7 @@
 
 ## 📝 Installation Notes
 - Download the appropriate package for your platform from the release assets
-- Windows users can choose between MSI installer (recommended), NSIS installer, or MSIX package for Microsoft Store
+- Windows users can choose between MSI installer (recommended) or NSIS installer
 - macOS users should download the package matching their processor architecture
 - Linux users can install the appropriate package for their system architecture
 

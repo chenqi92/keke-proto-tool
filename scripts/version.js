@@ -165,8 +165,7 @@ function updateReadmeVersion(newVersion) {
     updatedContent = updatedContent.replace(/proto-tool-[\d.]+-1\.x86_64\.rpm/g, `proto-tool-${newVersion}-1.x86_64.rpm`);
     updatedContent = updatedContent.replace(/proto-tool-[\d.]+-1\.aarch64\.rpm/g, `proto-tool-${newVersion}-1.aarch64.rpm`);
 
-    // Windows MSIX files (Microsoft Store)
-    updatedContent = updatedContent.replace(/ProtoTool_[\d.]+_x64\.msix/g, `ProtoTool_${newVersion}_x64.msix`);
+
 
     fs.writeFileSync(README_PATH, updatedContent, 'utf8');
   } catch (error) {

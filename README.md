@@ -17,7 +17,7 @@ ProtoTool 是一个专为工业/物联网/环保/交通等行业设计的网络�
 - 🔍 **数据分析**: SQLite 热存储 + Parquet 冷存储，支持 KQL 风格查询
 - 🤖 **AI 集成**: 自然语言查询、协议自动推断、异常检测
 - 📊 **可视化**: 实时数据流、解析树、时间线等多种展示方式
-- 🌐 **跨平台**: 支持 Windows、macOS、Linux，支持 Microsoft Store 分发
+- 🌐 **跨平台**: 支持 Windows、macOS、Linux
 
 ## 📸 界面预览
 
@@ -40,7 +40,7 @@ ProtoTool 是一个专为工业/物联网/环保/交通等行业设计的网络�
 - **推荐**: [MSI 安装包 (x86)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x86_en-US.msi)
 - [NSIS 安装包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x64-setup.exe)
 - [NSIS 安装包 (x86)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x86-setup.exe)
-- **Microsoft Store**: [MSIX 包 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x64.msix) - 支持自动更新
+
 
 #### macOS 系统
 - [Intel 芯片 (x64)](https://github.com/chenqi92/keke-proto-tool/releases/download/v0.0.10/ProtoTool_0.0.10_x64.dmg)
@@ -149,6 +149,7 @@ npm run tauri:build -- --bundles appimage # Linux AppImage
 - [项目结构](./development-plan/project-structure.md) - 项目代码结构说明
 - [插件开发指南](./Plug-in-development.md) - 插件开发文档
 - [系统设计文档](./develop.md) - 完整的系统设计说明
+- [MSIX 问题解决方案](./docs/MSIX_ISSUE_RESOLUTION.md) - MSIX 打包问题的解决方案
 
 ## 🤝 贡献指南
 

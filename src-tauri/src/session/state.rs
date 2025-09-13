@@ -36,6 +36,12 @@ impl SessionState {
         let mut current_status = self.status.write().unwrap();
         let previous_status = current_status.clone();
 
+        // Only process if status actually changed
+        if std::mem::discriminant(&previous_status) == std::mem::discriminant(&status) {
+            // Status hasn't changed, skip processing
+            return;
+        }
+
         eprintln!("SessionState: Status transition for session {} - {:?} -> {:?}",
             self.session_id, previous_status, status);
 

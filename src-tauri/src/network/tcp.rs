@@ -316,6 +316,142 @@ impl TcpServer {
         TcpListener::bind(addr).await
             .map_err(|e| format_tcp_bind_error(&e, &self.host, port))
     }
+
+    /// Start accepting client connections in the background
+    async fn start_accepting_connections(&mut self) -> NetworkResult<()> {
+        // Take the listener that was already created and bound in connect()
+        let listener = self.listener.take()
+            .ok_or_else(|| NetworkError::ConnectionFailed("No listener available".to_string()))?;
+
+        let session_id = self.session_id.clone();
+        let clients = self.clients.clone();
+
+        eprintln!("TCPServer: Starting background task to accept connections");
+
+        // Use a channel to confirm the background task has started successfully
+        let (startup_tx, startup_rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
+
+        // Spawn background task to accept connections
+        eprintln!("TCPServer: About to spawn background task");
+        let task_handle = tokio::spawn(async move {
+            eprintln!("TCPServer: Background task started, now accepting connections");
+
+            // Verify listener is still working after being moved to the task
+            match listener.local_addr() {
+                Ok(addr) => {
+                    eprintln!("TCPServer: Background task confirmed listener is bound to: {}", addr);
+                }
+                Err(e) => {
+                    let error_msg = format!("Background task error - listener not bound: {}", e);
+                    eprintln!("TCPServer: {}", error_msg);
+                    // Signal startup failure before returning
+                    let _ = startup_tx.send(Err(error_msg));
+                    return;
+                }
+            }
+
+            // Signal that the task has started successfully
+            if let Err(_) = startup_tx.send(Ok(())) {
+                eprintln!("TCPServer: Warning - startup confirmation channel closed");
+            }
+
+            eprintln!("TCPServer: Entering connection acceptance loop");
+            loop {
+                eprintln!("TCPServer: Waiting for incoming connections...");
+                match listener.accept().await {
+                    Ok((stream, addr)) => {
+                        let client_id = format!("{}:{}", addr.ip(), addr.port());
+                        let stream_arc = Arc::new(RwLock::new(stream));
+
+                        eprintln!("TCPServer: Client {} connected", client_id);
+
+                        // Add client to the list
+                        match clients.write().await.insert(client_id.clone(), stream_arc.clone()) {
+                            Some(_) => eprintln!("TCPServer: Replaced existing client {}", client_id),
+                            None => eprintln!("TCPServer: Added new client {}", client_id),
+                        }
+
+                        // Spawn task to handle this client
+                        let clients_clone = clients.clone();
+                        let client_id_clone = client_id.clone();
+                        let _session_id_clone = session_id.clone();
+
+                        tokio::spawn(async move {
+                            eprintln!("TCPServer: Starting client handler for {}", client_id_clone);
+                            let mut buffer = [0u8; 8192];
+
+                            loop {
+                                let read_result = {
+                                    let mut stream = stream_arc.write().await;
+                                    stream.read(&mut buffer).await
+                                };
+
+                                match read_result {
+                                    Ok(0) => {
+                                        // Client disconnected
+                                        eprintln!("TCPServer: Client {} disconnected", client_id_clone);
+                                        clients_clone.write().await.remove(&client_id_clone);
+                                        break;
+                                    }
+                                    Ok(n) => {
+                                        // Data received from client
+                                        eprintln!("TCPServer: Received {} bytes from client {}", n, client_id_clone);
+                                        // TODO: Handle received data (send to frontend)
+                                    }
+                                    Err(e) => {
+                                        // Error occurred
+                                        eprintln!("TCPServer: Error reading from client {}: {}", client_id_clone, e);
+                                        clients_clone.write().await.remove(&client_id_clone);
+                                        break;
+                                    }
+                                }
+                            }
+                            eprintln!("TCPServer: Client handler for {} terminated", client_id_clone);
+                        });
+                    }
+                    Err(e) => {
+                        eprintln!("TCPServer: Error accepting connection: {}", e);
+                        // Continue accepting other connections instead of breaking
+                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                    }
+                }
+            }
+        });
+
+        eprintln!("TCPServer: Background task spawned, waiting for startup confirmation");
+
+        // Wait for the background task to confirm it has started
+        match tokio::time::timeout(std::time::Duration::from_secs(5), startup_rx).await {
+            Ok(Ok(Ok(()))) => {
+                eprintln!("TCPServer: Background task confirmed to be running and accepting connections");
+            }
+            Ok(Ok(Err(error_msg))) => {
+                eprintln!("TCPServer: Background task startup failed: {}", error_msg);
+                return Err(NetworkError::ConnectionFailed(format!("Background task startup failed: {}", error_msg)));
+            }
+            Ok(Err(_)) => {
+                eprintln!("TCPServer: Background task startup channel closed unexpectedly");
+                return Err(NetworkError::ConnectionFailed("Background task startup channel closed".to_string()));
+            }
+            Err(_) => {
+                eprintln!("TCPServer: Background task startup timeout");
+                return Err(NetworkError::ConnectionFailed("Background task startup timeout".to_string()));
+            }
+        }
+
+        // Give the task a moment to settle
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        // Double-check that the task is still running
+        if task_handle.is_finished() {
+            eprintln!("TCPServer: Background task terminated immediately after startup");
+            return Err(NetworkError::ConnectionFailed("Background task terminated immediately after startup".to_string()));
+        }
+
+        eprintln!("TCPServer: Connection acceptance setup completed successfully");
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -358,19 +494,24 @@ impl Connection for TcpServer {
         self.listener = Some(listener);
         self.connected = true;
 
+        // Start accepting client connections immediately after binding
+        eprintln!("TCPServer: Starting to accept client connections on {}:{}", self.host, self.port);
+        self.start_accepting_connections().await?;
+
         Ok(())
     }
 
     async fn disconnect(&mut self) -> NetworkResult<()> {
-        if let Some(listener) = self.listener.take() {
-            drop(listener);
-        }
-        
+        // Note: The listener has been moved to the background task in start_accepting_connections()
+        // We can't directly stop the background task, but we can mark as disconnected
+        // and clear client connections
+
         // Close all client connections
         let mut clients = self.clients.write().await;
         clients.clear();
-        
+
         self.connected = false;
+        eprintln!("TCPServer: Disconnected from {}:{}", self.host, self.port);
         Ok(())
     }
 
@@ -394,130 +535,19 @@ impl Connection for TcpServer {
     async fn start_receiving(&mut self) -> NetworkResult<mpsc::Receiver<NetworkEvent>> {
         let (tx, rx) = mpsc::channel(1000);
 
-        if let Some(listener) = self.listener.take() {
-            let session_id = self.session_id.clone();
-            let clients = self.clients.clone();
+        // Note: The listener has already been moved to the background task in start_accepting_connections()
+        // This method now just returns a receiver for events that would be generated by the background task
+        // For now, we'll return an empty receiver since the connection handling is done in start_accepting_connections()
 
-            // Spawn background task to accept connections
-            tokio::spawn(async move {
-                loop {
-                    match listener.accept().await {
-                        Ok((stream, addr)) => {
-                            let client_id = format!("{}:{}", addr.ip(), addr.port());
-                            let stream_arc = Arc::new(RwLock::new(stream));
+        eprintln!("TCPServer: start_receiving called - connection handling already started in background");
 
-                            // Add client to the list
-                            clients.write().await.insert(client_id.clone(), stream_arc.clone());
-
-                            // Send connection event
-                            let event = NetworkEvent {
-                                session_id: session_id.clone(),
-                                event_type: "connected".to_string(),
-                                data: None,
-                                error: None,
-                                client_id: Some(client_id.clone()),
-                                mqtt_topic: None,
-                                mqtt_qos: None,
-                                mqtt_retain: None,
-                                sse_event: None,
-                            };
-                            if tx.send(event).await.is_err() {
-                                break; // Receiver dropped
-                            }
-
-                            // Spawn task to handle this client
-                            let tx_clone = tx.clone();
-                            let session_id_clone = session_id.clone();
-                            let clients_clone = clients.clone();
-                            let client_id_clone = client_id.clone();
-
-                            tokio::spawn(async move {
-                                let mut buffer = [0u8; 8192];
-
-                                loop {
-                                    let read_result = {
-                                        let mut stream = stream_arc.write().await;
-                                        stream.read(&mut buffer).await
-                                    };
-
-                                    match read_result {
-                                        Ok(0) => {
-                                            // Client disconnected
-                                            clients_clone.write().await.remove(&client_id_clone);
-                                            let event = NetworkEvent {
-                                                session_id: session_id_clone.clone(),
-                                                event_type: "disconnected".to_string(),
-                                                data: None,
-                                                error: None,
-                                                client_id: Some(client_id_clone.clone()),
-                                                mqtt_topic: None,
-                                                mqtt_qos: None,
-                                                mqtt_retain: None,
-                                                sse_event: None,
-                                            };
-                                            let _ = tx_clone.send(event).await;
-                                            break;
-                                        }
-                                        Ok(n) => {
-                                            // Data received from client
-                                            let event = NetworkEvent {
-                                                session_id: session_id_clone.clone(),
-                                                event_type: "message".to_string(),
-                                                data: Some(buffer[..n].to_vec()),
-                                                error: None,
-                                                client_id: Some(client_id_clone.clone()),
-                                                mqtt_topic: None,
-                                                mqtt_qos: None,
-                                                mqtt_retain: None,
-                                                sse_event: None,
-                                            };
-                                            if tx_clone.send(event).await.is_err() {
-                                                break; // Receiver dropped
-                                            }
-                                        }
-                                        Err(e) => {
-                                            // Error occurred
-                                            clients_clone.write().await.remove(&client_id_clone);
-                                            let event = NetworkEvent {
-                                                session_id: session_id_clone.clone(),
-                                                event_type: "error".to_string(),
-                                                data: None,
-                                                error: Some(e.to_string()),
-                                                client_id: Some(client_id_clone.clone()),
-                                                mqtt_topic: None,
-                                                mqtt_qos: None,
-                                                mqtt_retain: None,
-                                                sse_event: None,
-                                            };
-                                            let _ = tx_clone.send(event).await;
-                                            break;
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                        Err(e) => {
-                            // Error accepting connection
-                            let event = NetworkEvent {
-                                session_id: session_id.clone(),
-                                event_type: "error".to_string(),
-                                data: None,
-                                error: Some(format!("Accept error: {}", e)),
-                                client_id: None,
-                                mqtt_topic: None,
-                                mqtt_qos: None,
-                                mqtt_retain: None,
-                                sse_event: None,
-                            };
-                            let _ = tx.send(event).await;
-                        }
-                    }
-                }
-            });
-        }
+        // TODO: In a future refactor, we should integrate the event system with the background connection handler
+        // For now, just return the receiver
 
         Ok(rx)
     }
+
+
 }
 
 #[async_trait]

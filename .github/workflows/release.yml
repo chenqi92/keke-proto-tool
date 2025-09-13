@@ -164,14 +164,6 @@ jobs:
             os: 'windows'
             bundle: 'nsis'
 
-          # Windows builds - MSIX package (64-bit) for Microsoft Store
-          - platform: 'windows-latest'
-            args: '--target x86_64-pc-windows-msvc --bundles msix'
-            target: 'x86_64-pc-windows-msvc'
-            arch: 'x64'
-            os: 'windows'
-            bundle: 'msix'
-
           # macOS builds
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
@@ -354,10 +346,6 @@ jobs:
             os: 'windows'
             arch: 'x86'
             bundle: 'nsis'
-          - platform: 'windows-latest'
-            os: 'windows'
-            arch: 'x64'
-            bundle: 'msix'
           - platform: 'macos-latest'
             os: 'macos'
             arch: 'x64'
@@ -412,7 +400,7 @@ jobs:
             -name "*.deb" -o \
             -name "*.rpm" -o \
             -name "*.AppImage" -o \
-            -name "*.msix" \
+
           \) | while read file; do
             if [ -f "$file" ]; then
               echo "Uploading $(basename "$file")..."
@@ -458,7 +446,7 @@ jobs:
           echo "- **Windows x64 NSIS:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Windows x86 MSI:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Windows x86 NSIS:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Windows x64 MSIX:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
+
           echo "- **macOS x64:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **macOS ARM64:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Linux x64:** ${{ needs.upload-assets.result }}" >> $GITHUB_STEP_SUMMARY
