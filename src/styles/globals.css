@@ -37,135 +37,365 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 0 0% 17%;  /* #2B2B2B 对应的 HSL 值 */
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 0 0% 17%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 0 0% 17%;
     --popover-foreground: 210 40% 98%;
     --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary-foreground: 222.9 84% 4.9%;
+    --secondary: 0 0% 25%;  /* 比背景色稍亮的灰色 */
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
+    --muted: 0 0% 25%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 0 0% 25%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 0 0% 30%;  /* 更明显的边框颜色 */
+    --input: 0 0% 25%;   /* 输入框背景色 */
     --ring: 224.3 76.3% 94.1%;
   }
 
-  /* Color Theme Overrides - Higher specificity to ensure proper application */
+  /* Color Theme Overrides - Complete color variable sets for proper theming */
   :root.theme-slate {
     --primary: 215.4 16.3% 46.9% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 215.3 19.3% 34.5% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 215.3 19.3% 34.5% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 215.3 19.3% 34.5% !important;
+    --muted-foreground: 215.4 16.3% 65% !important;
+    --border: 215.3 19.3% 27% !important;
+    --input: 215.3 19.3% 27% !important;
     --ring: 215.4 16.3% 46.9% !important;
   }
 
   :root.theme-gray {
     --primary: 220 8.9% 46.1% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 220 13% 34% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 220 13% 34% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 220 13% 34% !important;
+    --muted-foreground: 220 8.9% 65% !important;
+    --border: 220 13% 27% !important;
+    --input: 220 13% 27% !important;
     --ring: 220 8.9% 46.1% !important;
   }
 
   :root.theme-zinc {
     --primary: 240 3.8% 46.1% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 240 5.9% 34% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 240 5.9% 34% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 240 5.9% 34% !important;
+    --muted-foreground: 240 3.8% 65% !important;
+    --border: 240 5.9% 27% !important;
+    --input: 240 5.9% 27% !important;
     --ring: 240 3.8% 46.1% !important;
   }
 
   :root.theme-neutral {
     --primary: 0 0% 45.1% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 0 0% 34% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 0 0% 34% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 0 0% 34% !important;
+    --muted-foreground: 0 0% 65% !important;
+    --border: 0 0% 27% !important;
+    --input: 0 0% 27% !important;
     --ring: 0 0% 45.1% !important;
   }
 
   :root.theme-stone {
     --primary: 25 5.3% 44.7% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 24 9.8% 34% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 24 9.8% 34% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 24 9.8% 34% !important;
+    --muted-foreground: 25 5.3% 65% !important;
+    --border: 24 9.8% 27% !important;
+    --input: 24 9.8% 27% !important;
     --ring: 25 5.3% 44.7% !important;
   }
 
   :root.theme-red {
     --primary: 0 72.2% 50.6% !important;
+    --primary-foreground: 0 0% 100% !important;
+    --secondary: 0 72.2% 35% !important;
+    --secondary-foreground: 0 0% 100% !important;
+    --accent: 0 72.2% 35% !important;
+    --accent-foreground: 0 0% 100% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 0 0% 100% !important;
     --ring: 0 72.2% 50.6% !important;
   }
 
   :root.theme-orange {
     --primary: 24.6 95% 53.1% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 24.6 95% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 24.6 95% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 24.6 95% 35% !important;
+    --muted-foreground: 24.6 95% 65% !important;
+    --border: 24.6 95% 27% !important;
+    --input: 24.6 95% 27% !important;
     --ring: 24.6 95% 53.1% !important;
   }
 
   :root.theme-amber {
     --primary: 45.4 93.4% 47.5% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 45.4 93.4% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 45.4 93.4% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 45.4 93.4% 35% !important;
+    --muted-foreground: 45.4 93.4% 65% !important;
+    --border: 45.4 93.4% 27% !important;
+    --input: 45.4 93.4% 27% !important;
     --ring: 45.4 93.4% 47.5% !important;
   }
 
   :root.theme-yellow {
     --primary: 54.5 91.7% 54.3% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 54.5 91.7% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 54.5 91.7% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 54.5 91.7% 35% !important;
+    --muted-foreground: 54.5 91.7% 65% !important;
+    --border: 54.5 91.7% 27% !important;
+    --input: 54.5 91.7% 27% !important;
     --ring: 54.5 91.7% 54.3% !important;
   }
 
   :root.theme-lime {
     --primary: 84.2 85.2% 60.2% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 84.2 85.2% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 84.2 85.2% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 84.2 85.2% 35% !important;
+    --muted-foreground: 84.2 85.2% 65% !important;
+    --border: 84.2 85.2% 27% !important;
+    --input: 84.2 85.2% 27% !important;
     --ring: 84.2 85.2% 60.2% !important;
   }
 
   :root.theme-green {
     --primary: 142.1 76.2% 36.3% !important;
+    --primary-foreground: 0 0% 100% !important;
+    --secondary: 142.1 76.2% 25% !important;
+    --secondary-foreground: 0 0% 100% !important;
+    --accent: 142.1 76.2% 25% !important;
+    --accent-foreground: 0 0% 100% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 0 0% 100% !important;
     --ring: 142.1 76.2% 36.3% !important;
   }
 
   :root.theme-emerald {
     --primary: 160.1 84.1% 39.4% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 160.1 84.1% 25% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 160.1 84.1% 25% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 160.1 84.1% 25% !important;
+    --muted-foreground: 160.1 84.1% 65% !important;
+    --border: 160.1 84.1% 20% !important;
+    --input: 160.1 84.1% 20% !important;
     --ring: 160.1 84.1% 39.4% !important;
   }
 
   :root.theme-teal {
     --primary: 173.4 80.4% 40% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 173.4 80.4% 25% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 173.4 80.4% 25% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 173.4 80.4% 25% !important;
+    --muted-foreground: 173.4 80.4% 65% !important;
+    --border: 173.4 80.4% 20% !important;
+    --input: 173.4 80.4% 20% !important;
     --ring: 173.4 80.4% 40% !important;
   }
 
   :root.theme-cyan {
     --primary: 188.7 85% 53.3% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 188.7 85% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 188.7 85% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 188.7 85% 35% !important;
+    --muted-foreground: 188.7 85% 65% !important;
+    --border: 188.7 85% 27% !important;
+    --input: 188.7 85% 27% !important;
     --ring: 188.7 85% 53.3% !important;
   }
 
   :root.theme-sky {
     --primary: 198.6 88.7% 48.4% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 198.6 88.7% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 198.6 88.7% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 198.6 88.7% 35% !important;
+    --muted-foreground: 198.6 88.7% 65% !important;
+    --border: 198.6 88.7% 27% !important;
+    --input: 198.6 88.7% 27% !important;
     --ring: 198.6 88.7% 48.4% !important;
   }
 
   :root.theme-blue {
     --primary: 221.2 83.2% 53.3% !important;
+    --primary-foreground: 0 0% 100% !important;
+    --secondary: 221.2 83.2% 35% !important;
+    --secondary-foreground: 0 0% 100% !important;
+    --accent: 221.2 83.2% 35% !important;
+    --accent-foreground: 0 0% 100% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 0 0% 100% !important;
     --ring: 221.2 83.2% 53.3% !important;
   }
 
   :root.theme-indigo {
     --primary: 239.4 84.2% 67.1% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 239.4 84.2% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 239.4 84.2% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 239.4 84.2% 35% !important;
+    --muted-foreground: 239.4 84.2% 75% !important;
+    --border: 239.4 84.2% 27% !important;
+    --input: 239.4 84.2% 27% !important;
     --ring: 239.4 84.2% 67.1% !important;
   }
 
   :root.theme-violet {
     --primary: 262.1 83.3% 57.8% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 262.1 83.3% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 262.1 83.3% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 262.1 83.3% 35% !important;
+    --muted-foreground: 262.1 83.3% 70% !important;
+    --border: 262.1 83.3% 27% !important;
+    --input: 262.1 83.3% 27% !important;
     --ring: 262.1 83.3% 57.8% !important;
   }
 
   :root.theme-purple {
     --primary: 270.7 91% 65.1% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 270.7 91% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 270.7 91% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 270.7 91% 35% !important;
+    --muted-foreground: 270.7 91% 75% !important;
+    --border: 270.7 91% 27% !important;
+    --input: 270.7 91% 27% !important;
     --ring: 270.7 91% 65.1% !important;
   }
 
   :root.theme-fuchsia {
     --primary: 292.2 84.1% 60.6% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 292.2 84.1% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 292.2 84.1% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 292.2 84.1% 35% !important;
+    --muted-foreground: 292.2 84.1% 70% !important;
+    --border: 292.2 84.1% 27% !important;
+    --input: 292.2 84.1% 27% !important;
     --ring: 292.2 84.1% 60.6% !important;
   }
 
   :root.theme-pink {
     --primary: 330.4 81.2% 60.4% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 330.4 81.2% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 330.4 81.2% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 330.4 81.2% 35% !important;
+    --muted-foreground: 330.4 81.2% 70% !important;
+    --border: 330.4 81.2% 27% !important;
+    --input: 330.4 81.2% 27% !important;
     --ring: 330.4 81.2% 60.4% !important;
   }
 
   :root.theme-rose {
     --primary: 346.8 77.2% 49.8% !important;
+    --primary-foreground: 210 40% 98% !important;
+    --secondary: 346.8 77.2% 35% !important;
+    --secondary-foreground: 210 40% 98% !important;
+    --accent: 346.8 77.2% 35% !important;
+    --accent-foreground: 210 40% 98% !important;
+    --destructive: 0 84.2% 60.2% !important;
+    --destructive-foreground: 210 40% 98% !important;
+    --muted: 346.8 77.2% 35% !important;
+    --muted-foreground: 346.8 77.2% 65% !important;
+    --border: 346.8 77.2% 27% !important;
+    --input: 346.8 77.2% 27% !important;
     --ring: 346.8 77.2% 49.8% !important;
   }
 }

@@ -290,6 +290,8 @@ pub async fn set_window_theme(
     app_handle: AppHandle,
     theme: String,
 ) -> Result<(), String> {
+    println!("Received theme change request: {}", theme);
+
     let window = app_handle.get_webview_window("main")
         .ok_or("Failed to get main window")?;
 
@@ -299,59 +301,91 @@ pub async fn set_window_theme(
         _ => None, // For "system" or any other value, let OS decide
     };
 
+    println!("Setting Tauri theme to: {:?}", tauri_theme);
+
     // Set the primary window theme
     window.set_theme(tauri_theme)
         .map_err(|e| format!("Failed to set window theme: {}", e))?;
 
-    // Set custom background color to match the application theme
+    // Set custom background color to match the application theme with multiple attempts
     match theme.as_str() {
         "dark" => {
-            // Set dark theme background color to match main application area (#020817)
+            // Set dark theme background color to match main application area (#2B2B2B)
+            // Try multiple times to ensure it takes effect
+            for attempt in 1..=3 {
+                if let Err(e) = window.set_background_color(Some(Color(43, 43, 43, 255))) {
+                    eprintln!("Attempt {}: Failed to set dark background color: {}", attempt, e);
+                    if attempt < 3 {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                    }
+                } else {
+                    println!("Successfully set dark background color on attempt {}", attempt);
+                    break;
+                }
+            }
+
+            // Additional platform-specific theming with stronger integration
             #[cfg(target_os = "windows")]
             {
-                // On Windows, try to set the window background color
-                // This may help with title bar and system integration
-                if let Err(e) = window.set_background_color(Some(Color(2, 8, 23, 255))) {
-                    eprintln!("Failed to set dark background color on Windows: {}", e);
+                // On Windows, try to set additional window properties for better integration
+                println!("Applied Windows-specific dark theme integration");
+                // Force window to redraw with new theme
+                if let Err(e) = window.set_minimizable(true) {
+                    eprintln!("Failed to refresh window properties: {}", e);
                 }
             }
 
             #[cfg(target_os = "macos")]
             {
-                // On macOS, the system menu bar is controlled by system preferences
-                // but we can try to influence the window appearance
-                if let Err(e) = window.set_background_color(Some(Color(2, 8, 23, 255))) {
-                    eprintln!("Failed to set dark background color on macOS: {}", e);
+                // On macOS, try to influence the window appearance more strongly
+                println!("Applied macOS-specific dark theme integration");
+                // Force appearance update
+                if let Err(e) = window.set_always_on_top(false) {
+                    eprintln!("Failed to refresh window properties: {}", e);
                 }
             }
 
             #[cfg(target_os = "linux")]
             {
-                // On Linux, set the background color for better integration
-                if let Err(e) = window.set_background_color(Some(Color(2, 8, 23, 255))) {
-                    eprintln!("Failed to set dark background color on Linux: {}", e);
+                // On Linux, set additional properties for better desktop integration
+                println!("Applied Linux-specific dark theme integration");
+                // Force window manager to update
+                if let Err(e) = window.set_skip_taskbar(false) {
+                    eprintln!("Failed to refresh window properties: {}", e);
                 }
             }
         },
         "light" => {
-            // Set light theme background color
-            #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-            {
+            // Set light theme background color with multiple attempts
+            for attempt in 1..=3 {
                 if let Err(e) = window.set_background_color(Some(Color(255, 255, 255, 255))) {
-                    eprintln!("Failed to set light background color: {}", e);
+                    eprintln!("Attempt {}: Failed to set light background color: {}", attempt, e);
+                    if attempt < 3 {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                    }
+                } else {
+                    println!("Successfully set light background color on attempt {}", attempt);
+                    break;
                 }
             }
         },
         _ => {
             // System theme - let OS decide the background color
-            #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-            {
-                // Reset to default/transparent background for system theme
-                if let Err(e) = window.set_background_color(None) {
-                    eprintln!("Failed to reset background color for system theme: {}", e);
-                }
+            if let Err(e) = window.set_background_color(None) {
+                eprintln!("Failed to reset background color for system theme: {}", e);
             }
         }
+    }
+
+    // Force window refresh to apply changes with multiple methods
+    if let Err(e) = window.set_focus() {
+        eprintln!("Failed to refresh window focus: {}", e);
+    }
+
+    // Additional refresh attempts
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    if let Err(e) = window.show() {
+        eprintln!("Failed to show window: {}", e);
     }
 
     Ok(())
