@@ -730,7 +730,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                     {/* 广播选项 */}
                     <div
                       className={cn(
-                        "p-3 rounded-lg border cursor-pointer transition-colors",
+                        "p-3 rounded-lg border transition-colors",
                         broadcastMode
                           ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50"
@@ -756,7 +756,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                       <div
                         key={client.id}
                         className={cn(
-                          "p-3 rounded-lg border cursor-pointer transition-colors",
+                          "p-3 rounded-lg border transition-colors",
                           selectedClient === client.id && !broadcastMode
                             ? "border-primary bg-primary/10"
                             : "border-border hover:border-primary/50"

@@ -324,7 +324,7 @@ export const ToolPluginManager: React.FC<ToolPluginManagerProps> = ({
           <select
             value={selectedCategory || ''}
             onChange={(e) => setSelectedCategory(e.target.value || null)}
-            className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors hover:border-accent-foreground h-10"
           >
             <option value="">所有分类</option>
             {categories.map(category => (

@@ -149,7 +149,7 @@ export const ProtocolParserInterface: React.FC<ProtocolParserInterfaceProps> = (
                 key={index}
                 onClick={() => handleFieldClick(index)}
                 className={cn(
-                  "p-2 border rounded-md cursor-pointer transition-all",
+                  "p-2 border rounded-md transition-all",
                   selectedField === index
                     ? "border-primary bg-primary/10"
                     : "border-border hover:border-accent-foreground hover:bg-accent"

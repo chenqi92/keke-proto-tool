@@ -570,7 +570,7 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
                         <div
                           key={client.id}
                           className={cn(
-                            "p-3 rounded-lg border cursor-pointer transition-colors",
+                            "p-3 rounded-lg border transition-colors",
                             selectedClient === client.id
                               ? "border-primary bg-primary/10"
                               : "border-border hover:border-primary/50"

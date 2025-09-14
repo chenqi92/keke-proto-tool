@@ -407,6 +407,40 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Override all cursor pointers to use default cursor */
+  button, a, [role="button"], .cursor-pointer {
+    cursor: default !important;
+  }
+
+  /* Standardize select element styling for consistency with design system */
+  select {
+    @apply bg-background border border-border rounded-md text-foreground;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary;
+    @apply transition-colors hover:border-accent-foreground;
+    @apply px-3 py-2 text-sm h-10;
+    cursor: default !important;
+  }
+
+  /* Ensure select options have proper styling */
+  select option {
+    @apply bg-background text-foreground;
+    @apply px-3 py-2;
+  }
+
+  /* macOS-specific select styling improvements */
+  @supports (-webkit-appearance: none) {
+    select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 1rem;
+      padding-right: 2.5rem;
+    }
+  }
 }
 
 /* Custom scrollbar styles - 纤细美观的滚动条 */
