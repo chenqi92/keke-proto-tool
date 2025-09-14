@@ -11,6 +11,7 @@ import {
   Puzzle
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
+import { usePlatform } from '@/hooks/usePlatform';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface ToolBarProps {
@@ -71,6 +72,7 @@ const createRightToolBarItems = (onOpenModal: (modalType: string) => void): Tool
 
 export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
   const layoutConfig = useLayoutConfig();
+  const { isMacOS } = usePlatform();
   const leftItems = createLeftToolBarItems(onOpenModal);
   const rightItems = createRightToolBarItems(onOpenModal);
 
@@ -157,10 +159,16 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
 
   return (
     <div className={cn(
-      "h-16 bg-card border-b border-border flex items-center justify-between px-4",
-      layoutConfig.isMobile && "px-2 h-14",
+      "h-16 bg-card border-b border-border flex items-center justify-between",
+      layoutConfig.isMobile ? "px-2 h-14" : "px-4",
+      // Add macOS-specific padding to avoid window controls
+      isMacOS && "macos-window-controls-padding",
+      // Add small top padding on macOS to account for minimal drag region
+      isMacOS && "pt-3",
       className
     )}>
+
+
       {/* 左侧主要功能按钮 */}
       <div className="flex items-center space-x-1">
         {visibleLeftItems.map((item, index) => renderToolBarItem(item, index))}

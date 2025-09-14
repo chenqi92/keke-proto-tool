@@ -482,6 +482,74 @@
   opacity: 1;
 }
 
+/* macOS-specific styles for window controls */
+.macos-window-controls-padding {
+  padding-left: 5rem !important;
+}
+
+/* macOS window drag region styling */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+  /* Ensure drag region doesn't interfere with content */
+  pointer-events: auto;
+}
+
+/* Ensure interactive elements within drag regions are clickable */
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] input,
+[data-tauri-drag-region] select,
+[data-tauri-drag-region] textarea,
+[data-tauri-drag-region] a {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* Minimal drag region specific styling */
+.window-drag-region {
+  /* Ensure it's invisible but functional */
+  background: transparent;
+  /* Prevent any visual interference */
+  border: none;
+  outline: none;
+}
+
+/* macOS-specific window styling improvements */
+@media (platform: macos) {
+  /* Improve window appearance on macOS */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Better scrollbar styling for macOS */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
 /* Custom styles for the application */
 .protocol-viewer {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;

@@ -6,6 +6,17 @@
     "main"
   ],
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:window:default",
+    "core:webview:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-theme",
+    "core:window:allow-set-background-color",
+    "core:window:allow-set-focus",
+    "core:window:allow-show",
+    "core:window:allow-maximize",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-skip-taskbar",
+    "core:window:allow-set-minimizable"
   ]
 }

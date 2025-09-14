@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ToolBar } from './ToolBar';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
+import { WindowDragRegion } from './WindowDragRegion';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession, getDefaultSessionConfig, SelectedNode } from '@/contexts/SessionContext';
@@ -69,6 +70,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground">
+      {/* Minimal window drag region at the very top edge */}
+      <WindowDragRegion showDebugOutline={false} />
+
       {/* Tool Bar */}
       <ToolBar onOpenModal={onOpenModal} />
 

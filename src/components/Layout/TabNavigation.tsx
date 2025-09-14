@@ -152,7 +152,11 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
   };
 
   return (
-    <div className={cn("flex items-center bg-background border-b border-border", className)}>
+    <div className={cn(
+      "flex items-center bg-background border-b border-border",
+      // TabNavigation is positioned below the toolbar, so no macOS padding needed
+      className
+    )}>
       {/* 左滚动按钮 */}
       {isScrollable && scrollPosition > 0 && (
         <button
@@ -181,7 +185,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
-                  "flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-all duration-200 border-b-2 whitespace-nowrap",
+                  "flex items-center space-x-1.5 px-3 py-2 text-xs font-medium transition-all duration-200 border-b-2 whitespace-nowrap h-10",
                   "hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset",
                   isActive
                     ? "border-primary text-primary bg-primary/5"
@@ -189,7 +193,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
                 )}
                 title={`${tab.label} (${tab.shortcut})`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3.5 h-3.5" />
                 <span>{tab.label}</span>
               </button>
             );
