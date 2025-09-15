@@ -50,6 +50,13 @@ impl Connection for TcpClient {
     async fn connect(&mut self) -> NetworkResult<()> {
         eprintln!("TCPClient: Attempting to connect to {}:{}", self.host, self.port);
 
+        // 验证端口范围
+        if self.port == 0 || self.port > 65535 {
+            let error_msg = format!("Invalid port number: {}. Port must be between 1 and 65535", self.port);
+            eprintln!("TCPClient: {}", error_msg);
+            return Err(NetworkError::ConnectionFailed(error_msg));
+        }
+
         let addr = parse_socket_addr(&self.host, self.port)
             .map_err(|e| {
                 let error_msg = format!("Invalid address {}:{} - {}", self.host, self.port, e);

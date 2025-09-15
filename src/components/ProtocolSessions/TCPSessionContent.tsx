@@ -58,10 +58,31 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   // 判断是否为服务端模式
   const isServerMode = config?.connectionType === 'server';
 
+  // 调试信息
+  console.log(`TCP Session ${sessionId}:`, {
+    connectionType: config?.connectionType,
+    isServerMode,
+    protocol: config?.protocol,
+    host: config?.host,
+    port: config?.port,
+    status: connectionStatus
+  });
+
   // 获取客户端连接列表（仅服务端模式）
   const clientConnections = useMemo(() => {
-    return isServerMode ? getClientConnections(sessionId) : [];
-  }, [isServerMode, sessionId, getClientConnections, session?.clientConnections]);
+    const connections = isServerMode ? getClientConnections(sessionId) : [];
+
+    // 调试：如果客户端模式下有客户端连接，这是一个错误
+    if (!isServerMode && connections.length > 0) {
+      console.error(`错误：客户端模式下不应该有客户端连接！Session ${sessionId}:`, {
+        connectionType: config?.connectionType,
+        isServerMode,
+        connections
+      });
+    }
+
+    return connections;
+  }, [isServerMode, sessionId, getClientConnections, session?.clientConnections, config?.connectionType]);
   
   // 计算TCP特定统计信息
   const tcpStats = useMemo(() => {
@@ -413,6 +434,27 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
             onRetry={handleConnect}
             retryLabel={isServerMode ? '重新启动' : '重新连接'}
           />
+        </div>
+      )}
+
+      {/* 调试信息横幅 - 客户端模式下有客户端连接时显示 */}
+      {!isServerMode && clientConnections.length > 0 && (
+        <div className="px-4 pt-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+            <div className="flex">
+              <AlertCircle className="h-4 w-4 text-yellow-400 mt-0.5" />
+              <div className="ml-2">
+                <h3 className="text-sm font-medium text-yellow-800">配置错误</h3>
+                <p className="text-sm text-yellow-700 mt-1">
+                  检测到客户端模式下存在客户端连接数据，这可能表明会话配置有误。
+                  客户端模式不应该有下级节点。请检查会话的连接类型设置。
+                </p>
+                <p className="text-xs text-yellow-600 mt-1">
+                  当前配置：{config?.connectionType} | 连接数：{clientConnections.length}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
