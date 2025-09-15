@@ -514,8 +514,22 @@ class NetworkService {
       console.error('Send to client failed:', error);
 
       // Add failed message to store
+      const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       const message: Message = {
-        id: `msg_${Date.now()}
+        id: messageId,
+        timestamp: new Date(),
+        direction: 'out',
+        protocol: useAppStore.getState().getSession(sessionId)?.config.protocol || 'TCP',
+        size: data.length,
+        data,
+        status: 'error',
+        raw: this.uint8ArrayToString(data),
+      };
+
+      useAppStore.getState().addMessage(sessionId, message);
+      return false;
+    }
+  }
 
   // 服务端特定方法：断开指定客户端连接
   async disconnectClient(sessionId: string, clientId: string): Promise<boolean> {
@@ -542,19 +556,23 @@ class NetworkService {
       console.error('Disconnect client failed:', error);
       return false;
     }
-  }_${Math.random().toString(36).substr(2, 9)}`,
-        timestamp: new Date(),
-        direction: 'out',
-        protocol: useAppStore.getState().getSession(sessionId)?.config.protocol || 'TCP',
-        size: data.length,
-        data,
-        status: 'error',
-        raw: this.uint8ArrayToString(data),
-      };
+  }
 
-      useAppStore.getState().addMessage(sessionId, message);
-      return false;
-    }
+  // Helper method to add failed message to store
+  private addFailedMessage(sessionId: string, data: Uint8Array, error: string) {
+    const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    const message: Message = {
+      id: messageId,
+      timestamp: new Date(),
+      direction: 'out',
+      protocol: useAppStore.getState().getSession(sessionId)?.config.protocol || 'TCP',
+      size: data.length,
+      data,
+      status: 'error',
+      raw: this.uint8ArrayToString(data),
+    };
+
+    useAppStore.getState().addMessage(sessionId, message);
   }
 
   // UDP特定方法：发送UDP数据报到指定地址
@@ -584,8 +602,9 @@ class NetworkService {
       console.error('Send UDP message failed:', error);
 
       // Add failed message to store
+      const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       const message: Message = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: messageId,
         timestamp: new Date(),
         direction: 'out',
         protocol: 'UDP',

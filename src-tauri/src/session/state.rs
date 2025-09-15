@@ -31,6 +31,11 @@ impl SessionState {
         *self.app_handle.write().unwrap() = Some(app_handle);
     }
 
+    /// Get the app handle for event emission
+    pub fn get_app_handle(&self) -> Option<AppHandle> {
+        self.app_handle.read().unwrap().clone()
+    }
+
     /// Set the connection status
     pub fn set_status(&self, status: ConnectionStatus) {
         let mut current_status = self.status.write().unwrap();

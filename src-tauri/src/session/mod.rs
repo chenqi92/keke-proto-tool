@@ -95,6 +95,14 @@ impl Session {
         // Attempt connection with timeout and retry
         self.connection_manager.connect_with_retry(connection_factory, status_tx).await?;
 
+        // Immediately set app handle on the connection after successful connection
+        if let Some(app_handle) = self.state.get_app_handle() {
+            eprintln!("Session: Setting app handle on connection manager after successful connection for session {}", self.id);
+            self.connection_manager.set_app_handle(app_handle).await;
+        } else {
+            eprintln!("Session: WARNING - No app handle available to set on connection for session {}", self.id);
+        }
+
         // Check if any configuration has changed after connection (e.g., port changes for TCP server)
         self.check_and_emit_config_changes().await?;
 
@@ -102,8 +110,11 @@ impl Session {
     }
 
     /// Set the app handle for event emission
-    pub fn set_app_handle(&mut self, app_handle: AppHandle) {
-        self.state.set_app_handle(app_handle);
+    pub async fn set_app_handle(&mut self, app_handle: AppHandle) {
+        self.state.set_app_handle(app_handle.clone());
+
+        // Set the app handle on the connection if it exists
+        self.connection_manager.set_app_handle(app_handle).await;
     }
 
     /// Check if configuration has changed after connection and emit updates
@@ -156,6 +167,18 @@ impl Session {
     pub async fn disconnect_client(&mut self, client_id: &str) -> NetworkResult<()> {
         // Delegate to connection manager
         self.connection_manager.disconnect_client(client_id).await
+    }
+
+    /// Send data to a specific client (server mode)
+    pub async fn send_to_client(&mut self, client_id: &str, data: &[u8]) -> NetworkResult<usize> {
+        // Delegate to connection manager
+        self.connection_manager.send_to_client(client_id, data).await
+    }
+
+    /// Broadcast data to all clients (server mode)
+    pub async fn broadcast(&mut self, data: &[u8]) -> NetworkResult<usize> {
+        // Delegate to connection manager
+        self.connection_manager.broadcast(data).await
     }
 
     /// Send data through the connection

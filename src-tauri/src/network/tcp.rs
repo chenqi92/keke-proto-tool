@@ -8,6 +8,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tauri::{AppHandle, Emitter};
 
 /// TCP Client implementation
 #[derive(Debug)]
@@ -222,6 +223,7 @@ pub struct TcpServer {
     listener: Option<TcpListener>,
     clients: Arc<RwLock<HashMap<String, Arc<RwLock<TcpStream>>>>>,
     connected: bool,
+    app_handle: Arc<RwLock<Option<AppHandle>>>,
 }
 
 impl TcpServer {
@@ -242,7 +244,73 @@ impl TcpServer {
             listener: None,
             clients: Arc::new(RwLock::new(HashMap::new())),
             connected: false,
+            app_handle: Arc::new(RwLock::new(None)),
         })
+    }
+
+    /// Set the app handle for event emission
+    pub async fn set_app_handle(&mut self, app_handle: AppHandle) {
+        eprintln!("TcpServer: Setting app handle for session {}", self.session_id);
+        *self.app_handle.write().await = Some(app_handle);
+        eprintln!("TcpServer: App handle set successfully for session {}", self.session_id);
+    }
+
+    /// Emit an event to the frontend
+    async fn emit_event(&self, event_type: &str, client_id: Option<String>, data: Option<Vec<u8>>, error: Option<String>) {
+        if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+            let payload = match event_type {
+                    "client-connected" => {
+                        if let Some(client_id) = &client_id {
+                            // Parse client_id to get address and port
+                            let parts: Vec<&str> = client_id.split(':').collect();
+                            if parts.len() == 2 {
+                                serde_json::json!({
+                                    "sessionId": self.session_id,
+                                    "clientId": client_id,
+                                    "remoteAddress": parts[0],
+                                    "remotePort": parts[1].parse::<u16>().unwrap_or(0)
+                                })
+                            } else {
+                                serde_json::json!({
+                                    "sessionId": self.session_id,
+                                    "clientId": client_id,
+                                    "remoteAddress": "unknown",
+                                    "remotePort": 0
+                                })
+                            }
+                        } else {
+                            return;
+                        }
+                    }
+                    "client-disconnected" => {
+                        if let Some(client_id) = &client_id {
+                            serde_json::json!({
+                                "sessionId": self.session_id,
+                                "clientId": client_id
+                            })
+                        } else {
+                            return;
+                        }
+                    }
+                    "message-received" => {
+                        if let (Some(data), Some(client_id)) = (&data, &client_id) {
+                            serde_json::json!({
+                                "sessionId": self.session_id,
+                                "data": data,
+                                "direction": "in",
+                                "clientId": client_id
+                            })
+                        } else {
+                            return;
+                        }
+                    }
+                    _ => return,
+                };
+
+            if let Err(e) = app_handle.emit(event_type, payload) {
+                eprintln!("TCPServer: Failed to emit {} event for session {}: {}", event_type, self.session_id, e);
+            }
+        }
     }
 
     /// Try to bind to the requested port, and if it fails due to address in use,
@@ -336,6 +404,7 @@ impl TcpServer {
 
         let session_id = self.session_id.clone();
         let clients = self.clients.clone();
+        let app_handle = self.app_handle.clone();
 
         eprintln!("TCPServer: Starting background task to accept connections");
 
@@ -401,7 +470,36 @@ impl TcpServer {
 
                         eprintln!("TCPServer: Client {} connected from {}:{}",
                             client_id, addr.ip(), addr.port());
-                        // TODO: Send client-connected event through session manager
+
+                        // Emit client-connected event
+                        if let Some(app_handle_ref) = app_handle.read().await.as_ref() {
+                            eprintln!("TCPServer: App handle available, emitting client-connected event for {}", client_id);
+                            let parts: Vec<&str> = client_id.split(':').collect();
+                            let payload = if parts.len() == 2 {
+                                serde_json::json!({
+                                    "sessionId": session_id,
+                                    "clientId": client_id,
+                                    "remoteAddress": parts[0],
+                                    "remotePort": parts[1].parse::<u16>().unwrap_or(0)
+                                })
+                            } else {
+                                serde_json::json!({
+                                    "sessionId": session_id,
+                                    "clientId": client_id,
+                                    "remoteAddress": "unknown",
+                                    "remotePort": 0
+                                })
+                            };
+
+                            eprintln!("TCPServer: Emitting client-connected event with payload: {}", payload);
+                            if let Err(e) = app_handle_ref.emit("client-connected", payload) {
+                                eprintln!("TCPServer: Failed to emit client-connected event: {}", e);
+                            } else {
+                                eprintln!("TCPServer: Successfully emitted client-connected event for {}", client_id);
+                            }
+                        } else {
+                            eprintln!("TCPServer: WARNING - App handle not available, cannot emit client-connected event for {}", client_id);
+                        }
 
                         let stream_arc = Arc::new(RwLock::new(stream));
 
@@ -415,6 +513,7 @@ impl TcpServer {
                         let clients_clone = clients.clone();
                         let client_id_clone = client_id.clone();
                         let session_id_clone = session_id.clone();
+                        let app_handle_clone = app_handle.clone();
 
                         tokio::spawn(async move {
                             eprintln!("TCPServer: Starting client handler for {}", client_id_clone);
@@ -432,25 +531,54 @@ impl TcpServer {
                                         eprintln!("TCPServer: Client {} disconnected", client_id_clone);
                                         clients_clone.write().await.remove(&client_id_clone);
 
-                                        // TODO: Emit client-disconnected event
-                                        eprintln!("TCPServer: Client {} disconnected", client_id_clone);
-                                        // TODO: Send client-disconnected event through session manager
+                                        // Emit client-disconnected event
+                                        if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
+                                            let payload = serde_json::json!({
+                                                "sessionId": session_id_clone,
+                                                "clientId": client_id_clone
+                                            });
+
+                                            if let Err(e) = app_handle_ref.emit("client-disconnected", payload) {
+                                                eprintln!("TCPServer: Failed to emit client-disconnected event: {}", e);
+                                            }
+                                        }
 
                                         break;
                                     }
                                     Ok(n) => {
                                         // Data received from client
                                         eprintln!("TCPServer: Received {} bytes from client {}", n, client_id_clone);
-                                        // TODO: Handle received data (send to frontend)
+
+                                        // Emit message-received event
+                                        if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
+                                            let payload = serde_json::json!({
+                                                "sessionId": session_id_clone,
+                                                "data": buffer[..n].to_vec(),
+                                                "direction": "in",
+                                                "clientId": client_id_clone
+                                            });
+
+                                            if let Err(e) = app_handle_ref.emit("message-received", payload) {
+                                                eprintln!("TCPServer: Failed to emit message-received event: {}", e);
+                                            }
+                                        }
                                     }
                                     Err(e) => {
                                         // Error occurred
                                         eprintln!("TCPServer: Error reading from client {}: {}", client_id_clone, e);
                                         clients_clone.write().await.remove(&client_id_clone);
 
-                                        // TODO: Emit client-disconnected event
-                                        eprintln!("TCPServer: Client {} disconnected due to error", client_id_clone);
-                                        // TODO: Send client-disconnected event through session manager
+                                        // Emit client-disconnected event
+                                        if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
+                                            let payload = serde_json::json!({
+                                                "sessionId": session_id_clone,
+                                                "clientId": client_id_clone
+                                            });
+
+                                            if let Err(e) = app_handle_ref.emit("client-disconnected", payload) {
+                                                eprintln!("TCPServer: Failed to emit client-disconnected event: {}", e);
+                                            }
+                                        }
 
                                         break;
                                     }

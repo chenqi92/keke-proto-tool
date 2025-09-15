@@ -29,18 +29,23 @@ pub async fn connect_session(
     }
 
     // Create session if it doesn't exist
-    if let Err(e) = session_manager.create_session(session_id.clone(), config) {
-        // If session already exists, check if it's already connected
-        if e.to_string().contains("already exists") {
-            // Check if the session is already connected
-            if session_manager.is_session_connected(&session_id) {
-                eprintln!("Session {} is already connected, skipping connection attempt", session_id);
-                // Emit current status to synchronize frontend
-                session_manager.emit_current_status(&session_id);
-                return Ok(true);
+    match session_manager.create_session(session_id.clone(), config).await {
+        Err(e) => {
+            // If session already exists, check if it's already connected
+            if e.to_string().contains("already exists") {
+                // Check if the session is already connected
+                if session_manager.is_session_connected(&session_id) {
+                    eprintln!("Session {} is already connected, skipping connection attempt", session_id);
+                    // Emit current status to synchronize frontend
+                    session_manager.emit_current_status(&session_id);
+                    return Ok(true);
+                }
+            } else {
+                return Err(format!("Failed to create session: {}", e));
             }
-        } else {
-            return Err(format!("Failed to create session: {}", e));
+        }
+        Ok(_) => {
+            // Session created successfully
         }
     }
 
@@ -89,26 +94,28 @@ pub async fn send_message(
 /// Send a message to a specific client (server mode)
 #[tauri::command]
 pub async fn send_to_client(
-    _session_id: String,
-    _client_id: String,
-    _data: Vec<u8>,
-    _session_manager: State<'_, SessionManager>,
+    session_id: String,
+    client_id: String,
+    data: Vec<u8>,
+    session_manager: State<'_, SessionManager>,
 ) -> Result<bool, String> {
-    // TODO: Implement server-specific functionality
-    // For now, return an error indicating this needs implementation
-    Err("Server functionality not yet implemented".to_string())
+    match session_manager.send_to_client(&session_id, &client_id, &data).await {
+        Ok(result) => Ok(result),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 /// Broadcast a message to all clients (server mode)
 #[tauri::command]
 pub async fn broadcast_message(
-    _session_id: String,
-    _data: Vec<u8>,
-    _session_manager: State<'_, SessionManager>,
+    session_id: String,
+    data: Vec<u8>,
+    session_manager: State<'_, SessionManager>,
 ) -> Result<bool, String> {
-    // TODO: Implement server-specific functionality
-    // For now, return an error indicating this needs implementation
-    Err("Server functionality not yet implemented".to_string())
+    match session_manager.broadcast_message(&session_id, &data).await {
+        Ok(result) => Ok(result),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 /// Disconnect a specific client (server mode)

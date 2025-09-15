@@ -55,7 +55,12 @@ pub fn run() {
             // Initialize session manager with clean state
             let mut session_manager = session::SessionManager::new();
             let app_handle = app.handle().clone();
-            session_manager.set_app_handle(app_handle.clone());
+
+            // Set app handle synchronously using block_on
+            tauri::async_runtime::block_on(async {
+                session_manager.set_app_handle(app_handle).await;
+            });
+
             app.manage(session_manager);
 
             // Initialize parser system

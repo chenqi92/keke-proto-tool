@@ -8,7 +8,7 @@ use tokio::sync::{RwLock, mpsc};
 use tokio::time::{timeout, sleep};
 
 /// Connection manager that handles timeout, retry logic, and cleanup
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConnectionManager {
     connection: Arc<RwLock<Option<Box<dyn Connection>>>>,
     #[allow(dead_code)]
@@ -147,6 +147,10 @@ impl ConnectionManager {
                         Ok(Ok(_)) => {
                             // Success! Store the connection
                             *self.connection.write().await = Some(connection);
+
+                            // Immediately set app handle if available (this will be set by session manager)
+                            // Note: The app handle will be set by the session manager after this method returns
+
                             let _ = status_callback.send(ConnectionStatus::Connected).await;
                             return Ok(());
                         }
@@ -282,6 +286,38 @@ impl ConnectionManager {
         Ok(())
     }
 
+    /// Send data to a specific client (server mode)
+    pub async fn send_to_client(&self, client_id: &str, data: &[u8]) -> NetworkResult<usize> {
+        if let Some(connection) = self.connection.write().await.as_mut() {
+            // Try to downcast to ServerConnection
+            if let Some(server_connection) = connection.as_any_mut().downcast_mut::<TcpServer>() {
+                server_connection.send_to_client(client_id, data).await
+            } else if let Some(server_connection) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
+                server_connection.send_to_client(client_id, data).await
+            } else {
+                Err(crate::types::NetworkError::ConnectionFailed("Connection does not support server operations".to_string()))
+            }
+        } else {
+            Err(crate::types::NetworkError::ConnectionFailed("No active connection".to_string()))
+        }
+    }
+
+    /// Broadcast data to all clients (server mode)
+    pub async fn broadcast(&self, data: &[u8]) -> NetworkResult<usize> {
+        if let Some(connection) = self.connection.write().await.as_mut() {
+            // Try to downcast to ServerConnection
+            if let Some(server_connection) = connection.as_any_mut().downcast_mut::<TcpServer>() {
+                server_connection.broadcast(data).await
+            } else if let Some(server_connection) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
+                server_connection.broadcast(data).await
+            } else {
+                Err(crate::types::NetworkError::ConnectionFailed("Connection does not support server operations".to_string()))
+            }
+        } else {
+            Err(crate::types::NetworkError::ConnectionFailed("No active connection".to_string()))
+        }
+    }
+
     /// Execute an async operation with the connection
     #[allow(dead_code)]
     pub async fn with_connection_async<F, Fut, R>(&self, f: F) -> NetworkResult<R>
@@ -330,6 +366,24 @@ impl ConnectionManager {
             connection.get_actual_port()
         } else {
             None
+        }
+    }
+
+    /// Set the app handle for event emission on the current connection
+    pub async fn set_app_handle(&self, app_handle: tauri::AppHandle) {
+        if let Some(ref mut connection) = *self.connection.write().await {
+            // Check if this is a TCP server and set the app handle
+            if let Some(tcp_server) = connection.as_any_mut().downcast_mut::<TcpServer>() {
+                eprintln!("ConnectionManager: Setting app handle on TCP server for session {}", self.session_id);
+                tcp_server.set_app_handle(app_handle.clone()).await;
+            }
+            // Add WebSocket server support
+            else if let Some(ws_server) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
+                eprintln!("ConnectionManager: Setting app handle on WebSocket server for session {}", self.session_id);
+                // WebSocket server doesn't have set_app_handle method yet, but we can add it later
+            }
+        } else {
+            eprintln!("ConnectionManager: Warning - No connection available to set app handle for session {}", self.session_id);
         }
     }
 }

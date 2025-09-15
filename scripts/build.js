@@ -78,7 +78,7 @@ function buildFrontend() {
 function buildTauri(target = null) {
   console.log('🦀 Building Tauri application...');
   
-  let command = 'npm run tauri:build';
+  let command = 'tauri build';
   if (target) {
     command += ` -- --target ${target}`;
   }

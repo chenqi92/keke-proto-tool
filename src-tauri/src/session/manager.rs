@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tauri::AppHandle;
 
 /// Manages all active network sessions
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SessionManager {
     sessions: Arc<DashMap<String, Session>>,
     app_handle: Option<AppHandle>,
@@ -25,12 +25,12 @@ impl SessionManager {
     }
 
     /// Set the app handle for event emission
-    pub fn set_app_handle(&mut self, app_handle: AppHandle) {
+    pub async fn set_app_handle(&mut self, app_handle: AppHandle) {
         self.app_handle = Some(app_handle.clone());
 
         // Update all existing sessions with the app handle
         for mut session in self.sessions.iter_mut() {
-            session.set_app_handle(app_handle.clone());
+            session.set_app_handle(app_handle.clone()).await;
         }
     }
 
@@ -43,7 +43,7 @@ impl SessionManager {
     }
 
     /// Create a new session with the given configuration
-    pub fn create_session(&self, session_id: String, config: SessionConfig) -> NetworkResult<()> {
+    pub async fn create_session(&self, session_id: String, config: SessionConfig) -> NetworkResult<()> {
         if self.sessions.contains_key(&session_id) {
             return Err(NetworkError::InvalidConfig(
                 format!("Session {} already exists", session_id)
@@ -54,7 +54,7 @@ impl SessionManager {
 
         // Set app handle if available
         if let Some(app_handle) = &self.app_handle {
-            session.set_app_handle(app_handle.clone());
+            session.set_app_handle(app_handle.clone()).await;
         }
 
         self.sessions.insert(session_id, session);
@@ -69,6 +69,15 @@ impl SessionManager {
         match self.sessions.get_mut(session_id) {
             Some(mut session) => {
                 eprintln!("SessionManager: Found session {}, initiating connection", session_id);
+
+                // Ensure app handle is set before connecting
+                if let Some(app_handle) = &self.app_handle {
+                    eprintln!("SessionManager: Setting app handle on session {} before connection", session_id);
+                    session.set_app_handle(app_handle.clone()).await;
+                } else {
+                    eprintln!("SessionManager: WARNING - No app handle available for session {}", session_id);
+                }
+
                 match session.connect().await {
                     Ok(_) => {
                         eprintln!("SessionManager: Session {} connection initiated successfully", session_id);
@@ -154,6 +163,56 @@ impl SessionManager {
             }
             None => {
                 eprintln!("SessionManager: Session {} not found for client disconnection", session_id);
+                Err(NetworkError::SessionNotFound(session_id.to_string()))
+            }
+        }
+    }
+
+    /// Send a message to a specific client in a server session
+    pub async fn send_to_client(&self, session_id: &str, client_id: &str, data: &[u8]) -> NetworkResult<bool> {
+        eprintln!("SessionManager: Attempting to send message to client {} in session {}", client_id, session_id);
+
+        match self.sessions.get_mut(session_id) {
+            Some(mut session) => {
+                eprintln!("SessionManager: Found session {}, sending to client {}", session_id, client_id);
+                match session.send_to_client(client_id, data).await {
+                    Ok(_) => {
+                        eprintln!("SessionManager: Message sent to client {} in session {}", client_id, session_id);
+                        Ok(true)
+                    }
+                    Err(e) => {
+                        eprintln!("SessionManager: Failed to send message to client {} in session {}: {}", client_id, session_id, e);
+                        Err(e)
+                    }
+                }
+            }
+            None => {
+                eprintln!("SessionManager: Session {} not found for send to client", session_id);
+                Err(NetworkError::SessionNotFound(session_id.to_string()))
+            }
+        }
+    }
+
+    /// Broadcast a message to all clients in a server session
+    pub async fn broadcast_message(&self, session_id: &str, data: &[u8]) -> NetworkResult<bool> {
+        eprintln!("SessionManager: Attempting to broadcast message in session {}", session_id);
+
+        match self.sessions.get_mut(session_id) {
+            Some(mut session) => {
+                eprintln!("SessionManager: Found session {}, broadcasting message", session_id);
+                match session.broadcast(data).await {
+                    Ok(_) => {
+                        eprintln!("SessionManager: Message broadcasted in session {}", session_id);
+                        Ok(true)
+                    }
+                    Err(e) => {
+                        eprintln!("SessionManager: Failed to broadcast message in session {}: {}", session_id, e);
+                        Err(e)
+                    }
+                }
+            }
+            None => {
+                eprintln!("SessionManager: Session {} not found for broadcast", session_id);
                 Err(NetworkError::SessionNotFound(session_id.to_string()))
             }
         }
