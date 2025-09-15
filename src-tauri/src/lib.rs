@@ -21,6 +21,7 @@ pub fn run() {
             send_message,
             send_to_client,
             broadcast_message,
+            disconnect_client,
             send_udp_message,
             subscribe_mqtt_topic,
             unsubscribe_mqtt_topic,

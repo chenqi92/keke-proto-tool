@@ -173,6 +173,10 @@ impl Connection for UdpClient {
 
         Ok(rx)
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 #[async_trait]
@@ -337,6 +341,10 @@ impl Connection for UdpServer {
         });
 
         Ok(rx)
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 

@@ -37,6 +37,9 @@ pub trait Connection: Send + Sync + std::fmt::Debug {
     fn get_actual_port(&self) -> Option<u16> {
         None // Default implementation returns None
     }
+
+    /// Get mutable reference to Any for downcasting
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }
 
 /// Server-specific connection trait for protocols that support server mode

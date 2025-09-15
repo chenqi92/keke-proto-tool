@@ -1,4 +1,6 @@
-use crate::network::Connection;
+use crate::network::{Connection, ServerConnection};
+use crate::network::tcp::TcpServer;
+use crate::network::websocket::WebSocketServer;
 use crate::types::{NetworkResult, NetworkError, ConnectionStatus};
 use std::sync::Arc;
 use std::time::Duration;
@@ -252,6 +254,21 @@ impl ConnectionManager {
         *self.is_connecting.write().await = false;
         *self.current_attempt.write().await = 0;
 
+        Ok(())
+    }
+
+    /// Disconnect a specific client from a server connection
+    pub async fn disconnect_client(&self, client_id: &str) -> NetworkResult<()> {
+        if let Some(connection) = self.connection.write().await.as_mut() {
+            // Try to downcast to ServerConnection
+            if let Some(server_connection) = connection.as_any_mut().downcast_mut::<TcpServer>() {
+                server_connection.disconnect_client(client_id).await?;
+            } else if let Some(server_connection) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
+                server_connection.disconnect_client(client_id).await?;
+            } else {
+                return Err(crate::types::NetworkError::ConnectionFailed("Connection does not support client disconnection".to_string()));
+            }
+        }
         Ok(())
     }
 

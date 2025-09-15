@@ -108,14 +108,46 @@ const persistConfig = {
       // This prevents sessions from being restored in connecting/connected states
       const resetSessions: Record<string, SessionState> = {};
       Object.entries(state.sessions).forEach(([sessionId, session]) => {
+        // Convert timestamp strings back to Date objects in messages
+        const messagesWithDates = (session.messages || []).map(message => ({
+          ...message,
+          timestamp: typeof message.timestamp === 'string' ? new Date(message.timestamp) : message.timestamp,
+        }));
+
+        // Convert other date fields
+        const lastActivity = session.lastActivity
+          ? (typeof session.lastActivity === 'string' ? new Date(session.lastActivity) : session.lastActivity)
+          : undefined;
+
+        const connectedAt = session.connectedAt
+          ? (typeof session.connectedAt === 'string' ? new Date(session.connectedAt) : session.connectedAt)
+          : undefined;
+
+        // Convert MQTT subscription dates if they exist
+        const mqttSubscriptions = session.mqttSubscriptions ?
+          Object.fromEntries(
+            Object.entries(session.mqttSubscriptions).map(([id, sub]) => [
+              id,
+              {
+                ...sub,
+                subscribedAt: typeof sub.subscribedAt === 'string' ? new Date(sub.subscribedAt) : sub.subscribedAt,
+                lastMessageAt: sub.lastMessageAt && typeof sub.lastMessageAt === 'string'
+                  ? new Date(sub.lastMessageAt)
+                  : sub.lastMessageAt,
+              }
+            ])
+          ) : undefined;
+
         resetSessions[sessionId] = {
           ...session,
           status: 'disconnected',
           connectedAt: undefined,
           error: undefined,
-          // Reset any temporary connection state
-          messages: session.messages || [],
+          lastActivity,
+          // Reset any temporary connection state with properly converted dates
+          messages: messagesWithDates,
           statistics: session.statistics || createInitialStatistics(),
+          mqttSubscriptions,
         };
         console.log(`AppStore: Reset session ${sessionId} status to disconnected on startup`);
       });

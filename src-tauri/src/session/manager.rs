@@ -134,6 +134,31 @@ impl SessionManager {
         }
     }
 
+    /// Disconnect a specific client from a server session
+    pub async fn disconnect_client(&self, session_id: &str, client_id: &str) -> NetworkResult<bool> {
+        eprintln!("SessionManager: Attempting to disconnect client {} from session {}", client_id, session_id);
+
+        match self.sessions.get_mut(session_id) {
+            Some(mut session) => {
+                eprintln!("SessionManager: Found session {}, disconnecting client {}", session_id, client_id);
+                match session.disconnect_client(client_id).await {
+                    Ok(_) => {
+                        eprintln!("SessionManager: Client {} disconnected from session {}", client_id, session_id);
+                        Ok(true)
+                    }
+                    Err(e) => {
+                        eprintln!("SessionManager: Failed to disconnect client {} from session {}: {}", client_id, session_id, e);
+                        Err(e)
+                    }
+                }
+            }
+            None => {
+                eprintln!("SessionManager: Session {} not found for client disconnection", session_id);
+                Err(NetworkError::SessionNotFound(session_id.to_string()))
+            }
+        }
+    }
+
     /// Remove a session
     #[allow(dead_code)]
     pub fn remove_session(&self, session_id: &str) -> NetworkResult<()> {
@@ -177,6 +202,17 @@ impl SessionManager {
         match self.sessions.get(session_id) {
             Some(session) => session.is_connected(),
             None => false,
+        }
+    }
+
+    /// Emit the current status of a session to synchronize frontend
+    pub fn emit_current_status(&self, session_id: &str) {
+        if let Some(session) = self.sessions.get(session_id) {
+            // Force emit the current status to synchronize frontend
+            session.state.force_emit_status();
+            eprintln!("SessionManager: Emitted current status for session {}", session_id);
+        } else {
+            eprintln!("SessionManager: Session {} not found when trying to emit status", session_id);
         }
     }
 

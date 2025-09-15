@@ -778,8 +778,8 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                           </div>
                         </div>
                         <div className="text-xs text-muted-foreground space-y-1">
-                          <div>首次活动: {client.connectedAt.toLocaleTimeString()}</div>
-                          <div>最后活动: {client.lastActivity.toLocaleTimeString()}</div>
+                          <div>首次活动: {(client.connectedAt instanceof Date ? client.connectedAt : new Date(client.connectedAt)).toLocaleTimeString()}</div>
+                          <div>最后活动: {(client.lastActivity instanceof Date ? client.lastActivity : new Date(client.lastActivity)).toLocaleTimeString()}</div>
                           <div className="flex justify-between">
                             <span>接收: {client.bytesReceived}B</span>
                             <span>发送: {client.bytesSent}B</span>
@@ -825,7 +825,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                               {message.direction === 'in' ? '接收' : '发送'}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {message.timestamp.toLocaleTimeString()}
+                              {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {message.size} 字节

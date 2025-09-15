@@ -15,7 +15,8 @@ import {
   Settings,
   WifiOff,
   Loader2,
-  Edit3
+  Edit3,
+  X
 } from 'lucide-react';
 
 interface TCPSessionContentProps {
@@ -36,6 +37,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
   const [showConnectionManagement, setShowConnectionManagement] = useState(false);
+  const [showClientOperations, setShowClientOperations] = useState(false);
 
   // 编辑状态
   const [isEditingConnection, setIsEditingConnection] = useState(false);
@@ -535,8 +537,8 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
       {showAdvancedStats && (
         <div className="h-32 border-b border-border bg-card p-4">
           <div className="h-full">
-            <h3 className="text-sm font-medium mb-3">
-              {isServerMode ? 'TCP服务端统计' : 'TCP客户端统计'}
+            <h3 className="text-sm font-medium mb-3 text-blue-600">
+              📊 {isServerMode ? 'TCP服务端统计面板' : 'TCP客户端统计面板'}
             </h3>
             <div className="grid grid-cols-6 gap-4 h-20">
               {/* 基础统计 */}
@@ -609,6 +611,85 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
         </div>
       )}
 
+      {/* 客户端操作面板 - 仅服务端模式显示 */}
+      {isServerMode && showClientOperations && selectedClient && (
+        <div className="h-40 border-b border-border bg-card p-4">
+          <div className="h-full">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-primary">
+                🔧 客户端操作面板 - {clientConnections.find(c => c.id === selectedClient)?.remoteAddress}:{clientConnections.find(c => c.id === selectedClient)?.remotePort}
+              </h3>
+              <button
+                onClick={() => setShowClientOperations(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-4 gap-4 h-24">
+              {/* 客户端状态信息 */}
+              <div className="col-span-2 space-y-2">
+                <div className="text-xs text-muted-foreground">
+                  <div>状态: {clientConnections.find(c => c.id === selectedClient)?.isActive ? '活跃' : '非活跃'}</div>
+                  <div>连接时间: {clientConnections.find(c => c.id === selectedClient)?.connectedAt ?
+                    (clientConnections.find(c => c.id === selectedClient)!.connectedAt instanceof Date ?
+                      clientConnections.find(c => c.id === selectedClient)!.connectedAt :
+                      new Date(clientConnections.find(c => c.id === selectedClient)!.connectedAt)).toLocaleString() : 'N/A'}</div>
+                  <div>接收: {clientConnections.find(c => c.id === selectedClient)?.bytesReceived || 0}B</div>
+                  <div>发送: {clientConnections.find(c => c.id === selectedClient)?.bytesSent || 0}B</div>
+                </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="col-span-2 flex flex-col space-y-2">
+                <button
+                  onClick={async () => {
+                    if (selectedClient) {
+                      try {
+                        await networkService.disconnectClient(sessionId, selectedClient);
+                        setSelectedClient(null);
+                        setShowClientOperations(false);
+                      } catch (error) {
+                        console.error('断开客户端连接失败:', error);
+                      }
+                    }
+                  }}
+                  className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded transition-colors"
+                >
+                  🔌 断开连接
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedClient) {
+                      setSelectedClient(selectedClient);
+                      setBroadcastMode(false);
+                      // 聚焦到发送区域
+                      const textarea = document.querySelector('textarea[placeholder*="TCP数据包"]') as HTMLTextAreaElement;
+                      if (textarea) {
+                        textarea.focus();
+                      }
+                    }
+                  }}
+                  className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                >
+                  💬 发送消息
+                </button>
+                <button
+                  onClick={() => {
+                    setShowClientOperations(false);
+                    setShowAdvancedStats(true);
+                  }}
+                  className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors"
+                >
+                  📊 查看统计
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Connection Management Panel - Only for Client Sessions */}
       {!isServerMode && showConnectionManagement && (
         <div className="px-4 py-2">
@@ -644,8 +725,11 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
             {/* 客户端连接面板 */}
             <div className="w-80 border-r border-border bg-card">
               <div className="h-full flex flex-col">
-                <div className="h-10 border-b border-border flex items-center px-3 bg-muted/50">
+                <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50">
                   <h3 className="text-sm font-medium">客户端连接 ({clientConnections.length})</h3>
+                  {clientConnections.length > 0 && (
+                    <span className="text-xs text-muted-foreground">点击客户端查看操作面板</span>
+                  )}
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {clientConnections.length === 0 ? (
@@ -658,7 +742,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                         <div
                           key={client.id}
                           className={cn(
-                            "p-3 rounded-lg border transition-colors",
+                            "p-3 rounded-lg border transition-colors cursor-pointer",
                             selectedClient === client.id
                               ? "border-primary bg-primary/10"
                               : "border-border hover:border-primary/50"
@@ -666,6 +750,8 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                           onClick={() => {
                             setSelectedClient(client.id);
                             setBroadcastMode(false);
+                            setShowClientOperations(true);
+                            setShowAdvancedStats(false); // 隐藏统计面板
                           }}
                         >
                           <div className="flex items-center justify-between mb-2">
@@ -680,8 +766,8 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                             </div>
                           </div>
                           <div className="text-xs text-muted-foreground space-y-1">
-                            <div>连接时间: {client.connectedAt.toLocaleTimeString()}</div>
-                            <div>最后活动: {client.lastActivity.toLocaleTimeString()}</div>
+                            <div>连接时间: {(client.connectedAt instanceof Date ? client.connectedAt : new Date(client.connectedAt)).toLocaleTimeString()}</div>
+                            <div>最后活动: {(client.lastActivity instanceof Date ? client.lastActivity : new Date(client.lastActivity)).toLocaleTimeString()}</div>
                             <div className="flex justify-between">
                               <span>接收: {client.bytesReceived}B</span>
                               <span>发送: {client.bytesSent}B</span>
@@ -728,7 +814,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                               {message.direction === 'in' ? '接收' : '发送'}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {message.timestamp.toLocaleTimeString()}
+                              {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {message.size} 字节
@@ -779,7 +865,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                             {message.direction === 'in' ? '接收' : '发送'}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {message.timestamp.toLocaleTimeString()}
+                            {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {message.size} 字节

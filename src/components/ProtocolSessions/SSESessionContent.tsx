@@ -424,7 +424,7 @@ export const SSESessionContent: React.FC<SSESessionContentProps> = ({ sessionId 
                           </span>
                         )}
                         <span className="text-xs text-muted-foreground">
-                          {message.timestamp.toLocaleTimeString()}
+                          {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {message.size} 字节

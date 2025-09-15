@@ -515,7 +515,34 @@ class NetworkService {
 
       // Add failed message to store
       const message: Message = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `msg_${Date.now()}
+
+  // 服务端特定方法：断开指定客户端连接
+  async disconnectClient(sessionId: string, clientId: string): Promise<boolean> {
+    try {
+      const session = useAppStore.getState().getSession(sessionId);
+      if (!session || session.config.connectionType !== 'server') {
+        throw new Error('Session is not a server or not found');
+      }
+
+      // Call Tauri backend to disconnect specific client
+      const result = await invoke<boolean>('disconnect_client', {
+        sessionId,
+        clientId,
+      });
+
+      if (result) {
+        // Remove client from store
+        useAppStore.getState().removeClientConnection(sessionId, clientId);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Disconnect client failed:', error);
+      return false;
+    }
+  }_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date(),
         direction: 'out',
         protocol: useAppStore.getState().getSession(sessionId)?.config.protocol || 'TCP',

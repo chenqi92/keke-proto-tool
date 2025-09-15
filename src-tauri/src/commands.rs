@@ -35,6 +35,8 @@ pub async fn connect_session(
             // Check if the session is already connected
             if session_manager.is_session_connected(&session_id) {
                 eprintln!("Session {} is already connected, skipping connection attempt", session_id);
+                // Emit current status to synchronize frontend
+                session_manager.emit_current_status(&session_id);
                 return Ok(true);
             }
         } else {
@@ -107,6 +109,19 @@ pub async fn broadcast_message(
     // TODO: Implement server-specific functionality
     // For now, return an error indicating this needs implementation
     Err("Server functionality not yet implemented".to_string())
+}
+
+/// Disconnect a specific client (server mode)
+#[tauri::command]
+pub async fn disconnect_client(
+    session_id: String,
+    client_id: String,
+    session_manager: State<'_, SessionManager>,
+) -> Result<bool, String> {
+    match session_manager.disconnect_client(&session_id, &client_id).await {
+        Ok(result) => Ok(result),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 /// Cancel ongoing connection attempt

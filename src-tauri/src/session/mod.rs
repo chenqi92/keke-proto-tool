@@ -152,6 +152,12 @@ impl Session {
         Ok(())
     }
 
+    /// Disconnect a specific client from a server session
+    pub async fn disconnect_client(&mut self, client_id: &str) -> NetworkResult<()> {
+        // Delegate to connection manager
+        self.connection_manager.disconnect_client(client_id).await
+    }
+
     /// Send data through the connection
     pub async fn send(&mut self, _data: &[u8]) -> NetworkResult<usize> {
         // For now, return an error indicating the connection needs to be redesigned

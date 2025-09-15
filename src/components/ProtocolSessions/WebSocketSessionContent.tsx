@@ -602,8 +602,8 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
                             </button>
                           </div>
                           <div className="text-xs text-muted-foreground space-y-1">
-                            <div>连接时间: {client.connectedAt.toLocaleTimeString()}</div>
-                            <div>最后活动: {client.lastActivity.toLocaleTimeString()}</div>
+                            <div>连接时间: {(client.connectedAt instanceof Date ? client.connectedAt : new Date(client.connectedAt)).toLocaleTimeString()}</div>
+                            <div>最后活动: {(client.lastActivity instanceof Date ? client.lastActivity : new Date(client.lastActivity)).toLocaleTimeString()}</div>
                             <div>收发: {client.bytesReceived}↓ / {client.bytesSent}↑ 字节</div>
                           </div>
                         </div>
@@ -647,7 +647,7 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
                               {message.direction === 'in' ? '接收' : '发送'}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {message.timestamp.toLocaleTimeString()}
+                              {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {message.size} 字节
@@ -698,7 +698,7 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
                             {message.direction === 'in' ? '接收' : '发送'}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {message.timestamp.toLocaleTimeString()}
+                            {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {message.size} 字节

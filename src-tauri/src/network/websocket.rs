@@ -227,6 +227,10 @@ impl Connection for WebSocketClient {
 
         Ok(rx)
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 /// WebSocket Server implementation
@@ -385,6 +389,10 @@ impl Connection for WebSocketServer {
         });
 
         Ok(rx)
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 

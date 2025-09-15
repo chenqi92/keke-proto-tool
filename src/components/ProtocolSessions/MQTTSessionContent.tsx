@@ -473,9 +473,9 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
                           <span>QoS: {subscription.qos}</span>
                           <span>消息: {subscription.messageCount}</span>
                         </div>
-                        <div>订阅时间: {subscription.subscribedAt.toLocaleTimeString()}</div>
+                        <div>订阅时间: {(subscription.subscribedAt instanceof Date ? subscription.subscribedAt : new Date(subscription.subscribedAt)).toLocaleTimeString()}</div>
                         {subscription.lastMessageAt && (
-                          <div>最后消息: {subscription.lastMessageAt.toLocaleTimeString()}</div>
+                          <div>最后消息: {(subscription.lastMessageAt instanceof Date ? subscription.lastMessageAt : new Date(subscription.lastMessageAt)).toLocaleTimeString()}</div>
                         )}
                       </div>
                     </div>
@@ -534,7 +534,7 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
                           </span>
                         )}
                         <span className="text-xs text-muted-foreground">
-                          {message.timestamp.toLocaleTimeString()}
+                          {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {message.size} 字节

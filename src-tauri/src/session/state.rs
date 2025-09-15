@@ -110,6 +110,43 @@ impl SessionState {
         self.status.read().unwrap().clone()
     }
 
+    /// Force emit the current status to frontend (bypasses status change check)
+    pub fn force_emit_status(&self) {
+        let current_status = self.get_status();
+        eprintln!("SessionState: Force emitting status for session {} - {:?}", self.session_id, current_status);
+
+        // Emit event to frontend if app handle is available
+        if let Ok(app_handle_guard) = self.app_handle.read() {
+            if let Some(app_handle) = app_handle_guard.as_ref() {
+                let payload = serde_json::json!({
+                    "sessionId": self.session_id,
+                    "status": current_status,
+                    "error": match &current_status {
+                        ConnectionStatus::Error(msg) => Some(msg.clone()),
+                        _ => None
+                    }
+                });
+
+                eprintln!("SessionState: Force emitting connection-status event for session {} - {:?}",
+                    self.session_id, current_status);
+
+                if let Err(e) = app_handle.emit("connection-status", payload) {
+                    eprintln!("SessionState: Failed to force emit connection-status event for session {}: {}",
+                        self.session_id, e);
+                } else {
+                    eprintln!("SessionState: Successfully force emitted connection-status event for session {}",
+                        self.session_id);
+                }
+            } else {
+                eprintln!("SessionState: No app handle available for session {} - cannot force emit event",
+                    self.session_id);
+            }
+        } else {
+            eprintln!("SessionState: Failed to acquire app handle lock for session {}",
+                self.session_id);
+        }
+    }
+
     /// Update the last activity timestamp
     pub fn update_activity(&self) {
         *self.last_activity.write().unwrap() = Some(Instant::now());
