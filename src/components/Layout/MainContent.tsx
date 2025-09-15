@@ -8,8 +8,10 @@ import { WorkspacePage } from '@/pages/WorkspacePage';
 import { LogsPage } from '@/pages/LogsPage';
 import { PluginsPage } from '@/pages/PluginsPage';
 import { SessionPage } from '@/pages/SessionPage';
+import { ConnectionDetailPage } from '@/pages/ConnectionDetailPage';
 import { ToolboxInterface } from '@/components/Toolbox/ToolboxInterface';
 import { ProtocolTypeOverview } from '@/components/ProtocolTypeOverview';
+import { PageSkeleton } from '@/components/Common/PageSkeleton';
 
 interface MainContentProps {
   className?: string;
@@ -27,21 +29,6 @@ interface NodeViewData {
   sessionId?: string;
   [key: string]: any;
 }
-
-// 骨架屏组件
-const PageSkeleton: React.FC = () => (
-  <div className="h-full flex flex-col space-y-4 p-6 animate-pulse">
-    <div className="h-8 bg-muted rounded-lg w-1/3" />
-    <div className="flex-1 space-y-3">
-      <div className="h-4 bg-muted rounded w-full" />
-      <div className="h-4 bg-muted rounded w-5/6" />
-      <div className="h-4 bg-muted rounded w-4/6" />
-      <div className="h-32 bg-muted rounded-lg" />
-      <div className="h-4 bg-muted rounded w-3/4" />
-      <div className="h-4 bg-muted rounded w-2/3" />
-    </div>
-  </div>
-);
 
 export const MainContent: React.FC<MainContentProps> = ({ className }) => {
   const [activeTab, setActiveTab] = useState<TabId>('workspace');
@@ -99,7 +86,7 @@ export const MainContent: React.FC<MainContentProps> = ({ className }) => {
       case 'connection-detail':
         return (
           <Suspense fallback={<PageSkeleton />}>
-            <SessionPage />
+            <ConnectionDetailPage nodeData={nodeData} />
           </Suspense>
         );
 

@@ -38,7 +38,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
   const [showConnectionManagement, setShowConnectionManagement] = useState(false);
-  const [showClientOperations, setShowClientOperations] = useState(false);
+
 
   // 编辑状态
   const [isEditingConnection, setIsEditingConnection] = useState(false);
@@ -669,84 +669,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
         </div>
       )}
 
-      {/* 客户端操作面板 - 仅服务端模式显示 */}
-      {isServerMode && showClientOperations && selectedClient && (
-        <div className="h-40 border-b border-border bg-card p-4">
-          <div className="h-full">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-primary">
-                🔧 客户端操作面板 - {clientConnections.find(c => c.id === selectedClient)?.remoteAddress}:{clientConnections.find(c => c.id === selectedClient)?.remotePort}
-              </h3>
-              <button
-                onClick={() => setShowClientOperations(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <div className="grid grid-cols-4 gap-4 h-24">
-              {/* 客户端状态信息 */}
-              <div className="col-span-2 space-y-2">
-                <div className="text-xs text-muted-foreground">
-                  <div>状态: {clientConnections.find(c => c.id === selectedClient)?.isActive ? '活跃' : '非活跃'}</div>
-                  <div>连接时间: {clientConnections.find(c => c.id === selectedClient)?.connectedAt ?
-                    (clientConnections.find(c => c.id === selectedClient)!.connectedAt instanceof Date ?
-                      clientConnections.find(c => c.id === selectedClient)!.connectedAt :
-                      new Date(clientConnections.find(c => c.id === selectedClient)!.connectedAt)).toLocaleString() : 'N/A'}</div>
-                  <div>接收: {clientConnections.find(c => c.id === selectedClient)?.bytesReceived || 0}B</div>
-                  <div>发送: {clientConnections.find(c => c.id === selectedClient)?.bytesSent || 0}B</div>
-                </div>
-              </div>
-
-              {/* 操作按钮 */}
-              <div className="col-span-2 flex flex-col space-y-2">
-                <button
-                  onClick={async () => {
-                    if (selectedClient) {
-                      try {
-                        await networkService.disconnectClient(sessionId, selectedClient);
-                        setSelectedClient(null);
-                        setShowClientOperations(false);
-                      } catch (error) {
-                        console.error('断开客户端连接失败:', error);
-                      }
-                    }
-                  }}
-                  className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded transition-colors"
-                >
-                  🔌 断开连接
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedClient) {
-                      setSelectedClient(selectedClient);
-                      setBroadcastMode(false);
-                      // 聚焦到发送区域
-                      const textarea = document.querySelector('textarea[placeholder*="TCP数据包"]') as HTMLTextAreaElement;
-                      if (textarea) {
-                        textarea.focus();
-                      }
-                    }
-                  }}
-                  className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
-                >
-                  💬 发送消息
-                </button>
-                <button
-                  onClick={() => {
-                    setShowClientOperations(false);
-                    setShowAdvancedStats(true);
-                  }}
-                  className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors"
-                >
-                  📊 查看统计
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Connection Management Panel - Only for Client Sessions */}
       {!isServerMode && showConnectionManagement && (
@@ -785,9 +708,6 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
               <div className="h-full flex flex-col">
                 <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50">
                   <h3 className="text-sm font-medium">客户端连接 ({clientConnections.length})</h3>
-                  {clientConnections.length > 0 && (
-                    <span className="text-xs text-muted-foreground">点击客户端查看操作面板</span>
-                  )}
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {clientConnections.length === 0 ? (
@@ -799,18 +719,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                       {clientConnections.map((client) => (
                         <div
                           key={client.id}
-                          className={cn(
-                            "p-3 rounded-lg border transition-colors cursor-pointer",
-                            selectedClient === client.id
-                              ? "border-primary bg-primary/10"
-                              : "border-border hover:border-primary/50"
-                          )}
-                          onClick={() => {
-                            setSelectedClient(client.id);
-                            setBroadcastMode(false);
-                            setShowClientOperations(true);
-                            setShowAdvancedStats(false); // 隐藏统计面板
-                          }}
+                          className="p-3 rounded-lg border border-border"
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-2">
@@ -844,43 +753,42 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
               <div className="h-10 border-b border-border flex items-center px-3 bg-muted/50">
                 <h3 className="text-sm font-medium">消息流 ({messages.length})</h3>
               </div>
-              <div className="flex-1 overflow-y-auto p-2">
+              <div className="flex-1 overflow-y-auto">
                 {messages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                     暂无消息
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {messages.map((message) => (
+                  <div className="space-y-1 p-2">
+                    {/* 倒序排序，最新消息在上 */}
+                    {[...messages].reverse().map((message) => (
                       <div
                         key={message.id}
                         className={cn(
-                          "p-3 rounded-lg border",
+                          "px-3 py-1 text-xs border-l-2 hover:bg-muted/50 transition-colors",
                           message.direction === 'in'
-                            ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
-                            : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+                            ? "border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+                            : "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
                         )}
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2 flex-1 min-w-0">
                             <span className={cn(
-                              "text-xs px-2 py-1 rounded",
-                              message.direction === 'in'
-                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                                : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              "text-xs px-1 py-0.5 rounded text-white font-medium",
+                              message.direction === 'in' ? "bg-blue-500" : "bg-green-500"
                             )}>
-                              {message.direction === 'in' ? '接收' : '发送'}
+                              {message.direction === 'in' ? '收' : '发'}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {message.size} 字节
+                              {message.size}B
                             </span>
+                            <div className="flex-1 min-w-0 font-mono text-xs truncate">
+                              {formatMessageData(message)}
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-sm font-mono bg-background/50 p-2 rounded border">
-                          {formatMessageData(message)}
                         </div>
                       </div>
                     ))}
@@ -895,43 +803,42 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
             <div className="h-10 border-b border-border flex items-center px-3 bg-muted/50">
               <h3 className="text-sm font-medium">消息流 ({messages.length})</h3>
             </div>
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto">
               {messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                   暂无消息
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {messages.map((message) => (
+                <div className="space-y-1 p-2">
+                  {/* 倒序排序，最新消息在上 */}
+                  {[...messages].reverse().map((message) => (
                     <div
                       key={message.id}
                       className={cn(
-                        "p-3 rounded-lg border",
+                        "px-3 py-1 text-xs border-l-2 hover:bg-muted/50 transition-colors",
                         message.direction === 'in'
-                          ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
-                          : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+                          ? "border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+                          : "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
                       )}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
                           <span className={cn(
-                            "text-xs px-2 py-1 rounded",
-                            message.direction === 'in'
-                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                              : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            "text-xs px-1 py-0.5 rounded text-white font-medium",
+                            message.direction === 'in' ? "bg-blue-500" : "bg-green-500"
                           )}>
-                            {message.direction === 'in' ? '接收' : '发送'}
+                            {message.direction === 'in' ? '收' : '发'}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {message.size} 字节
+                            {message.size}B
                           </span>
+                          <div className="flex-1 min-w-0 font-mono text-xs truncate">
+                            {formatMessageData(message)}
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-sm font-mono bg-background/50 p-2 rounded border">
-                        {formatMessageData(message)}
                       </div>
                     </div>
                   ))}
