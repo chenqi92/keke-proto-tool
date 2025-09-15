@@ -444,12 +444,12 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={handleNewSession}
-              className="flex items-center space-x-2 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors"
+              className="flex items-center space-x-2 px-2.5 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>新建会话</span>
             </button>
-            <button className="p-2 hover:bg-accent rounded-md transition-colors">
+            <button className="p-1.5 hover:bg-accent rounded-md transition-colors">
               <Settings className="w-4 h-4" />
             </button>
           </div>
@@ -544,7 +544,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   <select
                     value={automatedConfig.format}
                     onChange={(e) => handleConfigChange('format', e.target.value)}
-                    className="w-full px-2 py-1 text-sm bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full px-3 py-1.5 text-sm bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                     disabled={isAutomatedSending}
                   >
                     <option value="ascii">ASCII</option>
@@ -713,13 +713,13 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           <div className="flex items-center space-x-2">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="搜索会话..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-48"
+                className="pl-9 pr-3 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-48"
               />
             </div>
             
@@ -727,7 +727,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              className="px-3 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="all">全部状态</option>
               <option value="connected">已连接</option>

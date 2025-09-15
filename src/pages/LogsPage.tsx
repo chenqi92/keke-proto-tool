@@ -155,12 +155,12 @@ export const LogsPage: React.FC = () => {
                     <h1 className="text-xl font-semibold">日志管理</h1>
                     <div className="flex items-center space-x-2">
                         <button
-                            className="flex items-center space-x-2 px-3 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
+                            className="flex items-center space-x-2 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
                             <Download className="w-4 h-4"/>
                             <span>导出</span>
                         </button>
                         <button
-                            className="flex items-center space-x-2 px-3 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
+                            className="flex items-center space-x-2 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
                             <Trash2 className="w-4 h-4"/>
                             <span>清理</span>
                         </button>
@@ -171,13 +171,13 @@ export const LogsPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {/* Search */}
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
                         <input
                             type="text"
                             placeholder="搜索日志..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full pl-9 pr-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                     </div>
 
@@ -185,7 +185,7 @@ export const LogsPage: React.FC = () => {
                     <select
                         value={selectedLevel || ''}
                         onChange={(e) => setSelectedLevel(e.target.value || null)}
-                        className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                         <option value="">所有级别</option>
                         {levels.map(level => (
@@ -199,7 +199,7 @@ export const LogsPage: React.FC = () => {
                     <select
                         value={selectedSource || ''}
                         onChange={(e) => setSelectedSource(e.target.value || null)}
-                        className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                         <option value="">所有来源</option>
                         {sources.map(source => (
@@ -213,7 +213,7 @@ export const LogsPage: React.FC = () => {
                     <select
                         value={selectedTimeRange}
                         onChange={(e) => setSelectedTimeRange(e.target.value)}
-                        className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                         {timeRanges.map(range => (
                             <option key={range.value} value={range.value}>
@@ -242,39 +242,39 @@ export const LogsPage: React.FC = () => {
                                 <div
                                     key={log.id}
                                     className={cn(
-                                        "p-4 hover:bg-accent cursor-auto transition-colors",
+                                        "p-2 hover:bg-accent cursor-auto transition-colors",
                                         selectedLog?.id === log.id && "bg-primary/10 border-l-2 border-l-primary"
                                     )}
                                     onClick={() => setSelectedLog(log)}
                                 >
-                                    <div className="flex items-start space-x-3">
+                                    <div className="flex items-start space-x-2">
                                         <div className="mt-0.5">
                                             {getLevelIcon(log.level)}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center space-x-2 mb-1">
+                                            <div className="flex items-center space-x-2 mb-0.5">
                         <span className={cn(
-                            "px-2 py-0.5 rounded-full text-xs font-medium",
+                            "px-1.5 py-0.5 rounded text-xs font-medium",
                             getLevelColor(log.level)
                         )}>
                           {log.level.toUpperCase()}
                         </span>
-                                                <span className="text-sm text-muted-foreground">
+                                                <span className="text-xs text-muted-foreground">
                           {log.source}
                         </span>
                                                 <span className="text-xs text-muted-foreground font-mono">
                           {formatTimestamp(log.timestamp)}
                         </span>
                                             </div>
-                                            <p className="text-sm text-foreground">
+                                            <p className="text-xs text-foreground leading-tight">
                                                 {log.message}
                                             </p>
                                         </div>
                                         <button
-                                            className="p-1 hover:bg-accent rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                            className="p-0.5 hover:bg-accent rounded opacity-0 group-hover:opacity-100 transition-opacity"
                                             title="查看详情"
                                         >
-                                            <Eye className="w-4 h-4"/>
+                                            <Eye className="w-3 h-3"/>
                                         </button>
                                     </div>
                                 </div>

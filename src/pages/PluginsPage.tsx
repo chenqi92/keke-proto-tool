@@ -125,7 +125,7 @@ export const PluginsPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('protocol')}
             className={cn(
-              "flex items-center space-x-2 px-4 py-2 text-sm rounded-md transition-colors",
+              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
               activeTab === 'protocol'
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent"
@@ -137,7 +137,7 @@ export const PluginsPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('tool')}
             className={cn(
-              "flex items-center space-x-2 px-4 py-2 text-sm rounded-md transition-colors",
+              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
               activeTab === 'tool'
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent"
@@ -149,7 +149,7 @@ export const PluginsPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('store')}
             className={cn(
-              "flex items-center space-x-2 px-4 py-2 text-sm rounded-md transition-colors",
+              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
               activeTab === 'store'
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent"
@@ -161,7 +161,7 @@ export const PluginsPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('settings')}
             className={cn(
-              "flex items-center space-x-2 px-4 py-2 text-sm rounded-md transition-colors",
+              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
               activeTab === 'settings'
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent"

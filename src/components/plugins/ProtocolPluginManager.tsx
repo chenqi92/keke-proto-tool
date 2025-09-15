@@ -235,7 +235,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
             />
             <label
               htmlFor="protocol-upload"
-              className="flex items-center space-x-2 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 text-sm cursor-auto"
+              className="flex items-center space-x-2 px-2.5 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 text-sm cursor-auto"
             >
               <Upload className="w-4 h-4" />
               <span>上传协议定义</span>
@@ -246,20 +246,20 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
         {/* Filters */}
         <div className="flex items-center space-x-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="搜索协议插件..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full pl-9 pr-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           
           <select
             value={selectedProtocol || ''}
             onChange={(e) => setSelectedProtocol(e.target.value || null)}
-            className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors hover:border-accent-foreground h-10"
+            className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors hover:border-accent-foreground"
           >
             <option value="">所有协议</option>
             {protocols.map(protocol => (
@@ -352,9 +352,9 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
                               onToggle(plugin);
                             }}
                             className={cn(
-                              "p-2 rounded-md transition-colors",
-                              plugin.status === 'active' 
-                                ? "hover:bg-accent text-green-600" 
+                              "p-1.5 rounded-md transition-colors",
+                              plugin.status === 'active'
+                                ? "hover:bg-accent text-green-600"
                                 : "hover:bg-accent text-muted-foreground"
                             )}
                             title={plugin.status === 'active' ? '停用' : '启用'}
@@ -370,7 +370,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
                               e.stopPropagation();
                               onConfigure(plugin);
                             }}
-                            className="p-2 hover:bg-accent rounded-md"
+                            className="p-1.5 hover:bg-accent rounded-md"
                             title="配置"
                           >
                             <Settings className="w-4 h-4" />
@@ -380,7 +380,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
                               e.stopPropagation();
                               onUninstall(plugin);
                             }}
-                            className="p-2 hover:bg-accent rounded-md text-red-600"
+                            className="p-1.5 hover:bg-accent rounded-md text-red-600"
                             title="卸载"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -392,7 +392,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
                             e.stopPropagation();
                             onInstall(plugin);
                           }}
-                          className="flex items-center space-x-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
+                          className="flex items-center space-x-2 px-2.5 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
                         >
                           <Download className="w-4 h-4" />
                           <span>安装</span>

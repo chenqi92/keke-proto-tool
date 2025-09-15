@@ -381,7 +381,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className={cn(
-                "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
+                "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
                 errors.name ? "border-red-500" : "border-border"
               )}
               placeholder="留空将自动生成名称"
@@ -491,7 +491,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                           value={customListenAddress}
                           onChange={(e) => handleCustomListenAddressChange(e.target.value)}
                           className={cn(
-                            "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
+                            "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
                             errors.host ? "border-red-500" : "border-border"
                           )}
                           placeholder="输入自定义IP地址"
@@ -526,7 +526,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                         setFormData(newFormData);
                       }}
                       className={cn(
-                        "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
+                        "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
                         errors.host ? "border-red-500" : "border-border"
                       )}
                       placeholder={labels.hostPlaceholder}
@@ -561,7 +561,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                       setFormData(newFormData);
                     }}
                     className={cn(
-                      "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
+                      "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
                       errors.port ? "border-red-500" : "border-border"
                     )}
                     placeholder={labels.portPlaceholder}
@@ -584,7 +584,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                 type="text"
                 value={formData.websocketSubprotocol || ''}
                 onChange={(e) => setFormData({ ...formData, websocketSubprotocol: e.target.value })}
-                className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="例如: chat, echo"
               />
               <p className="text-xs text-muted-foreground mt-1">
@@ -604,7 +604,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                 value={formData.mqttTopic || ''}
                 onChange={(e) => setFormData({ ...formData, mqttTopic: e.target.value })}
                 className={cn(
-                  "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
+                  "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
                   errors.mqttTopic ? "border-red-500" : "border-border"
                 )}
                 placeholder="例如: test/topic, sensors/temperature"
@@ -632,7 +632,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                   setFormData({ ...formData, sseEventTypes: types });
                 }}
                 className={cn(
-                  "w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
+                  "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
                   errors.sseEventTypes ? "border-red-500" : "border-border"
                 )}
                 placeholder="例如: message, update, notification"
