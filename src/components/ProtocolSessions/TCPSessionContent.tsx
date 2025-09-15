@@ -27,8 +27,9 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   // 从全局状态获取会话数据
   const session = useSessionById(sessionId);
   const getClientConnections = useAppStore(state => state.getClientConnections);
+  const removeClientConnection = useAppStore(state => state.removeClientConnection);
 
-  // 本地UI状态
+  // 本地UI状态 - 使用sessionId作为key确保状态隔离
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
   const [receiveFormat] = useState<DataFormat>('ascii');
   const [sendData, setSendData] = useState('');
@@ -70,19 +71,26 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
 
   // 获取客户端连接列表（仅服务端模式）
   const clientConnections = useMemo(() => {
-    const connections = isServerMode ? getClientConnections(sessionId) : [];
-
-    // 调试：如果客户端模式下有客户端连接，这是一个错误
-    if (!isServerMode && connections.length > 0) {
-      console.error(`错误：客户端模式下不应该有客户端连接！Session ${sessionId}:`, {
-        connectionType: config?.connectionType,
-        isServerMode,
-        connections
-      });
+    // 强制检查：客户端模式下绝对不应该有客户端连接
+    if (!isServerMode) {
+      console.log(`TCP客户端模式 - Session ${sessionId}: 强制返回空的客户端连接列表`);
+      // 如果发现客户端模式下有客户端连接数据，清理它们
+      const existingConnections = getClientConnections(sessionId);
+      if (existingConnections.length > 0) {
+        console.error(`TCP客户端模式 - Session ${sessionId}: 检测到 ${existingConnections.length} 个错误的客户端连接，正在清理...`);
+        // 清理错误的客户端连接数据
+        existingConnections.forEach(client => {
+          removeClientConnection(sessionId, client.id);
+        });
+      }
+      return [];
     }
 
+    const connections = getClientConnections(sessionId);
+    console.log(`TCP服务端模式 - Session ${sessionId}: 获取到 ${connections.length} 个客户端连接`);
+
     return connections;
-  }, [isServerMode, sessionId, getClientConnections, session?.clientConnections, config?.connectionType]);
+  }, [isServerMode, sessionId, getClientConnections, removeClientConnection]);
   
   // 计算TCP特定统计信息
   const tcpStats = useMemo(() => {
@@ -187,14 +195,18 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
         }
       } else {
         // 客户端模式：正常发送
+        console.log(`TCP客户端 ${sessionId}: 发送消息到服务端`);
         success = await networkService.sendMessage(sessionId, dataBytes);
       }
 
       if (success) {
+        console.log(`TCP Session ${sessionId}: 消息发送成功`);
         setSendData('');
         setFormatError(null);
       } else {
-        setFormatError(`发送失败：${isServerMode ? '服务端' : '网络'}错误或连接已断开`);
+        const errorMsg = `发送失败：${isServerMode ? '服务端' : '网络'}错误或连接已断开`;
+        console.error(`TCP Session ${sessionId}: ${errorMsg}`);
+        setFormatError(errorMsg);
       }
     } catch (error) {
       setFormatError(`发送失败: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -266,13 +278,17 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
     // 更新会话配置
     if (!config) return;
     const updateSession = useAppStore.getState().updateSession;
+    const updatedConfig = {
+      ...config,
+      host: editHost.trim(),
+      port: port
+    };
+
     updateSession(sessionId, {
-      config: {
-        ...config,
-        host: editHost.trim(),
-        port: port
-      }
+      config: updatedConfig
     });
+
+    console.log(`TCP Session ${sessionId}: Configuration updated - host: ${editHost.trim()}, port: ${port}`);
 
     setIsEditingConnection(false);
     setFormatError(null);

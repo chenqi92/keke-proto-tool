@@ -159,10 +159,9 @@ impl Session {
     }
 
     /// Send data through the connection
-    pub async fn send(&mut self, _data: &[u8]) -> NetworkResult<usize> {
-        // For now, return an error indicating the connection needs to be redesigned
-        // This is a temporary fix to get compilation working
-        Err(NetworkError::ConnectionFailed("Send functionality temporarily disabled during refactoring".to_string()))
+    pub async fn send(&mut self, data: &[u8]) -> NetworkResult<usize> {
+        // Delegate to connection manager
+        self.connection_manager.send(data).await
     }
 
     /// Check if the session is connected

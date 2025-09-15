@@ -75,9 +75,18 @@ impl SessionState {
         // Emit event to frontend if app handle is available
         if let Ok(app_handle_guard) = self.app_handle.read() {
             if let Some(app_handle) = app_handle_guard.as_ref() {
+                let status_str = match &status {
+                    ConnectionStatus::Disconnected => "disconnected".to_string(),
+                    ConnectionStatus::Connecting => "connecting".to_string(),
+                    ConnectionStatus::Connected => "connected".to_string(),
+                    ConnectionStatus::Reconnecting(attempt) => format!("reconnecting_{}", attempt),
+                    ConnectionStatus::TimedOut => "timedOut".to_string(),
+                    ConnectionStatus::Error(_) => "error".to_string(),
+                };
+
                 let payload = serde_json::json!({
                     "sessionId": self.session_id,
-                    "status": status,
+                    "status": status_str,
                     "error": match &status {
                         ConnectionStatus::Error(msg) => Some(msg.clone()),
                         _ => None
@@ -118,9 +127,18 @@ impl SessionState {
         // Emit event to frontend if app handle is available
         if let Ok(app_handle_guard) = self.app_handle.read() {
             if let Some(app_handle) = app_handle_guard.as_ref() {
+                let status_str = match &current_status {
+                    ConnectionStatus::Disconnected => "disconnected".to_string(),
+                    ConnectionStatus::Connecting => "connecting".to_string(),
+                    ConnectionStatus::Connected => "connected".to_string(),
+                    ConnectionStatus::Reconnecting(attempt) => format!("reconnecting_{}", attempt),
+                    ConnectionStatus::TimedOut => "timedOut".to_string(),
+                    ConnectionStatus::Error(_) => "error".to_string(),
+                };
+
                 let payload = serde_json::json!({
                     "sessionId": self.session_id,
-                    "status": current_status,
+                    "status": status_str,
                     "error": match &current_status {
                         ConnectionStatus::Error(msg) => Some(msg.clone()),
                         _ => None

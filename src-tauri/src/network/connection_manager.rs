@@ -257,6 +257,16 @@ impl ConnectionManager {
         Ok(())
     }
 
+    /// Send data through the connection
+    pub async fn send(&self, data: &[u8]) -> NetworkResult<usize> {
+        let mut connection_guard = self.connection.write().await;
+        if let Some(connection) = connection_guard.as_mut() {
+            connection.send(data).await
+        } else {
+            Err(crate::types::NetworkError::ConnectionFailed("No active connection".to_string()))
+        }
+    }
+
     /// Disconnect a specific client from a server connection
     pub async fn disconnect_client(&self, client_id: &str) -> NetworkResult<()> {
         if let Some(connection) = self.connection.write().await.as_mut() {

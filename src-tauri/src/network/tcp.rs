@@ -398,9 +398,12 @@ impl TcpServer {
                 match listener.accept().await {
                     Ok((stream, addr)) => {
                         let client_id = format!("{}:{}", addr.ip(), addr.port());
-                        let stream_arc = Arc::new(RwLock::new(stream));
 
-                        eprintln!("TCPServer: Client {} connected", client_id);
+                        eprintln!("TCPServer: Client {} connected from {}:{}",
+                            client_id, addr.ip(), addr.port());
+                        // TODO: Send client-connected event through session manager
+
+                        let stream_arc = Arc::new(RwLock::new(stream));
 
                         // Add client to the list
                         match clients.write().await.insert(client_id.clone(), stream_arc.clone()) {
@@ -411,7 +414,7 @@ impl TcpServer {
                         // Spawn task to handle this client
                         let clients_clone = clients.clone();
                         let client_id_clone = client_id.clone();
-                        let _session_id_clone = session_id.clone();
+                        let session_id_clone = session_id.clone();
 
                         tokio::spawn(async move {
                             eprintln!("TCPServer: Starting client handler for {}", client_id_clone);
@@ -428,6 +431,11 @@ impl TcpServer {
                                         // Client disconnected
                                         eprintln!("TCPServer: Client {} disconnected", client_id_clone);
                                         clients_clone.write().await.remove(&client_id_clone);
+
+                                        // TODO: Emit client-disconnected event
+                                        eprintln!("TCPServer: Client {} disconnected", client_id_clone);
+                                        // TODO: Send client-disconnected event through session manager
+
                                         break;
                                     }
                                     Ok(n) => {
@@ -439,6 +447,11 @@ impl TcpServer {
                                         // Error occurred
                                         eprintln!("TCPServer: Error reading from client {}: {}", client_id_clone, e);
                                         clients_clone.write().await.remove(&client_id_clone);
+
+                                        // TODO: Emit client-disconnected event
+                                        eprintln!("TCPServer: Client {} disconnected due to error", client_id_clone);
+                                        // TODO: Send client-disconnected event through session manager
+
                                         break;
                                     }
                                 }

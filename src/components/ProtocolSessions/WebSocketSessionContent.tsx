@@ -167,13 +167,17 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
     // 更新会话配置
     if (!config) return;
     const updateSession = useAppStore.getState().updateSession;
+    const updatedConfig = {
+      ...config,
+      host: editHost.trim(),
+      port: port
+    };
+
     updateSession(sessionId, {
-      config: {
-        ...config,
-        host: editHost.trim(),
-        port: port
-      }
+      config: updatedConfig
     });
+
+    console.log(`WebSocket Session ${sessionId}: Configuration updated - host: ${editHost.trim()}, port: ${port}`);
 
     setIsEditingConnection(false);
     setFormatError(null);
