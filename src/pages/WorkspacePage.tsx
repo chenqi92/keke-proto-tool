@@ -544,7 +544,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   <select
                     value={automatedConfig.format}
                     onChange={(e) => handleConfigChange('format', e.target.value)}
-                    className="w-full px-3 py-1.5 text-sm bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full pl-3 pr-8 py-1.5 text-sm bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                     disabled={isAutomatedSending}
                   >
                     <option value="ascii">ASCII</option>
@@ -727,7 +727,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              className="pl-3 pr-8 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="all">全部状态</option>
               <option value="connected">已连接</option>

@@ -259,7 +259,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
           <select
             value={selectedProtocol || ''}
             onChange={(e) => setSelectedProtocol(e.target.value || null)}
-            className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors hover:border-accent-foreground"
+            className="pl-3 pr-8 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors hover:border-accent-foreground"
           >
             <option value="">所有协议</option>
             {protocols.map(protocol => (

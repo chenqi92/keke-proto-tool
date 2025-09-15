@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 import { cn } from '@/utils';
-import { ProtocolPlugin, ToolPlugin } from '@/types/plugins';
+import { ProtocolPlugin } from '@/types/plugins';
 import { ProtocolPluginManager } from '@/components/plugins/ProtocolPluginManager';
-import { ToolPluginManager } from '@/components/plugins/ToolPluginManager';
 import {
   Puzzle,
   Network,
-  Wrench,
   Store,
   Settings as SettingsIcon
 } from 'lucide-react';
 
-type PluginTab = 'protocol' | 'tool' | 'store' | 'settings';
+type PluginTab = 'protocol' | 'store' | 'settings';
 
 
 
@@ -39,27 +37,6 @@ export const PluginsPage: React.FC = () => {
     console.log(`Upload protocol definition: ${file.name}`);
   };
 
-  // Tool plugin handlers
-  const handleToolInstall = (plugin: ToolPlugin) => {
-    console.log(`Install tool plugin: ${plugin.name}`);
-  };
-
-  const handleToolUninstall = (plugin: ToolPlugin) => {
-    console.log(`Uninstall tool plugin: ${plugin.name}`);
-  };
-
-  const handleToolToggle = (plugin: ToolPlugin) => {
-    console.log(`Toggle tool plugin: ${plugin.name}`);
-  };
-
-  const handleToolConfigure = (plugin: ToolPlugin) => {
-    console.log(`Configure tool plugin: ${plugin.name}`);
-  };
-
-  const handleToolExecute = (plugin: ToolPlugin) => {
-    console.log(`Execute tool plugin: ${plugin.name}`);
-  };
-
   const renderTabContent = () => {
     switch (activeTab) {
       case 'protocol':
@@ -71,17 +48,6 @@ export const PluginsPage: React.FC = () => {
             onToggle={handleProtocolToggle}
             onConfigure={handleProtocolConfigure}
             onUploadDefinition={handleUploadDefinition}
-          />
-        );
-      case 'tool':
-        return (
-          <ToolPluginManager
-            plugins={[]}
-            onInstall={handleToolInstall}
-            onUninstall={handleToolUninstall}
-            onToggle={handleToolToggle}
-            onConfigure={handleToolConfigure}
-            onExecute={handleToolExecute}
           />
         );
       case 'store':
@@ -133,18 +99,6 @@ export const PluginsPage: React.FC = () => {
           >
             <Network className="w-4 h-4" />
             <span>协议插件</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('tool')}
-            className={cn(
-              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
-              activeTab === 'tool'
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent"
-            )}
-          >
-            <Wrench className="w-4 h-4" />
-            <span>工具插件</span>
           </button>
           <button
             onClick={() => setActiveTab('store')}

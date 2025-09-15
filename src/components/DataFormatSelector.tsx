@@ -33,7 +33,7 @@ export const DataFormatSelector: React.FC<DataFormatSelectorProps> = ({
       onChange={(e) => onChange(e.target.value as DataFormat)}
       className={cn(
         "bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition-colors hover:border-accent-foreground",
-        size === 'sm' ? 'px-2 py-1 text-xs h-8' : 'px-3 py-2 text-sm h-10',
+        size === 'sm' ? 'pl-2 pr-6 py-1 text-xs h-7' : 'pl-3 pr-8 py-1.5 text-sm h-9',
         className
       )}
     >
