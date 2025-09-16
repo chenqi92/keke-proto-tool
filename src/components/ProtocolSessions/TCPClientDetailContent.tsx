@@ -59,14 +59,19 @@ export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
     const clientMsgs = clientMessages;
     const receivedMsgs = clientMsgs.filter(m => m.direction === 'in');
     const sentMsgs = clientMsgs.filter(m => m.direction === 'out');
-    
+
+    // 确保 connectedAt 是 Date 对象
+    const connectedAt = clientConnection.connectedAt instanceof Date
+      ? clientConnection.connectedAt
+      : new Date(clientConnection.connectedAt);
+
     return {
       totalMessages: clientMsgs.length,
       receivedMessages: receivedMsgs.length,
       sentMessages: sentMsgs.length,
       bytesReceived: clientConnection.bytesReceived,
       bytesSent: clientConnection.bytesSent,
-      connectionDuration: Math.floor((new Date().getTime() - clientConnection.connectedAt.getTime()) / 1000),
+      connectionDuration: Math.floor((new Date().getTime() - connectedAt.getTime()) / 1000),
       lastActivity: clientConnection.lastActivity,
       isActive: clientConnection.isActive
     };

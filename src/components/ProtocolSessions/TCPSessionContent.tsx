@@ -5,7 +5,7 @@ import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
 import { ConnectionManagementPanel } from '@/components/Session';
-import { Message } from '@/types';
+import {ConnectionStatus, Message} from '@/types';
 import {
   Wifi,
   Send,
@@ -31,7 +31,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
 
   // 本地UI状态 - 使用sessionId作为key确保状态隔离
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
-  const [receiveFormat] = useState<DataFormat>('ascii');
+  const [receiveFormat, setReceiveFormat] = useState<DataFormat>('ascii');
   const [sendData, setSendData] = useState('');
   const [formatError, setFormatError] = useState<string | null>(null);
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
@@ -58,6 +58,19 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
 
   // 判断是否为服务端模式
   const isServerMode = config?.connectionType === 'server';
+
+  // 当服务端停止时清理客户端连接
+  React.useEffect(() => {
+    if (isServerMode && connectionStatus === 'disconnected') {
+      const existingConnections = getClientConnections(sessionId);
+      if (existingConnections.length > 0) {
+        console.log(`TCP服务端 ${sessionId}: 服务端已停止，清理 ${existingConnections.length} 个客户端连接`);
+        existingConnections.forEach(client => {
+          removeClientConnection(sessionId, client.id);
+        });
+      }
+    }
+  }, [connectionStatus, isServerMode, sessionId, getClientConnections, removeClientConnection]);
 
   // 调试信息
   console.log(`TCP Session ${sessionId}:`, {
@@ -114,7 +127,9 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
       const totalConnections = clientConnections.length;
       const avgConnectionDuration = totalConnections > 0
         ? clientConnections.reduce((sum, c) => {
-            const duration = (new Date().getTime() - c.connectedAt.getTime()) / 1000;
+            // 确保 connectedAt 是 Date 对象
+            const connectedAt = c.connectedAt instanceof Date ? c.connectedAt : new Date(c.connectedAt);
+            const duration = (new Date().getTime() - connectedAt.getTime()) / 1000;
             return sum + duration;
           }, 0) / totalConnections
         : 0;
@@ -275,20 +290,45 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
       return;
     }
 
+    // 检查配置是否真的发生了变化
+    const hasPortChanged = config && config.port !== port;
+    const hasHostChanged = config && config.host !== editHost.trim();
+
     // 更新会话配置
     if (!config) return;
-    const updateSession = useAppStore.getState().updateSession;
+    const store = useAppStore.getState();
     const updatedConfig = {
       ...config,
       host: editHost.trim(),
       port: port
     };
 
-    updateSession(sessionId, {
-      config: updatedConfig
+    // 如果是服务端模式且端口发生了变化，清理所有现有的客户端连接
+    if (isServerMode && hasPortChanged) {
+      console.log(`TCP服务端 ${sessionId}: 端口从 ${config.port} 变更为 ${port}，清理现有客户端连接`);
+
+      // 获取现有的客户端连接并清理它们
+      const existingConnections = store.getClientConnections(sessionId);
+      existingConnections.forEach(client => {
+        console.log(`TCP服务端 ${sessionId}: 移除客户端连接 ${client.id} (${client.remoteAddress}:${client.remotePort})`);
+        store.removeClientConnection(sessionId, client.id);
+      });
+    }
+
+    // 更新会话配置
+    store.updateSession(sessionId, {
+      config: updatedConfig,
+      // 如果连接配置发生变化，重置连接状态
+      ...(hasPortChanged || hasHostChanged ? {
+        status: 'disconnected' as ConnectionStatus,
+        error: undefined
+      } : {})
     });
 
     console.log(`TCP Session ${sessionId}: Configuration updated - host: ${editHost.trim()}, port: ${port}`);
+    if (hasPortChanged || hasHostChanged) {
+      console.log(`TCP Session ${sessionId}: Connection reset due to configuration change`);
+    }
 
     setIsEditingConnection(false);
     setFormatError(null);
@@ -750,8 +790,16 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
 
             {/* 消息流面板 */}
             <div className="flex-1 flex flex-col">
-              <div className="h-10 border-b border-border flex items-center px-3 bg-muted/50">
+              <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50">
                 <h3 className="text-sm font-medium">消息流 ({messages.length})</h3>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-muted-foreground">显示格式:</span>
+                  <DataFormatSelector
+                    value={receiveFormat}
+                    onChange={setReceiveFormat}
+                    className="h-6 text-xs"
+                  />
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto">
                 {messages.length === 0 ? (
@@ -771,8 +819,8 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                             : "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
                         )}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2 flex-1 min-w-0">
+                        <div className="flex flex-col space-y-1">
+                          <div className="flex items-center space-x-2">
                             <span className={cn(
                               "text-xs px-1 py-0.5 rounded text-white font-medium",
                               message.direction === 'in' ? "bg-blue-500" : "bg-green-500"
@@ -785,9 +833,15 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                             <span className="text-xs text-muted-foreground">
                               {message.size}B
                             </span>
-                            <div className="flex-1 min-w-0 font-mono text-xs truncate">
-                              {formatMessageData(message)}
-                            </div>
+                            <span className={cn(
+                              "text-xs px-1 py-0.5 rounded border",
+                              "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                            )}>
+                              {receiveFormat.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="font-mono text-xs break-all">
+                            {formatMessageData(message)}
                           </div>
                         </div>
                       </div>
@@ -800,8 +854,16 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
         ) : (
           // 客户端模式：显示消息流
           <div className="h-full flex flex-col">
-            <div className="h-10 border-b border-border flex items-center px-3 bg-muted/50">
+            <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50">
               <h3 className="text-sm font-medium">消息流 ({messages.length})</h3>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-muted-foreground">显示格式:</span>
+                <DataFormatSelector
+                  value={receiveFormat}
+                  onChange={setReceiveFormat}
+                  className="h-6 text-xs"
+                />
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto">
               {messages.length === 0 ? (
@@ -821,8 +883,8 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                           : "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
                       )}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                      <div className="flex flex-col space-y-1">
+                        <div className="flex items-center space-x-2">
                           <span className={cn(
                             "text-xs px-1 py-0.5 rounded text-white font-medium",
                             message.direction === 'in' ? "bg-blue-500" : "bg-green-500"
@@ -835,9 +897,15 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                           <span className="text-xs text-muted-foreground">
                             {message.size}B
                           </span>
-                          <div className="flex-1 min-w-0 font-mono text-xs truncate">
-                            {formatMessageData(message)}
-                          </div>
+                          <span className={cn(
+                            "text-xs px-1 py-0.5 rounded border",
+                            "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                          )}>
+                            {receiveFormat.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="font-mono text-xs break-all">
+                          {formatMessageData(message)}
                         </div>
                       </div>
                     </div>
