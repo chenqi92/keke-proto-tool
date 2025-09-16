@@ -16,7 +16,8 @@ import {
   WifiOff,
   Loader2,
   Edit3,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 
 interface TCPSessionContentProps {
@@ -28,6 +29,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const session = useSessionById(sessionId);
   const getClientConnections = useAppStore(state => state.getClientConnections);
   const removeClientConnection = useAppStore(state => state.removeClientConnection);
+  const clearMessages = useAppStore(state => state.clearMessages);
 
   // 本地UI状态 - 使用sessionId作为key确保状态隔离
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
@@ -346,6 +348,23 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
       return formatData.to[receiveFormat](message.data);
     } catch {
       return '数据格式转换失败';
+    }
+  };
+
+  // 获取原始数据的十六进制表示
+  const getRawDataHex = (message: Message): string => {
+    try {
+      return formatData.to.hex(message.data);
+    } catch {
+      return '无法显示原始数据';
+    }
+  };
+
+  // 清除消息历史
+  const handleClearMessages = () => {
+    if (messages.length > 0) {
+      clearMessages(sessionId);
+      console.log(`TCP会话 ${sessionId}: 已清除 ${messages.length} 条消息记录`);
     }
   };
 
@@ -799,6 +818,19 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                     onChange={setReceiveFormat}
                     className="h-6 text-xs"
                   />
+                  <button
+                    onClick={handleClearMessages}
+                    disabled={messages.length === 0}
+                    className={cn(
+                      "p-1 rounded hover:bg-accent transition-colors",
+                      messages.length === 0
+                        ? "text-muted-foreground cursor-not-allowed"
+                        : "text-foreground hover:text-destructive"
+                    )}
+                    title="清除消息历史"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto">
@@ -840,8 +872,16 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                               {receiveFormat.toUpperCase()}
                             </span>
                           </div>
-                          <div className="font-mono text-xs break-all">
-                            {formatMessageData(message)}
+                          <div className="space-y-1">
+                            <div className="font-mono text-xs break-all">
+                              {formatMessageData(message)}
+                            </div>
+                            {receiveFormat !== 'hex' && (
+                              <div className="text-xs text-muted-foreground">
+                                <span className="text-xs font-medium">原始数据: </span>
+                                <span className="font-mono">{getRawDataHex(message)}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -863,6 +903,19 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                   onChange={setReceiveFormat}
                   className="h-6 text-xs"
                 />
+                <button
+                  onClick={handleClearMessages}
+                  disabled={messages.length === 0}
+                  className={cn(
+                    "p-1 rounded hover:bg-accent transition-colors",
+                    messages.length === 0
+                      ? "text-muted-foreground cursor-not-allowed"
+                      : "text-foreground hover:text-destructive"
+                  )}
+                  title="清除消息历史"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -904,8 +957,16 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                             {receiveFormat.toUpperCase()}
                           </span>
                         </div>
-                        <div className="font-mono text-xs break-all">
-                          {formatMessageData(message)}
+                        <div className="space-y-1">
+                          <div className="font-mono text-xs break-all">
+                            {formatMessageData(message)}
+                          </div>
+                          {receiveFormat !== 'hex' && (
+                            <div className="text-xs text-muted-foreground">
+                              <span className="text-xs font-medium">原始数据: </span>
+                              <span className="font-mono">{getRawDataHex(message)}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

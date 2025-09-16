@@ -144,8 +144,8 @@ const persistConfig = {
           connectedAt: undefined,
           error: undefined,
           lastActivity,
-          // Reset any temporary connection state with properly converted dates
-          messages: messagesWithDates,
+          // Clear message history on app restart to prevent stale data
+          messages: [],
           statistics: session.statistics || createInitialStatistics(),
           mqttSubscriptions,
         };
