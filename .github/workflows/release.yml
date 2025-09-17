@@ -399,8 +399,7 @@ jobs:
             -name "*.app.tar.gz" -o \
             -name "*.deb" -o \
             -name "*.rpm" -o \
-            -name "*.AppImage" -o \
-
+            -name "*.AppImage" \
           \) | while read file; do
             if [ -f "$file" ]; then
               echo "Uploading $(basename "$file")..."
