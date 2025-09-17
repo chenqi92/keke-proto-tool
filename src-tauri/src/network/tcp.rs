@@ -510,41 +510,11 @@ impl TcpServer {
                         eprintln!("TCPServer: Client {} connected from {}:{}",
                             client_id, addr.ip(), addr.port());
 
-                        // Emit client-connected event
-                        if let Some(app_handle_ref) = app_handle.read().await.as_ref() {
-                            eprintln!("TCPServer: App handle available, emitting client-connected event for {}", client_id);
-                            let parts: Vec<&str> = client_id.split(':').collect();
-                            let payload = if parts.len() == 2 {
-                                serde_json::json!({
-                                    "sessionId": session_id,
-                                    "clientId": client_id,
-                                    "remoteAddress": parts[0],
-                                    "remotePort": parts[1].parse::<u16>().unwrap_or(0)
-                                })
-                            } else {
-                                serde_json::json!({
-                                    "sessionId": session_id,
-                                    "clientId": client_id,
-                                    "remoteAddress": "unknown",
-                                    "remotePort": 0
-                                })
-                            };
-
-                            eprintln!("TCPServer: Emitting client-connected event with payload: {}", payload);
-                            if let Err(e) = app_handle_ref.emit("client-connected", payload) {
-                                eprintln!("TCPServer: Failed to emit client-connected event: {}", e);
-                            } else {
-                                eprintln!("TCPServer: Successfully emitted client-connected event for {}", client_id);
-                            }
-                        } else {
-                            eprintln!("TCPServer: WARNING - App handle not available, cannot emit client-connected event for {}", client_id);
-                        }
-
                         // Split the stream into read and write halves to avoid deadlock
                         let (read_half, write_half) = tokio::io::split(stream);
                         let write_half_arc = Arc::new(RwLock::new(write_half));
 
-                        // Add client write half to the list
+                        // Add client write half to the list FIRST before emitting events
                         {
                             let mut clients_write = clients.write().await;
                             eprintln!("TCPServer: [BACKGROUND TASK] Before adding client {}, current clients count: {}", client_id, clients_write.len());
@@ -580,19 +550,27 @@ impl TcpServer {
                                         eprintln!("TCPServer: [CLIENT HANDLER] Client {} disconnected", client_id_clone);
                                         eprintln!("TCPServer: [CLIENT HANDLER] Removing client {} from clients list", client_id_clone);
                                         eprintln!("TCPServer: [CLIENT HANDLER] Clients Arc address: {:p}", &*clients_clone);
+
+                                        // Use a flag to prevent double removal
                                         let removed = clients_clone.write().await.remove(&client_id_clone);
-                                        eprintln!("TCPServer: [CLIENT HANDLER] Client {} removal result: {:?}", client_id_clone, removed.is_some());
+                                        if removed.is_some() {
+                                            eprintln!("TCPServer: [CLIENT HANDLER] Successfully removed client {}", client_id_clone);
 
-                                        // Emit client-disconnected event
-                                        if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
-                                            let payload = serde_json::json!({
-                                                "sessionId": session_id_clone,
-                                                "clientId": client_id_clone
-                                            });
+                                            // Only emit disconnect event if we actually removed the client
+                                            if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
+                                                let payload = serde_json::json!({
+                                                    "sessionId": session_id_clone,
+                                                    "clientId": client_id_clone
+                                                });
 
-                                            if let Err(e) = app_handle_ref.emit("client-disconnected", payload) {
-                                                eprintln!("TCPServer: Failed to emit client-disconnected event: {}", e);
+                                                if let Err(e) = app_handle_ref.emit("client-disconnected", payload) {
+                                                    eprintln!("TCPServer: Failed to emit client-disconnected event: {}", e);
+                                                } else {
+                                                    eprintln!("TCPServer: Successfully emitted client-disconnected event for {}", client_id_clone);
+                                                }
                                             }
+                                        } else {
+                                            eprintln!("TCPServer: [CLIENT HANDLER] Client {} was already removed", client_id_clone);
                                         }
 
                                         break;
@@ -618,18 +596,27 @@ impl TcpServer {
                                     Err(e) => {
                                         // Error occurred
                                         eprintln!("TCPServer: Error reading from client {}: {}", client_id_clone, e);
-                                        clients_clone.write().await.remove(&client_id_clone);
 
-                                        // Emit client-disconnected event
-                                        if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
-                                            let payload = serde_json::json!({
-                                                "sessionId": session_id_clone,
-                                                "clientId": client_id_clone
-                                            });
+                                        // Use a flag to prevent double removal
+                                        let removed = clients_clone.write().await.remove(&client_id_clone);
+                                        if removed.is_some() {
+                                            eprintln!("TCPServer: [CLIENT HANDLER] Successfully removed client {} due to read error", client_id_clone);
 
-                                            if let Err(e) = app_handle_ref.emit("client-disconnected", payload) {
-                                                eprintln!("TCPServer: Failed to emit client-disconnected event: {}", e);
+                                            // Only emit disconnect event if we actually removed the client
+                                            if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
+                                                let payload = serde_json::json!({
+                                                    "sessionId": session_id_clone,
+                                                    "clientId": client_id_clone
+                                                });
+
+                                                if let Err(e) = app_handle_ref.emit("client-disconnected", payload) {
+                                                    eprintln!("TCPServer: Failed to emit client-disconnected event: {}", e);
+                                                } else {
+                                                    eprintln!("TCPServer: Successfully emitted client-disconnected event for {} due to read error", client_id_clone);
+                                                }
                                             }
+                                        } else {
+                                            eprintln!("TCPServer: [CLIENT HANDLER] Client {} was already removed", client_id_clone);
                                         }
 
                                         break;
@@ -638,6 +625,39 @@ impl TcpServer {
                             }
                             eprintln!("TCPServer: Client handler for {} terminated", client_id_clone);
                         });
+
+                        // Give a small delay to ensure all async operations are settled
+                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+                        // NOW emit client-connected event after everything is set up
+                        if let Some(app_handle_ref) = app_handle.read().await.as_ref() {
+                            eprintln!("TCPServer: App handle available, emitting client-connected event for {}", client_id);
+                            let parts: Vec<&str> = client_id.split(':').collect();
+                            let payload = if parts.len() == 2 {
+                                serde_json::json!({
+                                    "sessionId": session_id,
+                                    "clientId": client_id,
+                                    "remoteAddress": parts[0],
+                                    "remotePort": parts[1].parse::<u16>().unwrap_or(0)
+                                })
+                            } else {
+                                serde_json::json!({
+                                    "sessionId": session_id,
+                                    "clientId": client_id,
+                                    "remoteAddress": "unknown",
+                                    "remotePort": 0
+                                })
+                            };
+
+                            eprintln!("TCPServer: Emitting client-connected event with payload: {}", payload);
+                            if let Err(e) = app_handle_ref.emit("client-connected", payload) {
+                                eprintln!("TCPServer: Failed to emit client-connected event: {}", e);
+                            } else {
+                                eprintln!("TCPServer: Successfully emitted client-connected event for {}", client_id);
+                            }
+                        } else {
+                            eprintln!("TCPServer: WARNING - App handle not available, cannot emit client-connected event for {}", client_id);
+                        }
                     }
                     Err(e) => {
                         eprintln!("TCPServer: Error accepting connection: {}", e);
@@ -849,16 +869,25 @@ impl ServerConnection for TcpServer {
                             let error_msg = format!("Failed to flush data to client {}: {}", client_id, e);
                             eprintln!("TCPServer: {} - Removing disconnected client", error_msg);
 
-                            // Remove the disconnected client from the clients list
-                            self.clients.write().await.remove(client_id);
+                            // Remove the disconnected client from the clients list (prevent double removal)
+                            let removed = self.clients.write().await.remove(client_id);
+                            if removed.is_some() {
+                                eprintln!("TCPServer: [SEND_TO_CLIENT] Successfully removed client {} due to flush error", client_id);
 
-                            // Emit client-disconnected event
-                            if let Some(app_handle) = self.app_handle.read().await.as_ref() {
-                                let payload = serde_json::json!({
-                                    "sessionId": self.session_id,
-                                    "clientId": client_id
-                                });
-                                let _ = app_handle.emit("client-disconnected", payload);
+                                // Only emit disconnect event if we actually removed the client
+                                if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                                    let payload = serde_json::json!({
+                                        "sessionId": self.session_id,
+                                        "clientId": client_id
+                                    });
+                                    if let Err(emit_err) = app_handle.emit("client-disconnected", payload) {
+                                        eprintln!("TCPServer: Failed to emit client-disconnected event: {}", emit_err);
+                                    } else {
+                                        eprintln!("TCPServer: Successfully emitted client-disconnected event for {} due to flush error", client_id);
+                                    }
+                                }
+                            } else {
+                                eprintln!("TCPServer: [SEND_TO_CLIENT] Client {} was already removed", client_id);
                             }
 
                             Err(NetworkError::SendFailed(error_msg))
@@ -869,16 +898,25 @@ impl ServerConnection for TcpServer {
                     let error_msg = format!("Failed to write data to client {}: {}", client_id, e);
                     eprintln!("TCPServer: {} - Removing disconnected client", error_msg);
 
-                    // Remove the disconnected client from the clients list
-                    self.clients.write().await.remove(client_id);
+                    // Remove the disconnected client from the clients list (prevent double removal)
+                    let removed = self.clients.write().await.remove(client_id);
+                    if removed.is_some() {
+                        eprintln!("TCPServer: [SEND_TO_CLIENT] Successfully removed client {} due to write error", client_id);
 
-                    // Emit client-disconnected event
-                    if let Some(app_handle) = self.app_handle.read().await.as_ref() {
-                        let payload = serde_json::json!({
-                            "sessionId": self.session_id,
-                            "clientId": client_id
-                        });
-                        let _ = app_handle.emit("client-disconnected", payload);
+                        // Only emit disconnect event if we actually removed the client
+                        if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                            let payload = serde_json::json!({
+                                "sessionId": self.session_id,
+                                "clientId": client_id
+                            });
+                            if let Err(emit_err) = app_handle.emit("client-disconnected", payload) {
+                                eprintln!("TCPServer: Failed to emit client-disconnected event: {}", emit_err);
+                            } else {
+                                eprintln!("TCPServer: Successfully emitted client-disconnected event for {} due to write error", client_id);
+                            }
+                        }
+                    } else {
+                        eprintln!("TCPServer: [SEND_TO_CLIENT] Client {} was already removed", client_id);
                     }
 
                     Err(NetworkError::SendFailed(error_msg))

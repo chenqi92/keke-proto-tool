@@ -164,7 +164,29 @@ class NetworkService {
       ...(clientId && direction === 'out' && { targetClientId: clientId }),
     };
 
-    useAppStore.getState().addMessage(sessionId, message);
+    const store = useAppStore.getState();
+    store.addMessage(sessionId, message);
+
+    // Update client connection byte statistics if clientId is provided
+    if (clientId) {
+      const session = store.getSession(sessionId);
+      if (session?.config.connectionType === 'server') {
+        // For server sessions, update the specific client's byte statistics
+        if (direction === 'in') {
+          // Data received from client
+          store.updateClientConnection(sessionId, clientId, {
+            bytesReceived: (session.clientConnections?.[clientId]?.bytesReceived || 0) + data.length,
+            lastActivity: new Date(),
+          });
+        } else if (direction === 'out') {
+          // Data sent to client
+          store.updateClientConnection(sessionId, clientId, {
+            bytesSent: (session.clientConnections?.[clientId]?.bytesSent || 0) + data.length,
+            lastActivity: new Date(),
+          });
+        }
+      }
+    }
   }
 
   private handleClientConnected(sessionId: string, clientId: string, remoteAddress: string, remotePort: number) {
