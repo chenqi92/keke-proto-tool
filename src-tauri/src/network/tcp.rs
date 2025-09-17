@@ -17,7 +17,7 @@ pub struct TcpClient {
     host: String,
     port: u16,
     timeout: Option<u64>,
-    stream: Option<TcpStream>,
+    write_half: Option<Arc<RwLock<WriteHalf<TcpStream>>>>,
     connected: bool,
     validate_internal_server: bool, // 是否验证内部服务端
     app_handle: Option<AppHandle>,
@@ -47,11 +47,58 @@ impl TcpClient {
             host,
             port,
             timeout,
-            stream: None,
+            write_half: None,
             connected: false,
             validate_internal_server,
             app_handle,
         })
+    }
+
+    async fn start_receiving_with_read_half(&mut self, read_half: ReadHalf<TcpStream>) -> NetworkResult<()> {
+        let session_id = self.session_id.clone();
+        let app_handle = self.app_handle.clone();
+        let mut read_stream = read_half;
+
+        // Spawn background task to read from stream
+        tokio::spawn(async move {
+            let mut buffer = [0u8; 8192];
+
+            loop {
+                match read_stream.read(&mut buffer).await {
+                    Ok(0) => {
+                        // Connection closed
+                        eprintln!("TCPClient: Session {} - Connection closed by server", session_id);
+                        break;
+                    }
+                    Ok(n) => {
+                        // Data received from server
+                        eprintln!("TCPClient: Session {} - Received {} bytes from server", session_id, n);
+
+                        // Emit message-received event for server-to-client data transmission
+                        if let Some(app_handle) = &app_handle {
+                            let payload = serde_json::json!({
+                                "sessionId": session_id,
+                                "data": buffer[..n].to_vec(),
+                                "direction": "in"
+                            });
+
+                            if let Err(e) = app_handle.emit("message-received", payload) {
+                                eprintln!("TCPClient: Failed to emit message-received event for server-to-client transmission: {}", e);
+                            } else {
+                                eprintln!("TCPClient: Successfully emitted message-received event for {} bytes received from server", n);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        // Error occurred
+                        eprintln!("TCPClient: Session {} - Error reading from server: {}", session_id, e);
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(())
     }
 }
 
@@ -115,28 +162,37 @@ impl Connection for TcpClient {
 
         eprintln!("TCPClient: Session {} - Successfully connected to {}:{}",
             self.session_id, self.host, self.port);
-        self.stream = Some(stream);
+
+        // Split the stream into read and write halves to avoid conflicts
+        let (read_half, write_half) = tokio::io::split(stream);
+        self.write_half = Some(Arc::new(RwLock::new(write_half)));
         self.connected = true;
+
+        // Start receiving data from server immediately after connection
+        eprintln!("TCPClient: Session {} - Starting to receive data from server", self.session_id);
+        self.start_receiving_with_read_half(read_half).await?;
+        eprintln!("TCPClient: Session {} - Successfully started receiving data from server", self.session_id);
 
         Ok(())
     }
 
     async fn disconnect(&mut self) -> NetworkResult<()> {
-        if let Some(stream) = self.stream.take() {
-            drop(stream); // Close the stream
+        if let Some(write_half) = self.write_half.take() {
+            drop(write_half); // Close the write half
         }
         self.connected = false;
         Ok(())
     }
 
     async fn send(&mut self, data: &[u8]) -> NetworkResult<usize> {
-        match &mut self.stream {
-            Some(stream) => {
+        match &self.write_half {
+            Some(write_half_arc) => {
                 eprintln!("TCPClient: Session {} - Sending {} bytes to server", self.session_id, data.len());
 
-                stream.write_all(data).await
+                let mut write_half = write_half_arc.write().await;
+                write_half.write_all(data).await
                     .map_err(|e| NetworkError::SendFailed(e.to_string()))?;
-                stream.flush().await
+                write_half.flush().await
                     .map_err(|e| NetworkError::SendFailed(e.to_string()))?;
 
                 eprintln!("TCPClient: Session {} - Successfully sent {} bytes to server", self.session_id, data.len());
@@ -184,91 +240,8 @@ impl Connection for TcpClient {
 
     async fn start_receiving(&mut self) -> NetworkResult<mpsc::Receiver<NetworkEvent>> {
         let (tx, rx) = mpsc::channel(1000);
-
-        if let Some(stream) = self.stream.take() {
-            let session_id = self.session_id.clone();
-            let app_handle = self.app_handle.clone();
-            let mut read_stream = stream;
-
-            // Spawn background task to read from stream
-            tokio::spawn(async move {
-                let mut buffer = [0u8; 8192];
-
-                loop {
-                    match read_stream.read(&mut buffer).await {
-                        Ok(0) => {
-                            // Connection closed
-                            eprintln!("TCPClient: Session {} - Connection closed by server", session_id);
-                            let event = NetworkEvent {
-                                session_id: session_id.clone(),
-                                event_type: "disconnected".to_string(),
-                                data: None,
-                                error: None,
-                                client_id: None,
-                                mqtt_topic: None,
-                                mqtt_qos: None,
-                                mqtt_retain: None,
-                                sse_event: None,
-                            };
-                            let _ = tx.send(event).await;
-                            break;
-                        }
-                        Ok(n) => {
-                            // Data received from server
-                            eprintln!("TCPClient: Session {} - Received {} bytes from server", session_id, n);
-
-                            // Emit message-received event for server-to-client data transmission
-                            if let Some(app_handle) = &app_handle {
-                                let payload = serde_json::json!({
-                                    "sessionId": session_id,
-                                    "data": buffer[..n].to_vec(),
-                                    "direction": "in"
-                                });
-
-                                if let Err(e) = app_handle.emit("message-received", payload) {
-                                    eprintln!("TCPClient: Failed to emit message-received event for server-to-client transmission: {}", e);
-                                } else {
-                                    eprintln!("TCPClient: Successfully emitted message-received event for {} bytes received from server", n);
-                                }
-                            }
-
-                            // Also send the old NetworkEvent for compatibility
-                            let event = NetworkEvent {
-                                session_id: session_id.clone(),
-                                event_type: "message".to_string(),
-                                data: Some(buffer[..n].to_vec()),
-                                error: None,
-                                client_id: None,
-                                mqtt_topic: None,
-                                mqtt_qos: None,
-                                mqtt_retain: None,
-                                sse_event: None,
-                            };
-                            if tx.send(event).await.is_err() {
-                                break; // Receiver dropped
-                            }
-                        }
-                        Err(e) => {
-                            // Error occurred
-                            let event = NetworkEvent {
-                                session_id: session_id.clone(),
-                                event_type: "error".to_string(),
-                                data: None,
-                                error: Some(e.to_string()),
-                                client_id: None,
-                                mqtt_topic: None,
-                                mqtt_qos: None,
-                                mqtt_retain: None,
-                                sse_event: None,
-                            };
-                            let _ = tx.send(event).await;
-                            break;
-                        }
-                    }
-                }
-            });
-        }
-
+        // This method is required by the trait but not used in the new implementation
+        // The actual receiving is started in start_receiving_with_read_half
         Ok(rx)
     }
 
@@ -823,11 +796,27 @@ impl ServerConnection for TcpServer {
         eprintln!("TCPServer: [SEND_TO_CLIENT] TcpServer instance address: {:p}", self);
         eprintln!("TCPServer: [SEND_TO_CLIENT] Clients Arc address: {:p}", &*self.clients);
 
-        let clients = self.clients.read().await;
-        eprintln!("TCPServer: [SEND_TO_CLIENT] Current clients count: {}", clients.len());
-        eprintln!("TCPServer: [SEND_TO_CLIENT] Available clients: {:?}", clients.keys().collect::<Vec<_>>());
+        // First, check if client exists
+        {
+            let clients = self.clients.read().await;
+            eprintln!("TCPServer: [SEND_TO_CLIENT] Current clients count: {}", clients.len());
+            eprintln!("TCPServer: [SEND_TO_CLIENT] Available clients: {:?}", clients.keys().collect::<Vec<_>>());
 
-        if let Some(write_half_arc) = clients.get(client_id) {
+            if !clients.contains_key(client_id) {
+                let error_msg = format!("Client {} not found in session {}", client_id, self.session_id);
+                eprintln!("TCPServer: {}", error_msg);
+                eprintln!("TCPServer: Available clients: {:?}", clients.keys().collect::<Vec<_>>());
+                return Err(NetworkError::SendFailed(error_msg));
+            }
+        }
+
+        // Get the write half and attempt to send data
+        let write_half_arc = {
+            let clients = self.clients.read().await;
+            clients.get(client_id).cloned()
+        };
+
+        if let Some(write_half_arc) = write_half_arc {
             eprintln!("TCPServer: Found client {} in session {}", client_id, self.session_id);
             let mut write_half = write_half_arc.write().await;
 
@@ -858,62 +847,118 @@ impl ServerConnection for TcpServer {
                         }
                         Err(e) => {
                             let error_msg = format!("Failed to flush data to client {}: {}", client_id, e);
-                            eprintln!("TCPServer: {}", error_msg);
+                            eprintln!("TCPServer: {} - Removing disconnected client", error_msg);
+
+                            // Remove the disconnected client from the clients list
+                            self.clients.write().await.remove(client_id);
+
+                            // Emit client-disconnected event
+                            if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                                let payload = serde_json::json!({
+                                    "sessionId": self.session_id,
+                                    "clientId": client_id
+                                });
+                                let _ = app_handle.emit("client-disconnected", payload);
+                            }
+
                             Err(NetworkError::SendFailed(error_msg))
                         }
                     }
                 }
                 Err(e) => {
                     let error_msg = format!("Failed to write data to client {}: {}", client_id, e);
-                    eprintln!("TCPServer: {}", error_msg);
+                    eprintln!("TCPServer: {} - Removing disconnected client", error_msg);
+
+                    // Remove the disconnected client from the clients list
+                    self.clients.write().await.remove(client_id);
+
+                    // Emit client-disconnected event
+                    if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                        let payload = serde_json::json!({
+                            "sessionId": self.session_id,
+                            "clientId": client_id
+                        });
+                        let _ = app_handle.emit("client-disconnected", payload);
+                    }
+
                     Err(NetworkError::SendFailed(error_msg))
                 }
             }
         } else {
             let error_msg = format!("Client {} not found in session {}", client_id, self.session_id);
             eprintln!("TCPServer: {}", error_msg);
-            eprintln!("TCPServer: Available clients: {:?}", clients.keys().collect::<Vec<_>>());
             Err(NetworkError::SendFailed(error_msg))
         }
     }
 
     async fn broadcast(&mut self, data: &[u8]) -> NetworkResult<usize> {
-        let clients = self.clients.read().await;
         let mut total_sent = 0;
+        let mut disconnected_clients = Vec::new();
 
-        for (client_id, write_half_arc) in clients.iter() {
-            let mut write_half = write_half_arc.write().await;
-            match write_half.write_all(data).await {
-                Ok(_) => {
-                    match write_half.flush().await {
-                        Ok(_) => {
-                            total_sent += data.len();
+        // Get client list for iteration
+        let client_ids: Vec<String> = {
+            let clients = self.clients.read().await;
+            clients.keys().cloned().collect()
+        };
 
-                            // Emit message-received event for broadcast to each client
-                            if let Some(app_handle) = self.app_handle.read().await.as_ref() {
-                                let payload = serde_json::json!({
-                                    "sessionId": self.session_id,
-                                    "data": data.to_vec(),
-                                    "direction": "out",
-                                    "clientId": client_id
-                                });
+        for client_id in client_ids {
+            let write_half_arc = {
+                let clients = self.clients.read().await;
+                clients.get(&client_id).cloned()
+            };
 
-                                if let Err(e) = app_handle.emit("message-received", payload) {
-                                    eprintln!("TCPServer: Failed to emit message-received event for broadcast to client {}: {}", client_id, e);
-                                } else {
-                                    eprintln!("TCPServer: Successfully emitted message-received event for {} bytes broadcast to client {}", data.len(), client_id);
+            if let Some(write_half_arc) = write_half_arc {
+                let mut write_half = write_half_arc.write().await;
+                match write_half.write_all(data).await {
+                    Ok(_) => {
+                        match write_half.flush().await {
+                            Ok(_) => {
+                                total_sent += data.len();
+
+                                // Emit message-received event for broadcast to each client
+                                if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                                    let payload = serde_json::json!({
+                                        "sessionId": self.session_id,
+                                        "data": data.to_vec(),
+                                        "direction": "out",
+                                        "clientId": client_id
+                                    });
+
+                                    if let Err(e) = app_handle.emit("message-received", payload) {
+                                        eprintln!("TCPServer: Failed to emit message-received event for broadcast to client {}: {}", client_id, e);
+                                    } else {
+                                        eprintln!("TCPServer: Successfully emitted message-received event for {} bytes broadcast to client {}", data.len(), client_id);
+                                    }
                                 }
                             }
-                        }
-                        Err(_) => {
-                            // Client connection failed, will be cleaned up by the read task
-                            continue;
+                            Err(e) => {
+                                eprintln!("TCPServer: Failed to flush broadcast data to client {}: {}", client_id, e);
+                                disconnected_clients.push(client_id.clone());
+                            }
                         }
                     }
+                    Err(e) => {
+                        eprintln!("TCPServer: Failed to write broadcast data to client {}: {}", client_id, e);
+                        disconnected_clients.push(client_id.clone());
+                    }
                 }
-                Err(_) => {
-                    // Client connection failed, will be cleaned up by the read task
-                    continue;
+            }
+        }
+
+        // Clean up disconnected clients
+        if !disconnected_clients.is_empty() {
+            let mut clients = self.clients.write().await;
+            for client_id in &disconnected_clients {
+                eprintln!("TCPServer: Removing disconnected client {} during broadcast", client_id);
+                clients.remove(client_id);
+
+                // Emit client-disconnected event
+                if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                    let payload = serde_json::json!({
+                        "sessionId": self.session_id,
+                        "clientId": client_id
+                    });
+                    let _ = app_handle.emit("client-disconnected", payload);
                 }
             }
         }
