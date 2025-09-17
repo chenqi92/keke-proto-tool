@@ -16,6 +16,8 @@ pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             get_app_version,
+            has_internal_tcp_server,
+            get_active_tcp_servers,
             connect_session,
             disconnect_session,
             send_message,

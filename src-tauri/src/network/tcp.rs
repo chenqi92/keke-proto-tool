@@ -19,6 +19,7 @@ pub struct TcpClient {
     timeout: Option<u64>,
     stream: Option<TcpStream>,
     connected: bool,
+    validate_internal_server: bool, // 是否验证内部服务端
 }
 
 impl TcpClient {
@@ -35,6 +36,11 @@ impl TcpClient {
         let timeout = config.get("timeout")
             .and_then(|v| v.as_u64());
 
+        // 默认启用内部服务端验证，可通过配置禁用
+        let validate_internal_server = config.get("validateInternalServer")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+
         Ok(Self {
             session_id,
             host,
@@ -42,6 +48,7 @@ impl TcpClient {
             timeout,
             stream: None,
             connected: false,
+            validate_internal_server,
         })
     }
 }
@@ -56,6 +63,14 @@ impl Connection for TcpClient {
             let error_msg = format!("Invalid port number: {}. Port must be between 1 and 65535", self.port);
             eprintln!("TCPClient: {}", error_msg);
             return Err(NetworkError::ConnectionFailed(error_msg));
+        }
+
+        // 验证内部服务端（如果启用）
+        if self.validate_internal_server {
+            // 注意：这里我们无法直接访问SessionManager，因为它在不同的层级
+            // 实际的验证逻辑应该在连接建立之前在更高层级进行
+            // 这里只是记录验证意图
+            eprintln!("TCPClient: Internal server validation is enabled for {}:{}", self.host, self.port);
         }
 
         let addr = parse_socket_addr(&self.host, self.port)
@@ -746,16 +761,41 @@ impl Connection for TcpServer {
 #[async_trait]
 impl ServerConnection for TcpServer {
     async fn send_to_client(&mut self, client_id: &str, data: &[u8]) -> NetworkResult<usize> {
+        eprintln!("TCPServer: Attempting to send {} bytes to client {} in session {}", data.len(), client_id, self.session_id);
+
         let clients = self.clients.read().await;
+        eprintln!("TCPServer: Current clients count: {}", clients.len());
+
         if let Some(stream_arc) = clients.get(client_id) {
+            eprintln!("TCPServer: Found client {} in session {}", client_id, self.session_id);
             let mut stream = stream_arc.write().await;
-            stream.write_all(data).await
-                .map_err(|e| NetworkError::SendFailed(e.to_string()))?;
-            stream.flush().await
-                .map_err(|e| NetworkError::SendFailed(e.to_string()))?;
-            Ok(data.len())
+
+            match stream.write_all(data).await {
+                Ok(_) => {
+                    eprintln!("TCPServer: Successfully wrote {} bytes to client {} in session {}", data.len(), client_id, self.session_id);
+                    match stream.flush().await {
+                        Ok(_) => {
+                            eprintln!("TCPServer: Successfully flushed data to client {} in session {}", client_id, self.session_id);
+                            Ok(data.len())
+                        }
+                        Err(e) => {
+                            let error_msg = format!("Failed to flush data to client {}: {}", client_id, e);
+                            eprintln!("TCPServer: {}", error_msg);
+                            Err(NetworkError::SendFailed(error_msg))
+                        }
+                    }
+                }
+                Err(e) => {
+                    let error_msg = format!("Failed to write data to client {}: {}", client_id, e);
+                    eprintln!("TCPServer: {}", error_msg);
+                    Err(NetworkError::SendFailed(error_msg))
+                }
+            }
         } else {
-            Err(NetworkError::SendFailed(format!("Client {} not found", client_id)))
+            let error_msg = format!("Client {} not found in session {}", client_id, self.session_id);
+            eprintln!("TCPServer: {}", error_msg);
+            eprintln!("TCPServer: Available clients: {:?}", clients.keys().collect::<Vec<_>>());
+            Err(NetworkError::SendFailed(error_msg))
         }
     }
 

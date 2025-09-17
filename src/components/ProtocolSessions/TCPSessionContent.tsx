@@ -94,12 +94,21 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   // 额外的状态调试信息
   console.log(`🔍 TCP Session ${sessionId} State Debug:`, {
     sessionId,
+    sessionName: config?.name,
+    connectionType: config?.connectionType,
+    host: config?.host,
+    port: config?.port,
     isConnected,
     isConnecting,
     isConnectingLocal,
     buttonDisabled: isConnecting || isConnectingLocal,
     connectionStatus,
-    sessionObject: session
+    sessionObject: session,
+    // 添加更详细的状态信息用于调试
+    sessionExists: !!session,
+    configExists: !!config,
+    statusFromSession: session?.status,
+    statusDirect: connectionStatus
   });
 
   // 获取客户端连接列表（仅服务端模式）
@@ -173,25 +182,44 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const handleConnect = async () => {
     if (!config) return;
 
+    // 添加详细的调试信息
+    console.log(`🔄 TCP Session ${sessionId} handleConnect called:`, {
+      sessionId,
+      sessionName: config.name,
+      connectionType: config.connectionType,
+      isServerMode,
+      isConnected,
+      isConnecting,
+      isConnectingLocal,
+      currentStatus: connectionStatus
+    });
+
     try {
       if (isConnected) {
         // 断开连接或停止服务端
+        console.log(`🔄 TCP Session ${sessionId}: Starting ${isServerMode ? 'server stop' : 'disconnect'} operation`);
         setIsConnectingLocal(true);
         const success = await networkService.disconnect(sessionId);
         if (!success) {
-          console.error(`Failed to ${isServerMode ? 'stop server' : 'disconnect'}`);
+          console.error(`Failed to ${isServerMode ? 'stop server' : 'disconnect'} for session ${sessionId}`);
+        } else {
+          console.log(`✅ TCP Session ${sessionId}: ${isServerMode ? 'Server stopped' : 'Disconnected'} successfully`);
         }
       } else {
         // 建立连接或启动服务端
+        console.log(`🔄 TCP Session ${sessionId}: Starting ${isServerMode ? 'server start' : 'connect'} operation`);
         setIsConnectingLocal(true);
         const success = await networkService.connect(sessionId);
         if (!success) {
-          console.error(`Failed to ${isServerMode ? 'start server' : 'connect'}`);
+          console.error(`Failed to ${isServerMode ? 'start server' : 'connect'} for session ${sessionId}`);
+        } else {
+          console.log(`✅ TCP Session ${sessionId}: ${isServerMode ? 'Server started' : 'Connected'} successfully`);
         }
       }
     } catch (error) {
-      console.error(`${isServerMode ? 'Server' : 'Connection'} operation failed:`, error);
+      console.error(`${isServerMode ? 'Server' : 'Connection'} operation failed for session ${sessionId}:`, error);
     } finally {
+      console.log(`🔄 TCP Session ${sessionId}: Setting isConnectingLocal to false`);
       setIsConnectingLocal(false);
     }
   };

@@ -94,7 +94,17 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({ children }) =>
 
 // Default session configurations for different protocols
 export const getDefaultSessionConfig = (protocol: string, sessionId?: string): SessionConfig => {
-  const id = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  // 生成更强的唯一ID，如果没有提供sessionId的话
+  let id: string;
+  if (sessionId) {
+    id = sessionId;
+  } else {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 9);
+    const counter = Math.floor(Math.random() * 1000);
+    id = `${protocol.toLowerCase()}_default_${timestamp}_${random}_${counter}`;
+  }
+
   const isClient = !sessionId || sessionId.includes('客户端') || sessionId.includes('Client');
 
   const baseConfig: SessionConfig = {

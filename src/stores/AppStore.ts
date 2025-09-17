@@ -11,6 +11,7 @@ import {
   MQTTSubscription,
   SSEEventFilter
 } from '@/types';
+import { logSessionStateChange, validateSessionStateIsolation } from '@/utils/sessionStateDebug';
 
 interface AppStore extends WorkspaceState {
   // State properties
@@ -248,11 +249,27 @@ export const useAppStore = create<AppStore>()(
           newStatus: status
         });
 
+        // 使用专门的状态隔离验证工具
+        const validation = validateSessionStateIsolation(state.sessions, sessionId, status);
+        if (!validation.isValid) {
+          console.warn(`⚠️ AppStore: State isolation issues detected for session ${sessionId}:`);
+          validation.warnings.forEach(warning => console.warn(`  - ${warning}`));
+
+          // 如果有冲突的会话，记录详细信息
+          validation.conflictingSessions.forEach(conflictId => {
+            const conflictSession = state.sessions[conflictId];
+            console.warn(`  🔥 Conflicting session ${conflictId}: ${conflictSession.config.name} (${conflictSession.config.protocol} ${conflictSession.config.connectionType})`);
+          });
+        }
+
         // Prevent unnecessary updates if status hasn't changed
         if (session.status === status && session.error === error) {
           console.log(`⏭️ AppStore: Session ${sessionId} status unchanged, skipping update`);
           return state;
         }
+
+        // 记录状态变化
+        logSessionStateChange(sessionId, session.status, status, session, state.sessions);
 
         const updates: Partial<SessionState> = {
           status,

@@ -150,15 +150,15 @@ export const SessionPage: React.FC = () => {
 
     switch (currentSession.protocol) {
       case 'TCP':
-        return <TCPSessionContent sessionId={currentSession.id} />;
+        return <TCPSessionContent key={currentSession.id} sessionId={currentSession.id} />;
       case 'UDP':
-        return <UDPSessionContent sessionId={currentSession.id} />;
+        return <UDPSessionContent key={currentSession.id} sessionId={currentSession.id} />;
       case 'WebSocket':
-        return <WebSocketSessionContent sessionId={currentSession.id} />;
+        return <WebSocketSessionContent key={currentSession.id} sessionId={currentSession.id} />;
       case 'MQTT':
-        return <MQTTSessionContent sessionId={currentSession.id} />;
+        return <MQTTSessionContent key={currentSession.id} sessionId={currentSession.id} />;
       case 'SSE':
-        return <SSESessionContent sessionId={currentSession.id} />;
+        return <SSESessionContent key={currentSession.id} sessionId={currentSession.id} />;
       default:
         // Fall back to generic session content for protocols not yet implemented
         return renderGenericSessionContent();

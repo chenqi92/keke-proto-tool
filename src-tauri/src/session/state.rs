@@ -124,6 +124,11 @@ impl SessionState {
         self.status.read().unwrap().clone()
     }
 
+    /// Check if the session is currently connected
+    pub fn is_connected(&self) -> bool {
+        matches!(*self.status.read().unwrap(), ConnectionStatus::Connected)
+    }
+
     /// Force emit the current status to frontend (bypasses status change check)
     pub fn force_emit_status(&self) {
         let current_status = self.get_status();

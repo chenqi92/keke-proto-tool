@@ -312,17 +312,35 @@ impl ConnectionManager {
 
     /// Send data to a specific client (server mode)
     pub async fn send_to_client(&self, client_id: &str, data: &[u8]) -> NetworkResult<usize> {
+        eprintln!("ConnectionManager: Attempting to send {} bytes to client {} for session {}", data.len(), client_id, self.session_id);
+
         if let Some(connection) = self.connection.write().await.as_mut() {
+            eprintln!("ConnectionManager: Found connection for session {}, attempting downcast", self.session_id);
             // Try to downcast to ServerConnection
             if let Some(server_connection) = connection.as_any_mut().downcast_mut::<TcpServer>() {
-                server_connection.send_to_client(client_id, data).await
+                eprintln!("ConnectionManager: Successfully downcast to TcpServer for session {}", self.session_id);
+                match server_connection.send_to_client(client_id, data).await {
+                    Ok(bytes_sent) => {
+                        eprintln!("ConnectionManager: TcpServer sent {} bytes to client {} for session {}", bytes_sent, client_id, self.session_id);
+                        Ok(bytes_sent)
+                    }
+                    Err(e) => {
+                        eprintln!("ConnectionManager: TcpServer failed to send to client {} for session {}: {}", client_id, self.session_id, e);
+                        Err(e)
+                    }
+                }
             } else if let Some(server_connection) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
+                eprintln!("ConnectionManager: Successfully downcast to WebSocketServer for session {}", self.session_id);
                 server_connection.send_to_client(client_id, data).await
             } else {
-                Err(crate::types::NetworkError::ConnectionFailed("Connection does not support server operations".to_string()))
+                let error_msg = "Connection does not support server operations".to_string();
+                eprintln!("ConnectionManager: {}", error_msg);
+                Err(crate::types::NetworkError::ConnectionFailed(error_msg))
             }
         } else {
-            Err(crate::types::NetworkError::ConnectionFailed("No active connection".to_string()))
+            let error_msg = "No active connection".to_string();
+            eprintln!("ConnectionManager: {}", error_msg);
+            Err(crate::types::NetworkError::ConnectionFailed(error_msg))
         }
     }
 

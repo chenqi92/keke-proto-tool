@@ -55,6 +55,17 @@ class NetworkService {
             port: session.config.port,
             currentStatus: session.status
           });
+
+          // 添加状态隔离检查
+          console.log(`🔍 NetworkService: State isolation check for session ${sessionId}:`);
+          const allSessions = store.sessions;
+          Object.keys(allSessions).forEach(sid => {
+            if (sid !== sessionId) {
+              const otherSession = allSessions[sid];
+              console.log(`  - Session ${sid}: ${otherSession.config.name} (${otherSession.config.protocol} ${otherSession.config.connectionType}) - Status: ${otherSession.status}`);
+            }
+          });
+
           store.updateSessionStatus(sessionId, status, error);
         } else {
           console.warn(`❌ NetworkService: Session ${sessionId} not found when updating status to ${status}`);
@@ -225,6 +236,12 @@ class NetworkService {
         if (!validation.isValid) {
           throw new Error(validation.error || 'Invalid WebSocket URL');
         }
+      }
+
+      // TCP客户端连接日志（移除严格验证，允许连接尝试以便连接管理配置生效）
+      if (config.protocol === 'TCP' && config.connectionType === 'client') {
+        console.log(`NetworkService: TCP client attempting to connect to ${config.host}:${config.port}`);
+        // 注意：连接验证现在在后端进行，这样连接超时、重试等配置可以正常工作
       }
 
       // SSE特有的连接前验证

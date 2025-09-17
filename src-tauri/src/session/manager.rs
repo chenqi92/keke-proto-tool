@@ -62,6 +62,24 @@ impl SessionManager {
         Ok(())
     }
 
+    /// Update session configuration
+    pub async fn update_session_config(&self, session_id: &str, new_config: SessionConfig) -> NetworkResult<()> {
+        eprintln!("SessionManager: Updating configuration for session {}", session_id);
+
+        match self.sessions.get_mut(session_id) {
+            Some(mut session) => {
+                eprintln!("SessionManager: Found session {}, updating config", session_id);
+                session.config = new_config;
+                eprintln!("SessionManager: Session {} configuration updated successfully", session_id);
+                Ok(())
+            }
+            None => {
+                eprintln!("SessionManager: Session {} not found for config update", session_id);
+                Err(NetworkError::SessionNotFound(session_id.to_string()))
+            }
+        }
+    }
+
     /// Connect a session
     pub async fn connect_session(&self, session_id: &str) -> NetworkResult<bool> {
         eprintln!("SessionManager: Attempting to connect session {}", session_id);
@@ -287,6 +305,45 @@ impl SessionManager {
     #[allow(dead_code)]
     pub fn session_count(&self) -> usize {
         self.sessions.len()
+    }
+
+    /// Check if there's an internal TCP server listening on the specified host and port
+    pub fn has_internal_tcp_server(&self, host: &str, port: u16) -> bool {
+        for session in self.sessions.iter() {
+            let session_ref = session.value();
+            if session_ref.config.protocol == "TCP"
+                && session_ref.config.connection_type == "server"
+                && session_ref.config.port == port
+                && (session_ref.config.host == host
+                    || session_ref.config.host == "0.0.0.0"
+                    || (host == "localhost" && session_ref.config.host == "127.0.0.1")
+                    || (host == "127.0.0.1" && session_ref.config.host == "localhost"))
+                && session_ref.state.is_connected() {
+                eprintln!("SessionManager: Found internal TCP server {} listening on {}:{}",
+                    session_ref.id, session_ref.config.host, session_ref.config.port);
+                return true;
+            }
+        }
+        eprintln!("SessionManager: No internal TCP server found listening on {}:{}", host, port);
+        false
+    }
+
+    /// Get all active TCP server sessions
+    pub fn get_active_tcp_servers(&self) -> Vec<(String, String, u16)> {
+        let mut servers = Vec::new();
+        for session in self.sessions.iter() {
+            let session_ref = session.value();
+            if session_ref.config.protocol == "TCP"
+                && session_ref.config.connection_type == "server"
+                && session_ref.state.is_connected() {
+                servers.push((
+                    session_ref.id.clone(),
+                    session_ref.config.host.clone(),
+                    session_ref.config.port
+                ));
+            }
+        }
+        servers
     }
 
     /// Clean up disconnected sessions

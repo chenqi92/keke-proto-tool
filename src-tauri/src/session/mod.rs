@@ -171,8 +171,18 @@ impl Session {
 
     /// Send data to a specific client (server mode)
     pub async fn send_to_client(&mut self, client_id: &str, data: &[u8]) -> NetworkResult<usize> {
+        eprintln!("Session: Delegating send_to_client to connection manager for session {} client {}", self.id, client_id);
         // Delegate to connection manager
-        self.connection_manager.send_to_client(client_id, data).await
+        match self.connection_manager.send_to_client(client_id, data).await {
+            Ok(bytes_sent) => {
+                eprintln!("Session: Successfully sent {} bytes to client {} in session {}", bytes_sent, client_id, self.id);
+                Ok(bytes_sent)
+            }
+            Err(e) => {
+                eprintln!("Session: Failed to send to client {} in session {}: {}", client_id, self.id, e);
+                Err(e)
+            }
+        }
     }
 
     /// Broadcast data to all clients (server mode)

@@ -11,6 +11,24 @@ pub fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+/// Check if there's an internal TCP server listening on the specified host and port
+#[tauri::command]
+pub fn has_internal_tcp_server(
+    host: String,
+    port: u16,
+    session_manager: State<'_, SessionManager>,
+) -> Result<bool, String> {
+    Ok(session_manager.has_internal_tcp_server(&host, port))
+}
+
+/// Get all active TCP server sessions
+#[tauri::command]
+pub fn get_active_tcp_servers(
+    session_manager: State<'_, SessionManager>,
+) -> Result<Vec<(String, String, u16)>, String> {
+    Ok(session_manager.get_active_tcp_servers())
+}
+
 /// Connect a session with the given configuration
 #[tauri::command]
 pub async fn connect_session(
@@ -28,17 +46,32 @@ pub async fn connect_session(
         eprintln!("Warning: Port {} is commonly used by {} service", config.port, service);
     }
 
-    // Create session if it doesn't exist
-    match session_manager.create_session(session_id.clone(), config).await {
+    // Create session if it doesn't exist, or update existing session with new config
+    match session_manager.create_session(session_id.clone(), config.clone()).await {
         Err(e) => {
-            // If session already exists, check if it's already connected
+            // If session already exists, update its configuration
             if e.to_string().contains("already exists") {
-                // Check if the session is already connected
-                if session_manager.is_session_connected(&session_id) {
-                    eprintln!("Session {} is already connected, skipping connection attempt", session_id);
-                    // Emit current status to synchronize frontend
-                    session_manager.emit_current_status(&session_id);
-                    return Ok(true);
+                eprintln!("Session {} already exists, updating configuration", session_id);
+
+                // Update the session configuration
+                match session_manager.update_session_config(&session_id, config).await {
+                    Ok(_) => {
+                        eprintln!("Session {} configuration updated successfully", session_id);
+
+                        // Check if the session is already connected with the same config
+                        if session_manager.is_session_connected(&session_id) {
+                            eprintln!("Session {} is already connected, checking if reconnection is needed", session_id);
+                            // For now, we'll disconnect and reconnect to ensure new config is applied
+                            // This is safer than trying to determine if the config change requires reconnection
+                            match session_manager.disconnect_session(&session_id).await {
+                                Ok(_) => eprintln!("Session {} disconnected for config update", session_id),
+                                Err(e) => eprintln!("Warning: Failed to disconnect session {} for config update: {}", session_id, e),
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        return Err(format!("Failed to update session configuration: {}", e));
+                    }
                 }
             } else {
                 return Err(format!("Failed to create session: {}", e));
@@ -46,6 +79,7 @@ pub async fn connect_session(
         }
         Ok(_) => {
             // Session created successfully
+            eprintln!("Session {} created successfully", session_id);
         }
     }
 

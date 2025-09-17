@@ -20,6 +20,7 @@ import { EditConfigModal } from '@/components/EditConfigModal';
 import { useAppStore, useAllSessions } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { SessionConfig } from '@/types';
+import { generateUniqueSessionId } from '@/utils/sessionStateDebug';
 import {
   ContextMenu,
   createWorkspaceMenuItems,
@@ -99,15 +100,9 @@ const createTreeDataFromSessions = (sessions: any[]): TreeNode[] => {
               sessionData: { ...session, clientConnection: client }
             }));
           } else {
-            // 客户端：显示连接的服务器
-            children = [{
-              id: `conn-${session.config.id}`,
-              label: `${session.config.host}:${session.config.port}`,
-              type: 'connection' as const,
-              protocol: session.config.protocol as any,
-              status: session.status,
-              sessionData: session
-            }];
+            // 客户端：不显示子节点，避免UI混乱
+            // 客户端连接成功后不需要显示额外的连接子节点
+            children = [];
           }
         }
 
@@ -742,8 +737,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   // 按钮事件处理函数
 
   const handleCreateSession = (sessionData: SessionData) => {
+    // 使用专门的唯一ID生成工具，确保不会有冲突
+    const existingSessions = useAppStore.getState().sessions;
+    const sessionId = generateUniqueSessionId(
+      sessionData.protocol,
+      sessionData.connectionType,
+      existingSessions
+    );
+
+    console.log(`🆔 Creating new session with ID: ${sessionId}`, {
+      protocol: sessionData.protocol,
+      connectionType: sessionData.connectionType,
+      name: sessionData.name,
+      host: sessionData.host,
+      port: sessionData.port,
+      totalExistingSessions: Object.keys(existingSessions).length
+    });
+
     const sessionConfig: SessionConfig = {
-      id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: sessionId,
       name: sessionData.name,
       protocol: sessionData.protocol,
       connectionType: sessionData.connectionType,
