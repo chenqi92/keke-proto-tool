@@ -13,6 +13,9 @@ import {
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { usePlatform } from '@/hooks/usePlatform';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useSession } from '@/contexts/SessionContext';
+import { networkService } from '@/services/NetworkService';
+import { useAppStore } from '@/stores/AppStore';
 
 interface ToolBarProps {
   className?: string;
@@ -26,10 +29,16 @@ interface ToolBarItem {
   shortcut?: string;
   action?: () => void;
   separator?: boolean;
+  disabled?: boolean;
 }
 
 // 左侧主要功能按钮
-const createLeftToolBarItems = (onOpenModal: (modalType: string) => void): ToolBarItem[] => [
+const createLeftToolBarItems = (
+  onOpenModal: (modalType: string) => void,
+  onConnect: () => void,
+  canConnect: boolean,
+  connectButtonLabel: string
+): ToolBarItem[] => [
   {
     id: 'new-session',
     label: '新建会话',
@@ -39,10 +48,11 @@ const createLeftToolBarItems = (onOpenModal: (modalType: string) => void): ToolB
   },
   {
     id: 'connect',
-    label: '连接',
+    label: connectButtonLabel,
     icon: Zap,
     shortcut: 'Ctrl+Enter',
-    action: () => console.log('Connect')
+    action: onConnect,
+    disabled: !canConnect
   },
   {
     id: 'capture',
@@ -73,10 +83,64 @@ const createRightToolBarItems = (onOpenModal: (modalType: string) => void): Tool
 export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
   const layoutConfig = useLayoutConfig();
   const { isMacOS } = usePlatform();
-  const leftItems = createLeftToolBarItems(onOpenModal);
+  const { selectedNode } = useSession();
+  const getSession = useAppStore(state => state.getSession);
+
+  // 判断是否可以连接：选中的节点必须是会话类型且有连接类型
+  const canConnect = selectedNode &&
+    selectedNode.type === 'session' &&
+    selectedNode.connectionType &&
+    ['client', 'server'].includes(selectedNode.connectionType);
+
+  // 获取当前会话的连接状态
+  const currentSession = selectedNode?.config ? getSession(selectedNode.config.id) : null;
+  const isConnected = currentSession?.status === 'connected';
+
+  // 根据连接状态确定按钮文本
+  const connectButtonLabel = isConnected ? '断开连接' : '连接';
+
+
+
+  // 连接处理函数
+  const handleConnect = async () => {
+    if (!selectedNode || !selectedNode.config) {
+      console.warn('No valid node selected for connection');
+      return;
+    }
+
+    try {
+      const sessionId = selectedNode.config.id;
+      const session = getSession(sessionId);
+
+      if (!session) {
+        console.error('Session not found:', sessionId);
+        return;
+      }
+
+      // 检查当前连接状态
+      const isConnected = session.status === 'connected';
+
+      if (isConnected) {
+        // 如果已连接，则断开连接
+        await networkService.disconnect(sessionId);
+        console.log('Disconnected from session:', sessionId);
+      } else {
+        // 如果未连接，则建立连接
+        await networkService.connect(sessionId);
+        console.log('Connected to session:', sessionId);
+      }
+    } catch (error) {
+      console.error('Connection operation failed:', error);
+    }
+  };
+
+  const leftItems = createLeftToolBarItems(onOpenModal, handleConnect, canConnect, connectButtonLabel);
   const rightItems = createRightToolBarItems(onOpenModal);
 
   const handleItemClick = (item: ToolBarItem) => {
+    if (item.disabled) {
+      return;
+    }
     if (item.action) {
       item.action();
     }
@@ -127,9 +191,11 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
         <button
           key={item.id}
           onClick={() => handleItemClick(item)}
+          disabled={item.disabled}
           className={cn(
             "flex items-center justify-center p-2 rounded-md transition-colors",
-            "hover:bg-accent text-muted-foreground hover:text-foreground"
+            "hover:bg-accent text-muted-foreground hover:text-foreground",
+            item.disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground"
           )}
           title={item.shortcut ? `${item.label} (${item.shortcut})` : item.label}
         >
@@ -142,10 +208,12 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
       <button
         key={item.id}
         onClick={() => handleItemClick(item)}
+        disabled={item.disabled}
         className={cn(
           "flex flex-col items-center justify-center px-3 py-2 text-xs rounded-md transition-colors min-w-16 h-12",
           "hover:bg-accent text-muted-foreground hover:text-foreground",
-          layoutConfig.isMobile && "min-w-12 px-2"
+          layoutConfig.isMobile && "min-w-12 px-2",
+          item.disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground"
         )}
         title={item.shortcut ? `${item.label} (${item.shortcut})` : item.label}
       >
