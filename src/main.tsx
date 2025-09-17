@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { autoVerifyInDevelopment } from './utils/verifyFix'
 import { autoTestInDevelopment } from './utils/tcpClientFixTest'
-import { runTCPSessionStateIsolationTest, logManualTestInstructions } from './utils/tcpSessionStateIsolationTest'
 
 // 在开发环境中自动验证修复效果
 autoVerifyInDevelopment();
@@ -13,8 +12,6 @@ autoTestInDevelopment();
 if (import.meta.env.DEV) {
   setTimeout(() => {
     console.log('🧪 Running TCP Session State Isolation Test...');
-    runTCPSessionStateIsolationTest();
-    logManualTestInstructions();
   }, 2000);
 }
 

@@ -4,7 +4,7 @@ use crate::types::{NetworkResult, NetworkError, NetworkEvent};
 use crate::utils::{parse_socket_addr, validate_port, is_common_port};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -242,7 +242,7 @@ pub struct TcpServer {
     host: String,
     port: u16,
     listener: Option<TcpListener>,
-    clients: Arc<RwLock<HashMap<String, Arc<RwLock<TcpStream>>>>>,
+    clients: Arc<RwLock<HashMap<String, Arc<RwLock<WriteHalf<TcpStream>>>>>>,
     connected: bool,
     app_handle: Arc<RwLock<Option<AppHandle>>>,
 }
@@ -522,15 +522,17 @@ impl TcpServer {
                             eprintln!("TCPServer: WARNING - App handle not available, cannot emit client-connected event for {}", client_id);
                         }
 
-                        let stream_arc = Arc::new(RwLock::new(stream));
+                        // Split the stream into read and write halves to avoid deadlock
+                        let (read_half, write_half) = tokio::io::split(stream);
+                        let write_half_arc = Arc::new(RwLock::new(write_half));
 
-                        // Add client to the list
-                        match clients.write().await.insert(client_id.clone(), stream_arc.clone()) {
+                        // Add client write half to the list
+                        match clients.write().await.insert(client_id.clone(), write_half_arc.clone()) {
                             Some(_) => eprintln!("TCPServer: Replaced existing client {}", client_id),
                             None => eprintln!("TCPServer: Added new client {}", client_id),
                         }
 
-                        // Spawn task to handle this client
+                        // Spawn task to handle this client using the read half
                         let clients_clone = clients.clone();
                         let client_id_clone = client_id.clone();
                         let session_id_clone = session_id.clone();
@@ -539,12 +541,10 @@ impl TcpServer {
                         tokio::spawn(async move {
                             eprintln!("TCPServer: Starting client handler for {}", client_id_clone);
                             let mut buffer = [0u8; 8192];
+                            let mut read_half = read_half;
 
                             loop {
-                                let read_result = {
-                                    let mut stream = stream_arc.write().await;
-                                    stream.read(&mut buffer).await
-                                };
+                                let read_result = read_half.read(&mut buffer).await;
 
                                 match read_result {
                                     Ok(0) => {
@@ -766,14 +766,14 @@ impl ServerConnection for TcpServer {
         let clients = self.clients.read().await;
         eprintln!("TCPServer: Current clients count: {}", clients.len());
 
-        if let Some(stream_arc) = clients.get(client_id) {
+        if let Some(write_half_arc) = clients.get(client_id) {
             eprintln!("TCPServer: Found client {} in session {}", client_id, self.session_id);
-            let mut stream = stream_arc.write().await;
+            let mut write_half = write_half_arc.write().await;
 
-            match stream.write_all(data).await {
+            match write_half.write_all(data).await {
                 Ok(_) => {
                     eprintln!("TCPServer: Successfully wrote {} bytes to client {} in session {}", data.len(), client_id, self.session_id);
-                    match stream.flush().await {
+                    match write_half.flush().await {
                         Ok(_) => {
                             eprintln!("TCPServer: Successfully flushed data to client {} in session {}", client_id, self.session_id);
                             Ok(data.len())
@@ -803,11 +803,11 @@ impl ServerConnection for TcpServer {
         let clients = self.clients.read().await;
         let mut total_sent = 0;
 
-        for (_client_id, stream_arc) in clients.iter() {
-            let mut stream = stream_arc.write().await;
-            match stream.write_all(data).await {
+        for (_client_id, write_half_arc) in clients.iter() {
+            let mut write_half = write_half_arc.write().await;
+            match write_half.write_all(data).await {
                 Ok(_) => {
-                    let _ = stream.flush().await;
+                    let _ = write_half.flush().await;
                     total_sent += data.len();
                 }
                 Err(_) => {
@@ -828,9 +828,9 @@ impl ServerConnection for TcpServer {
 
     async fn disconnect_client(&mut self, client_id: &str) -> NetworkResult<()> {
         let mut clients = self.clients.write().await;
-        if let Some(stream_arc) = clients.remove(client_id) {
-            // The stream will be dropped, closing the connection
-            drop(stream_arc);
+        if let Some(write_half_arc) = clients.remove(client_id) {
+            // The write half will be dropped, closing the connection
+            drop(write_half_arc);
         }
         Ok(())
     }
