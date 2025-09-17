@@ -66,32 +66,38 @@ impl Connection for TcpClient {
             })?;
 
         let stream = if let Some(timeout_ms) = self.timeout {
-            eprintln!("TCPClient: Connecting with {}ms timeout", timeout_ms);
+            eprintln!("TCPClient: Session {} - Connecting with {}ms timeout to {}:{}",
+                self.session_id, timeout_ms, self.host, self.port);
             tokio::time::timeout(
                 std::time::Duration::from_millis(timeout_ms),
                 TcpStream::connect(addr)
             ).await
             .map_err(|_| {
-                let error_msg = format!("Connection timeout after {}ms to {}:{}", timeout_ms, self.host, self.port);
+                let error_msg = format!("Session {} - Connection timeout after {}ms to {}:{}",
+                    self.session_id, timeout_ms, self.host, self.port);
                 eprintln!("TCPClient: {}", error_msg);
                 NetworkError::ConnectionFailed(error_msg)
             })?
             .map_err(|e| {
-                let error_msg = format_tcp_connection_error(&e, &self.host, self.port);
+                let error_msg = format!("Session {} - {}",
+                    self.session_id, format_tcp_connection_error(&e, &self.host, self.port));
                 eprintln!("TCPClient: {}", error_msg);
                 NetworkError::ConnectionFailed(error_msg)
             })?
         } else {
-            eprintln!("TCPClient: Connecting without timeout");
+            eprintln!("TCPClient: Session {} - Connecting without timeout to {}:{}",
+                self.session_id, self.host, self.port);
             TcpStream::connect(addr).await
                 .map_err(|e| {
-                    let error_msg = format_tcp_connection_error(&e, &self.host, self.port);
+                    let error_msg = format!("Session {} - {}",
+                        self.session_id, format_tcp_connection_error(&e, &self.host, self.port));
                     eprintln!("TCPClient: {}", error_msg);
                     NetworkError::ConnectionFailed(error_msg)
                 })?
         };
 
-        eprintln!("TCPClient: Successfully connected to {}:{}", self.host, self.port);
+        eprintln!("TCPClient: Session {} - Successfully connected to {}:{}",
+            self.session_id, self.host, self.port);
         self.stream = Some(stream);
         self.connected = true;
 

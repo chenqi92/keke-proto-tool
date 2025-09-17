@@ -344,6 +344,7 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
                 ? "bg-red-500 hover:bg-red-600 text-white"
                 : "bg-green-500 hover:bg-green-600 text-white"
             )}
+            title={`WebSocket Session: ${sessionId} | Status: ${connectionStatus} | isConnecting: ${isConnecting} | isConnectingLocal: ${isConnectingLocal}`}
           >
             {(isConnecting || isConnectingLocal) ? (
               <>

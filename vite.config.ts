@@ -11,10 +11,10 @@ export default defineConfig({
   // 1. prevent vite from obscuring rust errors
   clearScreen: false,
   
-  // 2. tauri expects a fixed port, fail if that port is not available
+  // 2. tauri expects a fixed port, but allow fallback to avoid conflicts
   server: {
     port: 3000,
-    strictPort: true,
+    strictPort: false, // Allow fallback to other ports if 3000 is occupied
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],

@@ -39,9 +39,27 @@ class NetworkService {
       // Listen for connection status changes
       await listen<{ sessionId: string; status: ConnectionStatus; error?: string }>('connection-status', (event) => {
         const { sessionId, status, error } = event.payload;
-        console.log(`NetworkService: Received connection-status event for session ${sessionId} - status: ${status}`, error ? `error: ${error}` : '');
-        console.log(`NetworkService: Event payload:`, event.payload);
-        useAppStore.getState().updateSessionStatus(sessionId, status, error);
+        console.log(`🔄 NetworkService: Received connection-status event for session ${sessionId} - status: ${status}`, error ? `error: ${error}` : '');
+        console.log(`🔄 NetworkService: Event payload:`, event.payload);
+
+        // Ensure we only update the specific session's status
+        const store = useAppStore.getState();
+        const session = store.getSession(sessionId);
+        if (session) {
+          console.log(`✅ NetworkService: Updating status for session ${sessionId} from ${session.status} to ${status}`);
+          console.log(`📊 NetworkService: Session ${sessionId} details:`, {
+            name: session.config.name,
+            protocol: session.config.protocol,
+            connectionType: session.config.connectionType,
+            host: session.config.host,
+            port: session.config.port,
+            currentStatus: session.status
+          });
+          store.updateSessionStatus(sessionId, status, error);
+        } else {
+          console.warn(`❌ NetworkService: Session ${sessionId} not found when updating status to ${status}`);
+          console.log(`📋 NetworkService: Available sessions:`, Object.keys(store.sessions));
+        }
       });
 
       // Listen for incoming messages
@@ -226,7 +244,8 @@ class NetworkService {
       useAppStore.getState().updateSessionStatus(sessionId, 'connecting');
 
       // Set up a timeout to handle cases where the backend doesn't respond
-      const timeoutMs = (config.timeout || 30) * 1000; // Convert to milliseconds
+      // config.timeout is already in milliseconds from AppStore
+      const timeoutMs = config.timeout || 10000; // Default 10 seconds in milliseconds
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           reject(new Error(`Connection timeout after ${timeoutMs / 1000} seconds`));

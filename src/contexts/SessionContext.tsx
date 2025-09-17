@@ -106,7 +106,7 @@ export const getDefaultSessionConfig = (protocol: string, sessionId?: string): S
     port: 8080,
     autoReconnect: false,
     keepAlive: true,
-    timeout: 30000,
+    timeout: 10000, // 10 seconds default
     retryAttempts: 3,
   };
 

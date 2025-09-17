@@ -61,6 +61,10 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   // 判断是否为服务端模式
   const isServerMode = config?.connectionType === 'server';
 
+  // 连接状态检查（在使用之前声明）
+  const isConnected = connectionStatus === 'connected';
+  const isConnecting = connectionStatus === 'connecting';
+
   // 当服务端停止时清理客户端连接
   React.useEffect(() => {
     if (isServerMode && connectionStatus === 'disconnected') {
@@ -75,13 +79,27 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   }, [connectionStatus, isServerMode, sessionId, getClientConnections, removeClientConnection]);
 
   // 调试信息
-  console.log(`TCP Session ${sessionId}:`, {
+  console.log(`🖥️ TCP Session ${sessionId}:`, {
+    name: config?.name,
     connectionType: config?.connectionType,
     isServerMode,
     protocol: config?.protocol,
     host: config?.host,
     port: config?.port,
-    status: connectionStatus
+    status: connectionStatus,
+    sessionExists: !!session,
+    configExists: !!config
+  });
+
+  // 额外的状态调试信息
+  console.log(`🔍 TCP Session ${sessionId} State Debug:`, {
+    sessionId,
+    isConnected,
+    isConnecting,
+    isConnectingLocal,
+    buttonDisabled: isConnecting || isConnectingLocal,
+    connectionStatus,
+    sessionObject: session
   });
 
   // 获取客户端连接列表（仅服务端模式）
@@ -147,10 +165,6 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
 
     return baseStats;
   }, [statistics, isServerMode, clientConnections]);
-  
-  // 连接状态检查
-  const isConnected = connectionStatus === 'connected';
-  const isConnecting = connectionStatus === 'connecting';
 
   // 服务端状态检查
   const isListening = isServerMode && isConnected;
@@ -458,6 +472,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                 ? "bg-red-500 hover:bg-red-600 text-white"
                 : "bg-green-500 hover:bg-green-600 text-white"
             )}
+            title={`Session: ${sessionId} | Status: ${connectionStatus} | isConnecting: ${isConnecting} | isConnectingLocal: ${isConnectingLocal}`}
           >
             {(isConnecting || isConnectingLocal) ? (
               <>

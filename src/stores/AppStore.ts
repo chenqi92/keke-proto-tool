@@ -80,7 +80,13 @@ const createInitialStatistics = (): SessionStatistics => ({
 });
 
 const createInitialSessionState = (config: SessionConfig): SessionState => ({
-  config,
+  config: {
+    ...config,
+    // Ensure reasonable timeout defaults for better user experience
+    timeout: config.timeout || 10000, // 10 seconds default
+    retryAttempts: config.retryAttempts || 3,
+    retryDelay: config.retryDelay || 1000, // 1 second default
+  },
   status: 'disconnected',
   isRecording: false,
   messages: [],
@@ -222,12 +228,29 @@ export const useAppStore = create<AppStore>()(
 
     // Connection Management
     updateSessionStatus: (sessionId: string, status: ConnectionStatus, error?: string) => {
-      console.log(`AppStore: Updating session ${sessionId} status to ${status}`, error ? `with error: ${error}` : '');
+      console.log(`🏪 AppStore: Updating session ${sessionId} status to ${status}`, error ? `with error: ${error}` : '');
 
       set((state) => {
         const session = state.sessions[sessionId];
         if (!session) {
-          console.warn(`AppStore: Session ${sessionId} not found when updating status`);
+          console.warn(`❌ AppStore: Session ${sessionId} not found when updating status`);
+          console.log(`📋 AppStore: Available sessions:`, Object.keys(state.sessions));
+          return state;
+        }
+
+        console.log(`📊 AppStore: Session ${sessionId} details before update:`, {
+          name: session.config.name,
+          protocol: session.config.protocol,
+          connectionType: session.config.connectionType,
+          host: session.config.host,
+          port: session.config.port,
+          currentStatus: session.status,
+          newStatus: status
+        });
+
+        // Prevent unnecessary updates if status hasn't changed
+        if (session.status === status && session.error === error) {
+          console.log(`⏭️ AppStore: Session ${sessionId} status unchanged, skipping update`);
           return state;
         }
 
@@ -256,7 +279,7 @@ export const useAppStore = create<AppStore>()(
           ...updates,
         };
 
-        console.log(`AppStore: Session ${sessionId} updated:`, updatedSession);
+        console.log(`AppStore: Session ${sessionId} status updated from ${session.status} to ${status}`);
 
         return {
           sessions: {

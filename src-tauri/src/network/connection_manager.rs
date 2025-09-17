@@ -28,10 +28,17 @@ impl ConnectionManager {
         max_retries: Option<u32>,
         retry_delay_ms: Option<u64>,
     ) -> Self {
+        // Use shorter default timeout for better user experience
+        let default_timeout = 10000; // 10 seconds instead of 30
+        let timeout_duration = Duration::from_millis(timeout_ms.unwrap_or(default_timeout));
+
+        eprintln!("ConnectionManager: Creating new manager for session {} with timeout {}ms",
+            session_id, timeout_duration.as_millis());
+
         Self {
             connection: Arc::new(RwLock::new(None)),
             session_id,
-            timeout_duration: Duration::from_millis(timeout_ms.unwrap_or(30000)), // Default 30s
+            timeout_duration,
             max_retries: max_retries.unwrap_or(3),
             base_retry_delay: Duration::from_millis(retry_delay_ms.unwrap_or(1000)), // Default 1s
             current_attempt: Arc::new(RwLock::new(0)),
@@ -117,7 +124,7 @@ impl ConnectionManager {
         for attempt in 0..=self.max_retries {
             // Check for cancellation
             if *self.should_cancel.read().await {
-                let error_msg = "Connection cancelled".to_string();
+                let error_msg = format!("Connection cancelled for session {}", self.session_id);
                 eprintln!("ConnectionManager: {}", error_msg);
                 let _ = status_callback.send(ConnectionStatus::Error(error_msg.clone())).await;
                 return Err(NetworkError::ConnectionFailed(error_msg));
@@ -125,13 +132,14 @@ impl ConnectionManager {
 
             *self.current_attempt.write().await = attempt;
 
-            // Update status
+            // Update status with session context
             let status = if attempt == 0 {
                 ConnectionStatus::Connecting
             } else {
                 ConnectionStatus::Reconnecting(attempt)
             };
-            eprintln!("ConnectionManager: Attempt {} - Status: {:?}", attempt + 1, status);
+            eprintln!("ConnectionManager: Session {} - Attempt {} - Status: {:?}",
+                self.session_id, attempt + 1, status);
             let _ = status_callback.send(status).await;
 
             // Attempt connection with timeout
@@ -155,49 +163,65 @@ impl ConnectionManager {
                             return Ok(());
                         }
                         Ok(Err(e)) => {
-                            eprintln!("Connection establishment failed on attempt {}: {}", attempt + 1, e);
+                            eprintln!("ConnectionManager: Session {} - Connection establishment failed on attempt {}: {}",
+                                self.session_id, attempt + 1, e);
 
                             // Check if this is a permanent error that shouldn't be retried
                             if e.is_permanent() {
-                                eprintln!("ConnectionManager: Permanent error detected, stopping retries");
+                                eprintln!("ConnectionManager: Session {} - Permanent error detected, stopping retries",
+                                    self.session_id);
                                 let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
                                 return Err(e);
                             }
 
                             if attempt == self.max_retries {
-                                let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
-                                return Err(e);
+                                let error_msg = format!("Session {} - Connection failed after {} attempts: {}",
+                                    self.session_id, self.max_retries + 1, e);
+                                eprintln!("ConnectionManager: {}", error_msg);
+                                let _ = status_callback.send(ConnectionStatus::Error(error_msg.clone())).await;
+                                return Err(NetworkError::ConnectionFailed(error_msg));
                             }
                         }
                         Err(_) => {
-                            eprintln!("Connection establishment timed out on attempt {}", attempt + 1);
+                            let timeout_msg = format!("Session {} - Connection establishment timed out on attempt {} ({}ms timeout)",
+                                self.session_id, attempt + 1, self.timeout_duration.as_millis());
+                            eprintln!("ConnectionManager: {}", timeout_msg);
+
                             if attempt == self.max_retries {
                                 let _ = status_callback.send(ConnectionStatus::TimedOut).await;
-                                return Err(NetworkError::ConnectionFailed("Connection timed out".to_string()));
+                                return Err(NetworkError::ConnectionFailed(timeout_msg));
                             }
                         }
                     }
                 }
                 Ok(Err(e)) => {
-                    eprintln!("Connection creation failed on attempt {}: {}", attempt + 1, e);
+                    eprintln!("ConnectionManager: Session {} - Connection creation failed on attempt {}: {}",
+                        self.session_id, attempt + 1, e);
 
                     // Check if this is a permanent error that shouldn't be retried
                     if e.is_permanent() {
-                        eprintln!("ConnectionManager: Permanent error detected, stopping retries");
+                        eprintln!("ConnectionManager: Session {} - Permanent error detected, stopping retries",
+                            self.session_id);
                         let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
                         return Err(e);
                     }
 
                     if attempt == self.max_retries {
-                        let _ = status_callback.send(ConnectionStatus::Error(e.to_string())).await;
+                        let error_msg = format!("Session {} - Connection creation failed after {} attempts: {}",
+                            self.session_id, self.max_retries + 1, e);
+                        eprintln!("ConnectionManager: {}", error_msg);
+                        let _ = status_callback.send(ConnectionStatus::Error(error_msg.clone())).await;
                         return Err(e);
                     }
                 }
                 Err(_) => {
-                    eprintln!("Connection creation timed out on attempt {}", attempt + 1);
+                    let timeout_msg = format!("Session {} - Connection creation timed out on attempt {} ({}ms timeout)",
+                        self.session_id, attempt + 1, self.timeout_duration.as_millis());
+                    eprintln!("ConnectionManager: {}", timeout_msg);
+
                     if attempt == self.max_retries {
                         let _ = status_callback.send(ConnectionStatus::TimedOut).await;
-                        return Err(NetworkError::ConnectionFailed("Connection timed out".to_string()));
+                        return Err(NetworkError::ConnectionFailed(timeout_msg));
                     }
                 }
             }
@@ -208,8 +232,8 @@ impl ConnectionManager {
                 let max_delay = Duration::from_secs(30); // Cap at 30 seconds
                 let actual_delay = std::cmp::min(delay, max_delay);
 
-                eprintln!("ConnectionManager: Retrying connection in {:?} (attempt {}/{})",
-                    actual_delay, attempt + 2, self.max_retries + 1);
+                eprintln!("ConnectionManager: Session {} - Retrying connection in {:?} (attempt {}/{})",
+                    self.session_id, actual_delay, attempt + 2, self.max_retries + 1);
 
                 // Sleep with periodic cancellation checks
                 let sleep_duration = Duration::from_millis(100); // Check every 100ms

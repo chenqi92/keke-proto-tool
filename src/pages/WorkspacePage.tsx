@@ -325,7 +325,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       port: sessionData.port,
       autoReconnect: sessionData.autoReconnect || false,
       keepAlive: sessionData.keepAlive || true,
-      timeout: sessionData.timeout || 30000,
+      timeout: sessionData.timeout || 10000, // 10 seconds default
       retryAttempts: sessionData.retryAttempts || 3,
       // Protocol-specific properties
       ...(sessionData.protocol === 'WebSocket' && { websocketSubprotocol: sessionData.websocketSubprotocol }),

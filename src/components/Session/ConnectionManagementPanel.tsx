@@ -186,7 +186,7 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
                     min="5"
                     max="300"
                     value={Math.floor(config.timeout / 1000)}
-                    onChange={(e) => handleTimeoutChange(parseInt(e.target.value) || 30)}
+                    onChange={(e) => handleTimeoutChange(parseInt(e.target.value) || 10)}
                     className="w-full px-2 py-1 border border-border rounded text-xs"
                   />
                 </div>

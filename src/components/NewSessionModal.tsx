@@ -89,7 +89,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
     // Connection management defaults
     autoReconnect: false,
     keepAlive: true,
-    timeout: 30000, // 30 seconds
+    timeout: 10000, // 10 seconds default
     retryAttempts: 3,
     retryDelay: 1000, // 1 second
     maxRetryDelay: 30000, // 30 seconds
@@ -223,7 +223,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
       // Reset connection management
       autoReconnect: false,
       keepAlive: true,
-      timeout: 30000,
+      timeout: 10000, // 10 seconds default
       retryAttempts: 3,
       retryDelay: 1000,
       maxRetryDelay: 30000,
