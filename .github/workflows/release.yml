@@ -389,6 +389,26 @@ jobs:
           echo "Available artifacts:"
           find artifacts -type f | head -20
 
+          # Rename macOS app.tar.gz files to include architecture
+          if [ "${{ matrix.os }}" = "macos" ]; then
+            find artifacts -name "*.app.tar.gz" | while read file; do
+              if [ -f "$file" ]; then
+                dir=$(dirname "$file")
+                if [ "${{ matrix.arch }}" = "x64" ]; then
+                  new_name="$dir/ProtoTool_x64.app.tar.gz"
+                elif [ "${{ matrix.arch }}" = "arm64" ]; then
+                  new_name="$dir/ProtoTool_aarch64.app.tar.gz"
+                else
+                  new_name="$file"
+                fi
+                if [ "$file" != "$new_name" ]; then
+                  echo "Renaming $file to $new_name"
+                  mv "$file" "$new_name"
+                fi
+              fi
+            done
+          fi
+
           # Find and upload all package files
           UPLOAD_COUNT=0
           find artifacts -type f \( \
