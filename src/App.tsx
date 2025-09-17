@@ -25,69 +25,11 @@ import { useAppStore } from '@/stores/AppStore'
 
 // Hooks
 import { useTheme } from '@/hooks/useTheme'
+import { useNativeMenu } from '@/hooks/useNativeMenu'
 
-// Simple debug component to test theme detection
-const SimpleThemeDebug = () => {
-  const { theme, colorTheme, setTheme, setColorTheme } = useTheme()
-  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>('light')
 
-  useEffect(() => {
-    const updateSystemTheme = () => {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setSystemTheme(isDark ? 'dark' : 'light')
-      console.log('🔍 [SimpleDebug] System theme detected:', isDark ? 'dark' : 'light')
-    }
 
-    updateSystemTheme()
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    mediaQuery.addEventListener('change', updateSystemTheme)
-    return () => mediaQuery.removeEventListener('change', updateSystemTheme)
-  }, [])
 
-  const testTheme = (testTheme: 'light' | 'dark' | 'system') => {
-    console.log('🧪 [SimpleDebug] Testing theme:', testTheme)
-    setTheme(testTheme)
-  }
-
-  const testColorTheme = (testColor: string) => {
-    console.log('🧪 [SimpleDebug] Testing color theme:', testColor)
-    setColorTheme(testColor as any)
-  }
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: '10px',
-      right: '10px',
-      background: 'rgba(0,0,0,0.8)',
-      color: 'white',
-      padding: '10px',
-      borderRadius: '5px',
-      fontSize: '12px',
-      zIndex: 9999,
-      maxWidth: '300px'
-    }}>
-      <div><strong>Theme Debug</strong></div>
-      <div>Current Theme: {theme}</div>
-      <div>Color Theme: {colorTheme}</div>
-      <div>System Prefers: {systemTheme}</div>
-      <div>Root Classes: {Array.from(document.documentElement.classList).join(', ')}</div>
-
-      <div style={{ marginTop: '10px' }}>
-        <button onClick={() => testTheme('light')} style={{ margin: '2px', padding: '2px 6px', fontSize: '10px' }}>Light</button>
-        <button onClick={() => testTheme('dark')} style={{ margin: '2px', padding: '2px 6px', fontSize: '10px' }}>Dark</button>
-        <button onClick={() => testTheme('system')} style={{ margin: '2px', padding: '2px 6px', fontSize: '10px' }}>System</button>
-      </div>
-
-      <div style={{ marginTop: '5px' }}>
-        <button onClick={() => testColorTheme('red')} style={{ margin: '1px', padding: '1px 4px', fontSize: '9px', background: 'red' }}>Red</button>
-        <button onClick={() => testColorTheme('blue')} style={{ margin: '1px', padding: '1px 4px', fontSize: '9px', background: 'blue' }}>Blue</button>
-        <button onClick={() => testColorTheme('green')} style={{ margin: '1px', padding: '1px 4px', fontSize: '9px', background: 'green' }}>Green</button>
-        <button onClick={() => testColorTheme('default')} style={{ margin: '1px', padding: '1px 4px', fontSize: '9px', background: 'gray' }}>Default</button>
-      </div>
-    </div>
-  )
-}
 
 // Services
 import { toolboxService } from '@/services/ToolboxService'
@@ -110,6 +52,18 @@ function App() {
 
   // Initialize theme system at app level
   useTheme()
+
+  // Modal handling functions (defined before useNativeMenu)
+  const openModal = (modalType: string) => {
+    setActiveModal(modalType)
+  }
+
+  const closeModal = () => {
+    setActiveModal(null)
+  }
+
+  // Initialize native menu handling
+  useNativeMenu({ onOpenModal: openModal })
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -157,14 +111,6 @@ function App() {
 
   const handleWelcomeComplete = () => {
     setShowWelcome(false)
-  }
-
-  const openModal = (modalType: string) => {
-    setActiveModal(modalType)
-  }
-
-  const closeModal = () => {
-    setActiveModal(null)
   }
 
   const handleNewSession = (sessionData: SessionData) => {
@@ -272,6 +218,7 @@ function App() {
       />
 
       {activeModal && renderModal()}
+
 
 
     </SessionProvider>
