@@ -20,19 +20,20 @@ pub struct TcpClient {
     stream: Option<TcpStream>,
     connected: bool,
     validate_internal_server: bool, // 是否验证内部服务端
+    app_handle: Option<AppHandle>,
 }
 
 impl TcpClient {
-    pub fn new(session_id: String, config: serde_json::Value) -> NetworkResult<Self> {
+    pub fn new(session_id: String, config: serde_json::Value, app_handle: Option<AppHandle>) -> NetworkResult<Self> {
         let host = config.get("host")
             .and_then(|v| v.as_str())
             .unwrap_or("127.0.0.1")
             .to_string();
-        
+
         let port = config.get("port")
             .and_then(|v| v.as_u64())
             .unwrap_or(8080) as u16;
-        
+
         let timeout = config.get("timeout")
             .and_then(|v| v.as_u64());
 
@@ -49,6 +50,7 @@ impl TcpClient {
             stream: None,
             connected: false,
             validate_internal_server,
+            app_handle,
         })
     }
 }
@@ -130,10 +132,30 @@ impl Connection for TcpClient {
     async fn send(&mut self, data: &[u8]) -> NetworkResult<usize> {
         match &mut self.stream {
             Some(stream) => {
+                eprintln!("TCPClient: Session {} - Sending {} bytes to server", self.session_id, data.len());
+
                 stream.write_all(data).await
                     .map_err(|e| NetworkError::SendFailed(e.to_string()))?;
                 stream.flush().await
                     .map_err(|e| NetworkError::SendFailed(e.to_string()))?;
+
+                eprintln!("TCPClient: Session {} - Successfully sent {} bytes to server", self.session_id, data.len());
+
+                // Emit message-received event for client-to-server data transmission
+                if let Some(app_handle) = &self.app_handle {
+                    let payload = serde_json::json!({
+                        "sessionId": self.session_id,
+                        "data": data.to_vec(),
+                        "direction": "out"
+                    });
+
+                    if let Err(e) = app_handle.emit("message-received", payload) {
+                        eprintln!("TCPClient: Failed to emit message-received event for client-to-server transmission: {}", e);
+                    } else {
+                        eprintln!("TCPClient: Successfully emitted message-received event for {} bytes sent to server", data.len());
+                    }
+                }
+
                 Ok(data.len())
             }
             None => Err(NetworkError::SendFailed("Not connected".to_string())),
@@ -165,6 +187,7 @@ impl Connection for TcpClient {
 
         if let Some(stream) = self.stream.take() {
             let session_id = self.session_id.clone();
+            let app_handle = self.app_handle.clone();
             let mut read_stream = stream;
 
             // Spawn background task to read from stream
@@ -175,6 +198,7 @@ impl Connection for TcpClient {
                     match read_stream.read(&mut buffer).await {
                         Ok(0) => {
                             // Connection closed
+                            eprintln!("TCPClient: Session {} - Connection closed by server", session_id);
                             let event = NetworkEvent {
                                 session_id: session_id.clone(),
                                 event_type: "disconnected".to_string(),
@@ -190,7 +214,25 @@ impl Connection for TcpClient {
                             break;
                         }
                         Ok(n) => {
-                            // Data received
+                            // Data received from server
+                            eprintln!("TCPClient: Session {} - Received {} bytes from server", session_id, n);
+
+                            // Emit message-received event for server-to-client data transmission
+                            if let Some(app_handle) = &app_handle {
+                                let payload = serde_json::json!({
+                                    "sessionId": session_id,
+                                    "data": buffer[..n].to_vec(),
+                                    "direction": "in"
+                                });
+
+                                if let Err(e) = app_handle.emit("message-received", payload) {
+                                    eprintln!("TCPClient: Failed to emit message-received event for server-to-client transmission: {}", e);
+                                } else {
+                                    eprintln!("TCPClient: Successfully emitted message-received event for {} bytes received from server", n);
+                                }
+                            }
+
+                            // Also send the old NetworkEvent for compatibility
                             let event = NetworkEvent {
                                 session_id: session_id.clone(),
                                 event_type: "message".to_string(),

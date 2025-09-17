@@ -93,13 +93,14 @@ impl ConnectionFactory {
         protocol: &str,
         connection_type: &str,
         config: serde_json::Value,
+        app_handle: Option<tauri::AppHandle>,
     ) -> NetworkResult<Box<dyn Connection>> {
         match protocol.to_lowercase().as_str() {
             "tcp" => {
                 if connection_type == "server" {
                     Ok(Box::new(tcp::TcpServer::new(session_id, config)?))
                 } else {
-                    Ok(Box::new(tcp::TcpClient::new(session_id, config)?))
+                    Ok(Box::new(tcp::TcpClient::new(session_id, config, app_handle)?))
                 }
             }
             "udp" => {

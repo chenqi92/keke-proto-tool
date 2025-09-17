@@ -64,12 +64,14 @@ impl Session {
             let protocol = protocol.clone();
             let connection_type = connection_type.clone();
             let config_value = config_value.clone();
+            let app_handle = self.state.get_app_handle();
 
             move || {
                 let session_id = session_id.clone();
                 let protocol = protocol.clone();
                 let connection_type = connection_type.clone();
                 let config_value = config_value.clone();
+                let app_handle = app_handle.clone();
 
                 async move {
                     eprintln!("Creating connection for session {} with protocol {} and type {}", session_id, protocol, connection_type);
@@ -78,6 +80,7 @@ impl Session {
                         &protocol,
                         &connection_type,
                         config_value,
+                        app_handle,
                     )
                 }
             }
