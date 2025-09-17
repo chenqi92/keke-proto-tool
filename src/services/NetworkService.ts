@@ -436,8 +436,7 @@ class NetworkService {
       });
 
       if (result) {
-        // Add outgoing message to store
-        this.handleIncomingMessage(sessionId, data, 'out');
+        // Message will be added to store via backend event emission
         return true;
       }
 
@@ -501,8 +500,7 @@ class NetworkService {
       });
 
       if (result) {
-        // Add outgoing message to store
-        this.handleIncomingMessage(sessionId, data, 'out');
+        // Message will be added to store via backend event emission
         return true;
       }
 
@@ -543,8 +541,7 @@ class NetworkService {
       });
 
       if (result) {
-        // Add outgoing message to store
-        this.handleIncomingMessage(sessionId, data, 'out');
+        // Message will be added to store via backend event emission
         return true;
       }
 
@@ -631,8 +628,7 @@ class NetworkService {
       });
 
       if (result) {
-        // Add outgoing message to store
-        this.handleIncomingMessage(sessionId, data, 'out');
+        // Message will be added to store via backend event emission
         return true;
       }
 

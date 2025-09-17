@@ -4,7 +4,7 @@ import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/co
 import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
-import { ConnectionManagementPanel } from '@/components/Session';
+
 import {ConnectionStatus, Message} from '@/types';
 import {
   Wifi,
@@ -39,7 +39,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
-  const [showConnectionManagement, setShowConnectionManagement] = useState(false);
+
 
 
   // 编辑状态
@@ -51,6 +51,9 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [broadcastMode, setBroadcastMode] = useState(false);
 
+  // 消息过滤状态
+  const [selectedClientForFilter, setSelectedClientForFilter] = useState<string | null>(null);
+
   // 从会话状态获取数据
   const config = session?.config;
   const connectionStatus = session?.status || 'disconnected';
@@ -58,8 +61,25 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const statistics = session?.statistics;
   const connectionError = session?.error;
 
-  // 判断是否为服务端模式
+  // 判断是否为服务端模式（必须在使用前声明）
   const isServerMode = config?.connectionType === 'server';
+
+  // 过滤消息：根据选中的客户端过滤消息
+  const filteredMessages = useMemo(() => {
+    if (!isServerMode || selectedClientForFilter === null) {
+      return messages; // 客户端模式或显示所有消息
+    }
+
+    if (selectedClientForFilter === 'all') {
+      return messages; // 显示所有客户端的消息
+    }
+
+    // 过滤特定客户端的消息
+    return messages.filter(message =>
+      message.sourceClientId === selectedClientForFilter ||
+      message.targetClientId === selectedClientForFilter
+    );
+  }, [messages, selectedClientForFilter, isServerMode]);
 
   // 连接状态检查（在使用之前声明）
   const isConnected = connectionStatus === 'connected';
@@ -260,7 +280,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
 
       if (success) {
         console.log(`TCP Session ${sessionId}: 消息发送成功`);
-        setSendData('');
+        // Keep input content for easy resending or modification
         setFormatError(null);
       } else {
         const errorMsg = `发送失败：${isServerMode ? '服务端' : '网络'}错误或连接已断开`;
@@ -619,24 +639,64 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                 )}
               </div>
 
-              {/* 连接管理按钮 - 仅客户端模式显示，右对齐 */}
-              <div className="flex justify-end">
-                {!isServerMode && (
-                  <button
-                    onClick={() => setShowConnectionManagement(!showConnectionManagement)}
-                    className={cn(
-                      "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors",
-                      showConnectionManagement
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}
-                    title="连接管理"
-                  >
-                    <Settings className="w-3 h-3" />
-                    <span>连接管理</span>
-                  </button>
-                )}
-              </div>
+              {/* Connection settings for client mode */}
+              {!isServerMode && (
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-medium text-muted-foreground">超时:</span>
+                    <input
+                      type="number"
+                      min="5"
+                      max="300"
+                      value={Math.floor((config.timeout || 10000) / 1000)}
+                      onChange={(e) => {
+                        const timeoutSeconds = parseInt(e.target.value) || 10;
+                        const store = useAppStore.getState();
+                        store.updateSession(sessionId, {
+                          config: { ...config, timeout: timeoutSeconds * 1000 }
+                        });
+                      }}
+                      className="w-12 px-1 py-0.5 text-xs border border-border rounded"
+                    />
+                    <span className="text-xs text-muted-foreground">秒</span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-medium text-muted-foreground">重试:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={config.retryAttempts || 3}
+                      onChange={(e) => {
+                        const retryAttempts = parseInt(e.target.value) || 3;
+                        const store = useAppStore.getState();
+                        store.updateSession(sessionId, {
+                          config: { ...config, retryAttempts }
+                        });
+                      }}
+                      className="w-12 px-1 py-0.5 text-xs border border-border rounded"
+                    />
+                    <span className="text-xs text-muted-foreground">次</span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="autoReconnect"
+                      checked={config.autoReconnect || false}
+                      onChange={(e) => {
+                        const store = useAppStore.getState();
+                        store.updateSession(sessionId, {
+                          config: { ...config, autoReconnect: e.target.checked }
+                        });
+                      }}
+                      className="rounded border-border"
+                    />
+                    <label htmlFor="autoReconnect" className="text-xs">自动重连</label>
+                  </div>
+                </div>
+              )}
             </div>
             
             <textarea
@@ -652,6 +712,25 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
           </div>
           
           <div className="flex flex-col justify-end space-y-2">
+            {/* Auto Send Option - Only for client mode */}
+            {!isServerMode && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="autoSendEnabled"
+                  checked={config.autoSendEnabled || false}
+                  onChange={(e) => {
+                    const store = useAppStore.getState();
+                    store.updateSession(sessionId, {
+                      config: { ...config, autoSendEnabled: e.target.checked }
+                    });
+                  }}
+                  className="rounded border-border"
+                />
+                <label htmlFor="autoSendEnabled" className="text-xs">启用自动发送</label>
+              </div>
+            )}
+
             <button
               onClick={handleSendMessage}
               disabled={
@@ -773,32 +852,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
 
 
 
-      {/* Connection Management Panel - Only for Client Sessions */}
-      {!isServerMode && showConnectionManagement && (
-        <div className="px-4 py-2">
-          <ConnectionManagementPanel
-            sessionId={sessionId}
-            config={config}
-            status={connectionStatus}
-            onConfigUpdate={(updates) => {
-              // Update session config through the store
-              const updateSession = useAppStore.getState().updateSession;
-              updateSession(sessionId, { config: { ...config, ...updates } });
-            }}
-            onConnect={handleConnect}
-            onDisconnect={handleConnect}
-            onSendMessage={async (data, format) => {
-              try {
-                await handleSend(data, format as DataFormat);
-                return true;
-              } catch (error) {
-                console.error('Auto send failed:', error);
-                return false;
-              }
-            }}
-          />
-        </div>
-      )}
+
 
       {/* 主内容区域 */}
       <div className="flex-1 overflow-hidden">
@@ -818,10 +872,37 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                     </div>
                   ) : (
                     <div className="p-2 space-y-2">
+                      {/* 显示所有客户端选项 */}
+                      <div
+                        className={cn(
+                          "p-3 rounded-lg border cursor-pointer transition-colors",
+                          selectedClientForFilter === 'all' || selectedClientForFilter === null
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:bg-muted/50"
+                        )}
+                        onClick={() => setSelectedClientForFilter('all')}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            <span className="text-sm font-medium">所有客户端</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          显示来自所有连接客户端的消息
+                        </div>
+                      </div>
+
                       {clientConnections.map((client) => (
                         <div
                           key={client.id}
-                          className="p-3 rounded-lg border border-border"
+                          className={cn(
+                            "p-3 rounded-lg border cursor-pointer transition-colors",
+                            selectedClientForFilter === client.id
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:bg-muted/50"
+                          )}
+                          onClick={() => setSelectedClientForFilter(client.id)}
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-2">
@@ -853,7 +934,13 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
             {/* 消息流面板 */}
             <div className="flex-1 flex flex-col">
               <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50">
-                <h3 className="text-sm font-medium">消息流 ({messages.length})</h3>
+                <h3 className="text-sm font-medium">
+                  消息流 ({filteredMessages.length}
+                  {selectedClientForFilter && selectedClientForFilter !== 'all' && (
+                    <span className="text-muted-foreground"> - {selectedClientForFilter}</span>
+                  )}
+                  )
+                </h3>
                 <div className="flex items-center space-x-2">
                   <span className="text-xs text-muted-foreground">显示格式:</span>
                   <DataFormatSelector
@@ -863,10 +950,10 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                   />
                   <button
                     onClick={handleClearMessages}
-                    disabled={messages.length === 0}
+                    disabled={filteredMessages.length === 0}
                     className={cn(
                       "p-1 rounded hover:bg-accent transition-colors",
-                      messages.length === 0
+                      filteredMessages.length === 0
                         ? "text-muted-foreground cursor-not-allowed"
                         : "text-foreground hover:text-destructive"
                     )}
@@ -877,14 +964,17 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto">
-                {messages.length === 0 ? (
+                {filteredMessages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                    暂无消息
+                    {selectedClientForFilter && selectedClientForFilter !== 'all'
+                      ? `暂无来自客户端 ${selectedClientForFilter} 的消息`
+                      : '暂无消息'
+                    }
                   </div>
                 ) : (
                   <div className="space-y-1 p-2">
                     {/* 倒序排序，最新消息在上 */}
-                    {[...messages].reverse().map((message) => (
+                    {[...filteredMessages].reverse().map((message) => (
                       <div
                         key={message.id}
                         className={cn(

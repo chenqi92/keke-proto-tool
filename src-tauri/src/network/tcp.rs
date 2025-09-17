@@ -428,14 +428,17 @@ impl TcpServer {
         let app_handle = self.app_handle.clone();
 
         eprintln!("TCPServer: Starting background task to accept connections");
+        eprintln!("TCPServer: Current clients count before spawning task: {}", clients.read().await.len());
 
         // Use a channel to confirm the background task has started successfully
         let (startup_tx, startup_rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
 
         // Spawn background task to accept connections
         eprintln!("TCPServer: About to spawn background task");
+        eprintln!("TCPServer: Background task will use clients Arc address: {:p}", &*clients);
         let task_handle = tokio::spawn(async move {
             eprintln!("TCPServer: Background task started, now accepting connections");
+            eprintln!("TCPServer: Background task using clients Arc address: {:p}", &*clients);
 
             // Verify listener is still working after being moved to the task
             match listener.local_addr() {
@@ -527,9 +530,19 @@ impl TcpServer {
                         let write_half_arc = Arc::new(RwLock::new(write_half));
 
                         // Add client write half to the list
-                        match clients.write().await.insert(client_id.clone(), write_half_arc.clone()) {
-                            Some(_) => eprintln!("TCPServer: Replaced existing client {}", client_id),
-                            None => eprintln!("TCPServer: Added new client {}", client_id),
+                        {
+                            let mut clients_write = clients.write().await;
+                            eprintln!("TCPServer: [BACKGROUND TASK] Before adding client {}, current clients count: {}", client_id, clients_write.len());
+                            eprintln!("TCPServer: [BACKGROUND TASK] Current clients: {:?}", clients_write.keys().collect::<Vec<_>>());
+                            eprintln!("TCPServer: [BACKGROUND TASK] Clients Arc address: {:p}", &*clients);
+
+                            match clients_write.insert(client_id.clone(), write_half_arc.clone()) {
+                                Some(_) => eprintln!("TCPServer: [BACKGROUND TASK] Replaced existing client {}", client_id),
+                                None => eprintln!("TCPServer: [BACKGROUND TASK] Added new client {}", client_id),
+                            }
+
+                            eprintln!("TCPServer: [BACKGROUND TASK] After adding client {}, current clients count: {}", client_id, clients_write.len());
+                            eprintln!("TCPServer: [BACKGROUND TASK] Updated clients: {:?}", clients_write.keys().collect::<Vec<_>>());
                         }
 
                         // Spawn task to handle this client using the read half
@@ -549,8 +562,11 @@ impl TcpServer {
                                 match read_result {
                                     Ok(0) => {
                                         // Client disconnected
-                                        eprintln!("TCPServer: Client {} disconnected", client_id_clone);
-                                        clients_clone.write().await.remove(&client_id_clone);
+                                        eprintln!("TCPServer: [CLIENT HANDLER] Client {} disconnected", client_id_clone);
+                                        eprintln!("TCPServer: [CLIENT HANDLER] Removing client {} from clients list", client_id_clone);
+                                        eprintln!("TCPServer: [CLIENT HANDLER] Clients Arc address: {:p}", &*clients_clone);
+                                        let removed = clients_clone.write().await.remove(&client_id_clone);
+                                        eprintln!("TCPServer: [CLIENT HANDLER] Client {} removal result: {:?}", client_id_clone, removed.is_some());
 
                                         // Emit client-disconnected event
                                         if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
@@ -761,10 +777,13 @@ impl Connection for TcpServer {
 #[async_trait]
 impl ServerConnection for TcpServer {
     async fn send_to_client(&mut self, client_id: &str, data: &[u8]) -> NetworkResult<usize> {
-        eprintln!("TCPServer: Attempting to send {} bytes to client {} in session {}", data.len(), client_id, self.session_id);
+        eprintln!("TCPServer: [SEND_TO_CLIENT] Attempting to send {} bytes to client {} in session {}", data.len(), client_id, self.session_id);
+        eprintln!("TCPServer: [SEND_TO_CLIENT] TcpServer instance address: {:p}", self);
+        eprintln!("TCPServer: [SEND_TO_CLIENT] Clients Arc address: {:p}", &*self.clients);
 
         let clients = self.clients.read().await;
-        eprintln!("TCPServer: Current clients count: {}", clients.len());
+        eprintln!("TCPServer: [SEND_TO_CLIENT] Current clients count: {}", clients.len());
+        eprintln!("TCPServer: [SEND_TO_CLIENT] Available clients: {:?}", clients.keys().collect::<Vec<_>>());
 
         if let Some(write_half_arc) = clients.get(client_id) {
             eprintln!("TCPServer: Found client {} in session {}", client_id, self.session_id);
