@@ -1,6 +1,6 @@
 [package]
 name = "keke-proto-tool"
-version = "0.0.10"
+version = "0.0.11"
 description = "跨平台的网络报文工作站，集连接调试、协议解析、规则/插件扩展、数据筛选存储、AI 辅助与批量导出为一体"
 authors = ["ProtoTool Team <team@prototool.dev>"]
 license = "MIT"
