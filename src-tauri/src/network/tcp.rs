@@ -776,6 +776,23 @@ impl ServerConnection for TcpServer {
                     match write_half.flush().await {
                         Ok(_) => {
                             eprintln!("TCPServer: Successfully flushed data to client {} in session {}", client_id, self.session_id);
+
+                            // Emit message-received event for server-to-client data transmission
+                            if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                                let payload = serde_json::json!({
+                                    "sessionId": self.session_id,
+                                    "data": data.to_vec(),
+                                    "direction": "out",
+                                    "clientId": client_id
+                                });
+
+                                if let Err(e) = app_handle.emit("message-received", payload) {
+                                    eprintln!("TCPServer: Failed to emit message-received event for server-to-client transmission: {}", e);
+                                } else {
+                                    eprintln!("TCPServer: Successfully emitted message-received event for {} bytes sent to client {}", data.len(), client_id);
+                                }
+                            }
+
                             Ok(data.len())
                         }
                         Err(e) => {
@@ -803,12 +820,35 @@ impl ServerConnection for TcpServer {
         let clients = self.clients.read().await;
         let mut total_sent = 0;
 
-        for (_client_id, write_half_arc) in clients.iter() {
+        for (client_id, write_half_arc) in clients.iter() {
             let mut write_half = write_half_arc.write().await;
             match write_half.write_all(data).await {
                 Ok(_) => {
-                    let _ = write_half.flush().await;
-                    total_sent += data.len();
+                    match write_half.flush().await {
+                        Ok(_) => {
+                            total_sent += data.len();
+
+                            // Emit message-received event for broadcast to each client
+                            if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                                let payload = serde_json::json!({
+                                    "sessionId": self.session_id,
+                                    "data": data.to_vec(),
+                                    "direction": "out",
+                                    "clientId": client_id
+                                });
+
+                                if let Err(e) = app_handle.emit("message-received", payload) {
+                                    eprintln!("TCPServer: Failed to emit message-received event for broadcast to client {}: {}", client_id, e);
+                                } else {
+                                    eprintln!("TCPServer: Successfully emitted message-received event for {} bytes broadcast to client {}", data.len(), client_id);
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            // Client connection failed, will be cleaned up by the read task
+                            continue;
+                        }
+                    }
                 }
                 Err(_) => {
                     // Client connection failed, will be cleaned up by the read task

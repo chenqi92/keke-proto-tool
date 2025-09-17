@@ -74,9 +74,9 @@ class NetworkService {
       });
 
       // Listen for incoming messages
-      await listen<{ sessionId: string; data: Uint8Array; direction: 'in' | 'out' }>('message-received', (event) => {
-        const { sessionId, data, direction } = event.payload;
-        this.handleIncomingMessage(sessionId, data, direction);
+      await listen<{ sessionId: string; data: Uint8Array; direction: 'in' | 'out'; clientId?: string }>('message-received', (event) => {
+        const { sessionId, data, direction, clientId } = event.payload;
+        this.handleIncomingMessage(sessionId, data, direction, clientId);
       });
 
       // Listen for client connection events (for server sessions)
@@ -138,7 +138,7 @@ class NetworkService {
         break;
       case 'message':
         if (data) {
-          this.handleIncomingMessage(sessionId, data, 'in');
+          this.handleIncomingMessage(sessionId, data, 'in', clientId);
         }
         break;
       case 'sse_event':
@@ -149,7 +149,7 @@ class NetworkService {
     }
   }
 
-  private handleIncomingMessage(sessionId: string, data: Uint8Array, direction: 'in' | 'out') {
+  private handleIncomingMessage(sessionId: string, data: Uint8Array, direction: 'in' | 'out', clientId?: string) {
     const message: Message = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date(),
@@ -159,6 +159,9 @@ class NetworkService {
       data,
       status: 'success',
       raw: this.uint8ArrayToString(data),
+      // Set client-related fields based on direction and clientId
+      ...(clientId && direction === 'in' && { sourceClientId: clientId }),
+      ...(clientId && direction === 'out' && { targetClientId: clientId }),
     };
 
     useAppStore.getState().addMessage(sessionId, message);
