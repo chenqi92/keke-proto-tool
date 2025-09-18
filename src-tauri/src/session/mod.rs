@@ -200,6 +200,12 @@ impl Session {
         self.connection_manager.send(data).await
     }
 
+    /// Send UDP message to specific address
+    pub async fn send_udp_message(&mut self, data: &[u8], target_host: &str, target_port: u16) -> NetworkResult<usize> {
+        // Delegate to connection manager
+        self.connection_manager.send_udp_message(data, target_host, target_port).await
+    }
+
     /// Check if the session is connected
     #[allow(dead_code)]
     pub fn is_connected(&self) -> bool {

@@ -180,15 +180,16 @@ pub async fn cancel_connection(
 /// Send UDP message to specific address
 #[tauri::command]
 pub async fn send_udp_message(
-    _session_id: String,
-    _data: Vec<u8>,
-    _target_host: String,
-    _target_port: u16,
-    _session_manager: State<'_, SessionManager>,
+    session_id: String,
+    data: Vec<u8>,
+    target_host: String,
+    target_port: u16,
+    session_manager: State<'_, SessionManager>,
 ) -> Result<bool, String> {
-    // TODO: Implement UDP-specific functionality
-    // For now, return an error indicating this needs implementation
-    Err("UDP functionality not yet implemented".to_string())
+    match session_manager.send_udp_message(&session_id, &data, &target_host, target_port).await {
+        Ok(result) => Ok(result),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 /// Subscribe to an MQTT topic

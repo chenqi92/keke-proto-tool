@@ -1,6 +1,7 @@
-use crate::network::{Connection, ServerConnection};
+use crate::network::{Connection, ServerConnection, UdpConnection};
 use crate::network::tcp::TcpServer;
 use crate::network::websocket::WebSocketServer;
+use crate::network::udp::{UdpClient, UdpServer};
 use crate::types::{NetworkResult, NetworkError, ConnectionStatus};
 use std::sync::Arc;
 use std::time::Duration;
@@ -332,6 +333,9 @@ impl ConnectionManager {
             } else if let Some(server_connection) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
                 eprintln!("ConnectionManager: Successfully downcast to WebSocketServer for session {}", self.session_id);
                 server_connection.send_to_client(client_id, data).await
+            } else if let Some(server_connection) = connection.as_any_mut().downcast_mut::<UdpServer>() {
+                eprintln!("ConnectionManager: Successfully downcast to UdpServer for session {}", self.session_id);
+                server_connection.send_to_client(client_id, data).await
             } else {
                 let error_msg = "Connection does not support server operations".to_string();
                 eprintln!("ConnectionManager: {}", error_msg);
@@ -352,11 +356,47 @@ impl ConnectionManager {
                 server_connection.broadcast(data).await
             } else if let Some(server_connection) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
                 server_connection.broadcast(data).await
+            } else if let Some(server_connection) = connection.as_any_mut().downcast_mut::<UdpServer>() {
+                server_connection.broadcast(data).await
             } else {
                 Err(crate::types::NetworkError::ConnectionFailed("Connection does not support server operations".to_string()))
             }
         } else {
             Err(crate::types::NetworkError::ConnectionFailed("No active connection".to_string()))
+        }
+    }
+
+    /// Send UDP message to specific address
+    pub async fn send_udp_message(&self, data: &[u8], target_host: &str, target_port: u16) -> NetworkResult<usize> {
+        eprintln!("ConnectionManager: Attempting to send UDP message to {}:{} for session {}", target_host, target_port, self.session_id);
+
+        if let Some(connection) = self.connection.write().await.as_mut() {
+            eprintln!("ConnectionManager: Found connection for session {}, attempting UDP downcast", self.session_id);
+            // Try to downcast to UdpConnection
+            if let Some(udp_connection) = connection.as_any_mut().downcast_mut::<UdpClient>() {
+                eprintln!("ConnectionManager: Successfully downcast to UdpClient for session {}", self.session_id);
+                match udp_connection.send_to(data, target_host, target_port).await {
+                    Ok(bytes_sent) => {
+                        eprintln!("ConnectionManager: UdpClient sent {} bytes to {}:{} for session {}", bytes_sent, target_host, target_port, self.session_id);
+                        Ok(bytes_sent)
+                    }
+                    Err(e) => {
+                        eprintln!("ConnectionManager: UdpClient failed to send to {}:{} for session {}: {}", target_host, target_port, self.session_id, e);
+                        Err(e)
+                    }
+                }
+            } else if let Some(udp_connection) = connection.as_any_mut().downcast_mut::<UdpServer>() {
+                eprintln!("ConnectionManager: Successfully downcast to UdpServer for session {}", self.session_id);
+                udp_connection.send_to(data, target_host, target_port).await
+            } else {
+                let error_msg = "Connection does not support UDP operations".to_string();
+                eprintln!("ConnectionManager: {}", error_msg);
+                Err(crate::types::NetworkError::ConnectionFailed(error_msg))
+            }
+        } else {
+            let error_msg = "No active connection".to_string();
+            eprintln!("ConnectionManager: {}", error_msg);
+            Err(crate::types::NetworkError::ConnectionFailed(error_msg))
         }
     }
 

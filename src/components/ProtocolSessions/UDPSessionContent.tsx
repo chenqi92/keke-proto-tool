@@ -4,7 +4,6 @@ import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/co
 import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
-import { ConnectionManagementPanel } from '@/components/Session';
 import { Message } from '@/types';
 import {
   Send,
@@ -35,7 +34,6 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
-  const [showConnectionManagement, setShowConnectionManagement] = useState(false);
 
   // 编辑状态
   const [isEditingConnection, setIsEditingConnection] = useState(false);
@@ -43,8 +41,6 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
   const [editPort, setEditPort] = useState('');
 
   // UDP特定状态
-  const [targetHost, setTargetHost] = useState('');
-  const [targetPort, setTargetPort] = useState(9090);
   const [broadcastMode, setBroadcastMode] = useState(false);
 
   // UDP服务端特定状态
@@ -199,12 +195,6 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
   const handleSendMessage = async () => {
     if (!config || isSending) return;
 
-    // UDP客户端模式需要目标地址
-    if (!isServerMode && (!targetHost || !targetPort)) {
-      setFormatError('请设置目标主机和端口');
-      return;
-    }
-
     // UDP服务端模式需要选择客户端或广播
     if (isServerMode && !broadcastMode && !selectedClient) {
       setFormatError('请选择目标客户端或启用广播模式');
@@ -234,8 +224,8 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
           success = await networkService.sendUDPMessage(sessionId, dataBytes, host, port);
         }
       } else {
-        // 客户端模式：发送到指定目标
-        success = await networkService.sendUDPMessage(sessionId, dataBytes, targetHost, targetPort);
+        // 客户端模式：使用配置中的默认地址
+        success = await networkService.sendUDPMessage(sessionId, dataBytes, config.host, config.port);
       }
 
       if (success) {
@@ -486,7 +476,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
       )}
 
       {/* 发送面板 */}
-      <div className={cn("border-b border-border bg-card p-4", isServerMode ? "h-40" : "h-48")}>
+      <div className={cn("border-b border-border bg-card p-4", isServerMode ? "h-40" : "h-32")}>
         <div className="flex items-stretch space-x-3 h-full">
           <div className="flex-1 flex flex-col space-y-2">
             <div className="flex items-center justify-between">
@@ -495,32 +485,6 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                   <span className="text-xs font-medium text-muted-foreground">数据格式:</span>
                   <DataFormatSelector value={sendFormat} onChange={setSendFormat} size="sm" />
                 </div>
-
-                {/* UDP客户端模式：目标地址设置 */}
-                {!isServerMode && (
-                  <>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs font-medium text-muted-foreground">目标:</span>
-                      <input
-                        type="text"
-                        value={targetHost}
-                        onChange={(e) => setTargetHost(e.target.value)}
-                        placeholder="主机地址"
-                        className="px-2 py-1 text-xs bg-background border border-border rounded w-24"
-                      />
-                      <span className="text-xs text-muted-foreground">:</span>
-                      <input
-                        type="number"
-                        value={targetPort}
-                        onChange={(e) => setTargetPort(parseInt(e.target.value) || 9090)}
-                        placeholder="端口"
-                        className="px-2 py-1 text-xs bg-background border border-border rounded w-16"
-                        min="1"
-                        max="65535"
-                      />
-                    </div>
-                  </>
-                )}
 
                 {/* UDP服务端模式：目标选择显示 */}
                 {isServerMode && (
@@ -533,24 +497,64 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                 )}
               </div>
 
-              {/* 连接管理按钮 - 仅客户端模式显示，右对齐 */}
-              <div className="flex justify-end">
-                {!isServerMode && (
-                  <button
-                    onClick={() => setShowConnectionManagement(!showConnectionManagement)}
-                    className={cn(
-                      "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors",
-                      showConnectionManagement
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}
-                    title="连接管理"
-                  >
-                    <Settings className="w-3 h-3" />
-                    <span>连接管理</span>
-                  </button>
-                )}
-              </div>
+              {/* UDP客户端模式：连接设置 */}
+              {!isServerMode && (
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-medium text-muted-foreground">超时:</span>
+                    <input
+                      type="number"
+                      min="5"
+                      max="300"
+                      value={Math.floor((config.timeout || 10000) / 1000)}
+                      onChange={(e) => {
+                        const timeoutSeconds = parseInt(e.target.value) || 10;
+                        const store = useAppStore.getState();
+                        store.updateSession(sessionId, {
+                          config: { ...config, timeout: timeoutSeconds * 1000 }
+                        });
+                      }}
+                      className="w-12 px-1 py-0.5 text-xs border border-border rounded"
+                    />
+                    <span className="text-xs text-muted-foreground">秒</span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-medium text-muted-foreground">重试:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="10"
+                      value={config.retryAttempts || 3}
+                      onChange={(e) => {
+                        const retryAttempts = parseInt(e.target.value) || 3;
+                        const store = useAppStore.getState();
+                        store.updateSession(sessionId, {
+                          config: { ...config, retryAttempts }
+                        });
+                      }}
+                      className="w-12 px-1 py-0.5 text-xs border border-border rounded"
+                    />
+                    <span className="text-xs text-muted-foreground">次</span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="autoReconnect"
+                      checked={config.autoReconnect || false}
+                      onChange={(e) => {
+                        const store = useAppStore.getState();
+                        store.updateSession(sessionId, {
+                          config: { ...config, autoReconnect: e.target.checked }
+                        });
+                      }}
+                      className="rounded border-border"
+                    />
+                    <label htmlFor="autoReconnect" className="text-xs">自动重连</label>
+                  </div>
+                </div>
+              )}
             </div>
 
             <textarea
@@ -573,11 +577,29 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
           </div>
 
           <div className="flex flex-col justify-end space-y-2">
+            {/* 自动发送选项 - 仅客户端模式 */}
+            {!isServerMode && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="autoSendEnabled"
+                  checked={config.autoSendEnabled || false}
+                  onChange={(e) => {
+                    const store = useAppStore.getState();
+                    store.updateSession(sessionId, {
+                      config: { ...config, autoSendEnabled: e.target.checked }
+                    });
+                  }}
+                  className="rounded border-border"
+                />
+                <label htmlFor="autoSendEnabled" className="text-xs">启用自动发送</label>
+              </div>
+            )}
+
             <button
               onClick={handleSendMessage}
               disabled={
                 isSending ||
-                (!isServerMode && (!targetHost || !targetPort)) ||
                 (isServerMode && !broadcastMode && !selectedClient) ||
                 !sendData.trim()
               }
@@ -585,8 +607,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                 "px-4 py-2 rounded-md text-sm font-medium transition-all duration-200",
                 "flex items-center space-x-2 min-w-20",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
-                !isSending && sendData.trim() &&
-                (isServerMode || (targetHost && targetPort))
+                !isSending && sendData.trim()
                   ? "bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105"
                   : "bg-muted text-muted-foreground"
               )}
@@ -604,12 +625,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
               )}
             </button>
 
-            {/* 发送提示 */}
-            {!isServerMode && (!targetHost || !targetPort) && (
-              <div className="text-xs text-muted-foreground text-center">
-                请设置目标地址
-              </div>
-            )}
+            {/* 服务端模式提示 */}
             {isServerMode && !broadcastMode && !selectedClient && (
               <div className="text-xs text-muted-foreground text-center">
                 请选择客户端地址
@@ -687,32 +703,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
         </div>
       )}
 
-      {/* Connection Management Panel - Only for Client Sessions */}
-      {!isServerMode && showConnectionManagement && (
-        <div className="px-4 py-2">
-          <ConnectionManagementPanel
-            sessionId={sessionId}
-            config={config}
-            status={connectionStatus}
-            onConfigUpdate={(updates) => {
-              // Update session config through the store
-              const updateSession = useAppStore.getState().updateSession;
-              updateSession(sessionId, { config: { ...config, ...updates } });
-            }}
-            onConnect={handleConnect}
-            onDisconnect={handleConnect}
-            onSendMessage={async (data, format) => {
-              try {
-                await handleSend(data, format as DataFormat);
-                return true;
-              } catch (error) {
-                console.error('Auto send failed:', error);
-                return false;
-              }
-            }}
-          />
-        </div>
-      )}
+
 
       {/* 主内容区域 */}
       <div className="flex-1 overflow-hidden">
