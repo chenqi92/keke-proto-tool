@@ -84,7 +84,11 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
   const layoutConfig = useLayoutConfig();
   const { isMacOS } = usePlatform();
   const { selectedNode } = useSession();
-  const getSession = useAppStore(state => state.getSession);
+
+  // 使用 Zustand 选择器直接订阅会话状态变化，确保状态更新时组件重新渲染
+  const currentSession = useAppStore(state =>
+    selectedNode?.config ? state.sessions[selectedNode.config.id] : null
+  );
 
   // 判断是否可以连接：选中的节点必须是会话类型且有连接类型
   const canConnect = selectedNode &&
@@ -93,7 +97,6 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     ['client', 'server'].includes(selectedNode.connectionType);
 
   // 获取当前会话的连接状态
-  const currentSession = selectedNode?.config ? getSession(selectedNode.config.id) : null;
   const isConnected = currentSession?.status === 'connected';
 
   // 根据连接状态确定按钮文本
@@ -110,17 +113,16 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
 
     try {
       const sessionId = selectedNode.config.id;
-      const session = getSession(sessionId);
 
-      if (!session) {
+      if (!currentSession) {
         console.error('Session not found:', sessionId);
         return;
       }
 
       // 检查当前连接状态
-      const isConnected = session.status === 'connected';
+      const isCurrentlyConnected = currentSession.status === 'connected';
 
-      if (isConnected) {
+      if (isCurrentlyConnected) {
         // 如果已连接，则断开连接
         await networkService.disconnect(sessionId);
         console.log('Disconnected from session:', sessionId);
