@@ -74,14 +74,23 @@ class NetworkService {
       });
 
       // Listen for incoming messages
-      await listen<{ sessionId: string; data: Uint8Array; direction: 'in' | 'out'; clientId?: string }>('message-received', (event) => {
+      await listen<{ sessionId: string; data: number[] | Uint8Array; direction: 'in' | 'out'; clientId?: string }>('message-received', (event) => {
+        console.log('🔔 NetworkService - Received message-received event:', event.payload);
         const { sessionId, data, direction, clientId } = event.payload;
-        this.handleIncomingMessage(sessionId, data, direction, clientId);
+
+        // Convert data to Uint8Array if it's an array
+        const uint8Data = Array.isArray(data) ? new Uint8Array(data) : data;
+        console.log('📨 NetworkService - Processing message:', { sessionId, dataLength: uint8Data.length, direction, clientId });
+
+        this.handleIncomingMessage(sessionId, uint8Data, direction, clientId);
       });
 
       // Listen for client connection events (for server sessions)
       await listen<{ sessionId: string; clientId: string; remoteAddress: string; remotePort: number }>('client-connected', (event) => {
+        console.log('🔗 NetworkService - Received client-connected event:', event.payload);
+        console.log('🔍 NetworkService - Event payload details:', JSON.stringify(event.payload, null, 2));
         const { sessionId, clientId, remoteAddress, remotePort } = event.payload;
+        console.log('👤 NetworkService - Processing client connection:', { sessionId, clientId, remoteAddress, remotePort });
         this.handleClientConnected(sessionId, clientId, remoteAddress, remotePort);
       });
 
@@ -150,6 +159,8 @@ class NetworkService {
   }
 
   private handleIncomingMessage(sessionId: string, data: Uint8Array, direction: 'in' | 'out', clientId?: string) {
+    console.log('📝 NetworkService - handleIncomingMessage called:', { sessionId, dataLength: data.length, direction, clientId });
+
     const message: Message = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date(),
@@ -164,8 +175,12 @@ class NetworkService {
       ...(clientId && direction === 'out' && { targetClientId: clientId }),
     };
 
+    console.log('💬 NetworkService - Created message:', { id: message.id, direction, size: message.size, clientId });
+
     const store = useAppStore.getState();
     store.addMessage(sessionId, message);
+
+    console.log('✅ NetworkService - Message added to store for session:', sessionId);
 
     // Update client connection byte statistics if clientId is provided
     if (clientId) {
@@ -190,6 +205,8 @@ class NetworkService {
   }
 
   private handleClientConnected(sessionId: string, clientId: string, remoteAddress: string, remotePort: number) {
+    console.log('🔧 NetworkService - handleClientConnected called:', { sessionId, clientId, remoteAddress, remotePort });
+
     const clientConnection = {
       id: clientId,
       sessionId,
@@ -202,7 +219,12 @@ class NetworkService {
       isActive: true,
     };
 
+    console.log('💾 NetworkService - Adding client connection to store:', clientConnection);
     useAppStore.getState().addClientConnection(sessionId, clientConnection);
+
+    // Verify the connection was added
+    const connections = useAppStore.getState().getClientConnections(sessionId);
+    console.log('✅ NetworkService - Client connections after adding:', { count: connections.length, connections });
   }
 
   private handleClientDisconnected(sessionId: string, clientId: string) {

@@ -459,6 +459,16 @@ impl ConnectionManager {
                 eprintln!("ConnectionManager: Setting app handle on TCP server for session {}", self.session_id);
                 tcp_server.set_app_handle(app_handle.clone()).await;
             }
+            // Add UDP server support
+            else if let Some(udp_server) = connection.as_any_mut().downcast_mut::<UdpServer>() {
+                eprintln!("ConnectionManager: Setting app handle on UDP server for session {}", self.session_id);
+                udp_server.set_app_handle(app_handle.clone()).await;
+            }
+            // Add UDP client support
+            else if let Some(udp_client) = connection.as_any_mut().downcast_mut::<UdpClient>() {
+                eprintln!("ConnectionManager: Setting app handle on UDP client for session {}", self.session_id);
+                udp_client.set_app_handle(app_handle.clone()).await;
+            }
             // Add WebSocket server support
             else if let Some(ws_server) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
                 eprintln!("ConnectionManager: Setting app handle on WebSocket server for session {}", self.session_id);

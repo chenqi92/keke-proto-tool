@@ -14,7 +14,8 @@ import {
   WifiOff,
   Loader2,
   Radio,
-  Edit3
+  Edit3,
+  Trash2
 } from 'lucide-react';
 
 interface UDPSessionContentProps {
@@ -24,11 +25,11 @@ interface UDPSessionContentProps {
 export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId }) => {
   // 从全局状态获取会话数据
   const session = useSessionById(sessionId);
-
+  const { clearMessages, getClientConnections, removeClientConnection } = useAppStore();
 
   // 本地UI状态
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
-  const [receiveFormat] = useState<DataFormat>('ascii');
+  const [receiveFormat, setReceiveFormat] = useState<DataFormat>('ascii');
   const [sendData, setSendData] = useState('');
   const [formatError, setFormatError] = useState<string | null>(null);
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
@@ -45,6 +46,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
 
   // UDP服务端特定状态
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [selectedClientForFilter, setSelectedClientForFilter] = useState<string | null>('all');
 
   // 从会话状态获取数据
   const config = session?.config;
@@ -56,57 +58,73 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
   // 判断是否为服务端模式
   const isServerMode = config?.connectionType === 'server';
 
-  // 获取UDP"客户端连接"列表（基于来源地址，仅服务端模式）
+  // 获取UDP客户端连接列表（仅服务端模式）
   const clientConnections = useMemo(() => {
-    if (!isServerMode) return [];
-
-    // 从消息中提取不同的来源地址，模拟"客户端连接"
-    const addressMap = new Map();
-    messages.forEach(message => {
-      if (message.direction === 'in' && message.sourceAddress) {
-        const key = `${message.sourceAddress.host}:${message.sourceAddress.port}`;
-        if (!addressMap.has(key)) {
-          addressMap.set(key, {
-            id: key,
-            sessionId,
-            remoteAddress: message.sourceAddress.host,
-            remotePort: message.sourceAddress.port,
-            connectedAt: message.timestamp, // 第一次收到消息的时间
-            lastActivity: message.timestamp,
-            bytesReceived: 0,
-            bytesSent: 0,
-            isActive: true,
-          });
-        }
-        const client = addressMap.get(key);
-        client.lastActivity = message.timestamp;
-        client.bytesReceived += message.size;
+    // 强制检查：客户端模式下绝对不应该有客户端连接
+    if (!isServerMode) {
+      console.log(`UDP客户端模式 - Session ${sessionId}: 强制返回空的客户端连接列表`);
+      // 如果发现客户端模式下有客户端连接数据，清理它们
+      const existingConnections = getClientConnections(sessionId);
+      if (existingConnections.length > 0) {
+        console.error(`UDP客户端模式 - Session ${sessionId}: 检测到 ${existingConnections.length} 个错误的客户端连接，正在清理...`);
+        // 清理错误的客户端连接数据
+        existingConnections.forEach(client => {
+          removeClientConnection(sessionId, client.id);
+        });
       }
-    });
+      return [];
+    }
 
-    // 计算发送字节数
-    messages.forEach(message => {
-      if (message.direction === 'out' && message.targetAddress) {
-        const key = `${message.targetAddress.host}:${message.targetAddress.port}`;
-        const client = addressMap.get(key);
-        if (client) {
-          client.bytesSent += message.size;
+    const connections = getClientConnections(sessionId);
+    console.log(`UDP服务端模式 - Session ${sessionId}: 获取到 ${connections.length} 个客户端连接`, connections);
+
+    // 更新客户端连接的活动状态和字节统计
+    const updatedConnections = connections.map(client => {
+      // 计算该客户端的消息统计
+      let bytesReceived = 0;
+      let bytesSent = 0;
+      let lastActivity = client.connectedAt;
+
+      messages.forEach(message => {
+        if (message.clientId === client.id) {
+          if (message.direction === 'in') {
+            bytesReceived += message.size;
+          } else if (message.direction === 'out') {
+            bytesSent += message.size;
+          }
+          if (message.timestamp > lastActivity) {
+            lastActivity = message.timestamp;
+          }
         }
-      }
+      });
+
+      return {
+        ...client,
+        bytesReceived,
+        bytesSent,
+        lastActivity,
+        isActive: true, // UDP连接始终视为活跃，因为UDP是无连接的
+      };
     });
 
-    // 标记超过5分钟无活动的客户端为非活跃
-    const now = new Date();
-    Array.from(addressMap.values()).forEach(client => {
-      const inactiveTime = now.getTime() - client.lastActivity.getTime();
-      client.isActive = inactiveTime < 5 * 60 * 1000; // 5分钟
-    });
-
-    return Array.from(addressMap.values()).sort((a, b) =>
-      b.lastActivity.getTime() - a.lastActivity.getTime()
+    return updatedConnections.sort((a, b) =>
+      new Date(b.connectedAt).getTime() - new Date(a.connectedAt).getTime()
     );
-  }, [isServerMode, sessionId, messages]);
-  
+  }, [isServerMode, sessionId, getClientConnections, removeClientConnection, messages]);
+
+  // 当服务端停止时清理客户端连接
+  React.useEffect(() => {
+    if (isServerMode && connectionStatus === 'disconnected') {
+      const existingConnections = getClientConnections(sessionId);
+      if (existingConnections.length > 0) {
+        console.log(`UDP服务端 ${sessionId}: 服务端已停止，清理 ${existingConnections.length} 个客户端连接`);
+        existingConnections.forEach(client => {
+          removeClientConnection(sessionId, client.id);
+        });
+      }
+    }
+  }, [connectionStatus, isServerMode, sessionId, getClientConnections, removeClientConnection]);
+
   // 计算UDP特定统计信息
   const udpStats = useMemo(() => {
     const baseStats = {
@@ -156,7 +174,26 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
 
     return baseStats;
   }, [statistics, messages, isServerMode, clientConnections]);
-  
+
+  // 过滤消息（服务端模式按客户端过滤）
+  const filteredMessages = useMemo(() => {
+    if (!isServerMode || selectedClientForFilter === 'all' || !selectedClientForFilter) {
+      return messages;
+    }
+
+    return messages.filter(message => {
+      if (message.direction === 'in' && message.sourceAddress) {
+        const clientKey = `${message.sourceAddress.host}:${message.sourceAddress.port}`;
+        return clientKey === selectedClientForFilter;
+      }
+      if (message.direction === 'out' && message.targetAddress) {
+        const clientKey = `${message.targetAddress.host}:${message.targetAddress.port}`;
+        return clientKey === selectedClientForFilter;
+      }
+      return false;
+    });
+  }, [messages, isServerMode, selectedClientForFilter]);
+
   // UDP连接状态检查（UDP是无连接的，这里主要是socket绑定状态）
   const isConnected = connectionStatus === 'connected';
   const isConnecting = connectionStatus === 'connecting';
@@ -332,6 +369,23 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
       return formatData.to[receiveFormat](message.data);
     } catch {
       return '数据格式转换失败';
+    }
+  };
+
+  // 获取原始数据的十六进制表示
+  const getRawDataHex = (message: Message): string => {
+    try {
+      return formatData.to.hex(message.data);
+    } catch {
+      return '无法显示原始数据';
+    }
+  };
+
+  // 清除消息历史
+  const handleClearMessages = () => {
+    if (messages.length > 0) {
+      clearMessages(sessionId);
+      console.log(`UDP会话 ${sessionId}: 已清除 ${messages.length} 条消息记录`);
     }
   };
 
@@ -711,133 +765,205 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
           // 服务端模式：双面板布局（客户端地址面板 + 消息流面板）
           <div className="h-full flex">
             {/* 客户端地址面板 */}
-            <div className="w-80 border-r border-border flex flex-col">
-              <div className="h-10 border-b border-border flex items-center px-3 bg-muted/50">
-                <h3 className="text-sm font-medium">客户端地址 ({clientConnections.length})</h3>
-              </div>
-              <div className="flex-1 overflow-y-auto p-2">
-                {clientConnections.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                    暂无客户端地址
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {/* 广播选项 */}
-                    <div
-                      className={cn(
-                        "p-3 rounded-lg border transition-colors",
-                        broadcastMode
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                      )}
-                      onClick={() => {
-                        setBroadcastMode(true);
-                        setSelectedClient(null);
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 rounded-full bg-orange-500" />
-                          <span className="text-sm font-medium">广播模式</span>
+            <div className="w-80 border-r border-border bg-card">
+              <div className="h-full flex flex-col">
+                <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50">
+                  <h3 className="text-sm font-medium">客户端地址 ({clientConnections.length})</h3>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {clientConnections.length === 0 ? (
+                    <div className="p-4 text-center text-muted-foreground text-sm">
+                      {isBound ? '等待客户端数据报...' : 'UDP服务端未启动'}
+                    </div>
+                  ) : (
+                    <div className="p-2 space-y-2">
+                      {/* 显示所有客户端选项 */}
+                      <div
+                        className={cn(
+                          "p-3 rounded-lg border cursor-pointer transition-colors",
+                          selectedClientForFilter === 'all' || selectedClientForFilter === null
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:bg-muted/50"
+                        )}
+                        onClick={() => setSelectedClientForFilter('all')}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            <span className="text-sm font-medium">所有客户端</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          显示来自所有客户端地址的数据报
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        向所有客户端地址发送数据报
-                      </div>
-                    </div>
 
-                    {/* 客户端地址列表 */}
-                    {clientConnections.map((client) => (
+                      {/* 广播选项 */}
                       <div
-                        key={client.id}
                         className={cn(
-                          "p-3 rounded-lg border transition-colors",
-                          selectedClient === client.id && !broadcastMode
+                          "p-3 rounded-lg border cursor-pointer transition-colors",
+                          broadcastMode
                             ? "border-primary bg-primary/10"
-                            : "border-border hover:border-primary/50"
+                            : "border-border hover:bg-muted/50"
                         )}
                         onClick={() => {
-                          setSelectedClient(client.id);
-                          setBroadcastMode(false);
+                          setBroadcastMode(true);
+                          setSelectedClient(null);
                         }}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
-                            <div className={cn(
-                              "w-2 h-2 rounded-full",
-                              client.isActive ? "bg-green-500" : "bg-gray-500"
-                            )} />
-                            <span className="text-sm font-medium">
-                              {client.remoteAddress}:{client.remotePort}
-                            </span>
+                            <div className="w-2 h-2 rounded-full bg-orange-500" />
+                            <span className="text-sm font-medium">广播模式</span>
                           </div>
                         </div>
-                        <div className="text-xs text-muted-foreground space-y-1">
-                          <div>首次活动: {(client.connectedAt instanceof Date ? client.connectedAt : new Date(client.connectedAt)).toLocaleTimeString()}</div>
-                          <div>最后活动: {(client.lastActivity instanceof Date ? client.lastActivity : new Date(client.lastActivity)).toLocaleTimeString()}</div>
-                          <div className="flex justify-between">
-                            <span>接收: {client.bytesReceived}B</span>
-                            <span>发送: {client.bytesSent}B</span>
-                          </div>
+                        <div className="text-xs text-muted-foreground">
+                          向所有客户端地址发送数据报
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      {/* 客户端地址列表 */}
+                      {clientConnections.map((client) => (
+                        <div
+                          key={client.id}
+                          className={cn(
+                            "p-3 rounded-lg border cursor-pointer transition-colors",
+                            selectedClientForFilter === client.id
+                              ? "border-primary bg-primary/10"
+                              : selectedClient === client.id && !broadcastMode
+                              ? "border-green-500 bg-green-50/50 dark:bg-green-950/20"
+                              : "border-border hover:bg-muted/50"
+                          )}
+                          onClick={() => {
+                            // 双重功能：选择发送目标和过滤消息
+                            setSelectedClientForFilter(client.id);
+                            setSelectedClient(client.id);
+                            setBroadcastMode(false);
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                client.isActive ? "bg-green-500" : "bg-gray-500"
+                              )} />
+                              <span className="text-sm font-medium">
+                                {client.remoteAddress}:{client.remotePort}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <div>首次活动: {(client.connectedAt instanceof Date ? client.connectedAt : new Date(client.connectedAt)).toLocaleTimeString()}</div>
+                            <div>最后活动: {(client.lastActivity instanceof Date ? client.lastActivity : new Date(client.lastActivity)).toLocaleTimeString()}</div>
+                            <div className="flex justify-between">
+                              <span>接收: {client.bytesReceived}B</span>
+                              <span>发送: {client.bytesSent}B</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* 消息流面板 */}
             <div className="flex-1 flex flex-col">
-              <div className="h-10 border-b border-border flex items-center px-3 bg-muted/50">
-                <h3 className="text-sm font-medium">UDP数据报流 ({messages.length})</h3>
+              <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50">
+                <h3 className="text-sm font-medium">
+                  消息流 ({filteredMessages.length}
+                  {selectedClientForFilter && selectedClientForFilter !== 'all' && (
+                    <span className="text-muted-foreground"> - {selectedClientForFilter}</span>
+                  )}
+                  )
+                </h3>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-muted-foreground">显示格式:</span>
+                  <DataFormatSelector
+                    value={receiveFormat}
+                    onChange={setReceiveFormat}
+                    className="h-6 text-xs"
+                  />
+                  <button
+                    onClick={handleClearMessages}
+                    disabled={filteredMessages.length === 0}
+                    className={cn(
+                      "p-1 rounded hover:bg-accent transition-colors",
+                      filteredMessages.length === 0
+                        ? "text-muted-foreground cursor-not-allowed"
+                        : "text-foreground hover:text-destructive"
+                    )}
+                    title="清除消息历史"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-2">
-                {messages.length === 0 ? (
+              <div className="flex-1 overflow-y-auto">
+                {filteredMessages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                    暂无UDP数据报
+                    {selectedClientForFilter && selectedClientForFilter !== 'all'
+                      ? `暂无来自客户端 ${selectedClientForFilter} 的消息`
+                      : '暂无消息'
+                    }
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {messages.map((message) => (
+                  <div className="space-y-1 p-2">
+                    {/* 倒序排序，最新消息在上 */}
+                    {[...filteredMessages].reverse().map((message) => (
                       <div
                         key={message.id}
                         className={cn(
-                          "p-3 rounded-lg border",
+                          "px-3 py-1 text-xs border-l-2 hover:bg-muted/50 transition-colors",
                           message.direction === 'in'
-                            ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
-                            : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+                            ? "border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+                            : "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
                         )}
                       >
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col space-y-1">
                           <div className="flex items-center space-x-2">
                             <span className={cn(
-                              "text-xs px-2 py-1 rounded",
-                              message.direction === 'in'
-                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                                : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              "text-xs px-1 py-0.5 rounded text-white font-medium",
+                              message.direction === 'in' ? "bg-blue-500" : "bg-green-500"
                             )}>
-                              {message.direction === 'in' ? '接收' : '发送'}
+                              {message.direction === 'in' ? '收' : '发'}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {message.size} 字节
+                              {message.size}B
                             </span>
-                            <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                              UDP
+                            <span className={cn(
+                              "text-xs px-1 py-0.5 rounded border",
+                              "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                            )}>
+                              {receiveFormat.toUpperCase()}
                             </span>
                             {/* 显示来源/目标地址 */}
-                            {message.sourceAddress && (
-                              <span className="text-xs px-2 py-1 rounded bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200">
-                                {message.direction === 'in' ? '来自' : '发往'}: {message.sourceAddress.host}:{message.sourceAddress.port}
+                            {(message.sourceAddress || message.targetAddress) && (
+                              <span className="text-xs px-1 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                {message.direction === 'in' && message.sourceAddress
+                                  ? `来自: ${message.sourceAddress.host}:${message.sourceAddress.port}`
+                                  : message.direction === 'out' && message.targetAddress
+                                  ? `发往: ${message.targetAddress.host}:${message.targetAddress.port}`
+                                  : 'UDP'
+                                }
                               </span>
                             )}
                           </div>
-                        </div>
-                        <div className="text-sm font-mono bg-background/50 p-2 rounded border">
-                          {formatMessageData(message)}
+                          <div className="space-y-1">
+                            <div className="font-mono text-xs break-all">
+                              {formatMessageData(message)}
+                            </div>
+                            {receiveFormat !== 'hex' && (
+                              <div className="text-xs text-muted-foreground">
+                                <span className="text-xs font-medium">原始数据: </span>
+                                <span className="font-mono">{getRawDataHex(message)}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -847,51 +973,82 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
             </div>
           </div>
         ) : (
-          // 客户端模式：单面板消息流
+          // 客户端模式：显示消息流
           <div className="h-full flex flex-col">
-            <div className="h-10 border-b border-border flex items-center px-3 bg-muted/50">
-              <h3 className="text-sm font-medium">UDP数据报流 ({messages.length})</h3>
+            <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50">
+              <h3 className="text-sm font-medium">消息流 ({messages.length})</h3>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-muted-foreground">显示格式:</span>
+                <DataFormatSelector
+                  value={receiveFormat}
+                  onChange={setReceiveFormat}
+                  className="h-6 text-xs"
+                />
+                <button
+                  onClick={handleClearMessages}
+                  disabled={messages.length === 0}
+                  className={cn(
+                    "p-1 rounded hover:bg-accent transition-colors",
+                    messages.length === 0
+                      ? "text-muted-foreground cursor-not-allowed"
+                      : "text-foreground hover:text-destructive"
+                  )}
+                  title="清除消息历史"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto">
               {messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  暂无UDP数据报
+                  暂无消息
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {messages.map((message) => (
+                <div className="space-y-1 p-2">
+                  {/* 倒序排序，最新消息在上 */}
+                  {[...messages].reverse().map((message) => (
                     <div
                       key={message.id}
                       className={cn(
-                        "p-3 rounded-lg border",
+                        "px-3 py-1 text-xs border-l-2 hover:bg-muted/50 transition-colors",
                         message.direction === 'in'
-                          ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
-                          : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+                          ? "border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+                          : "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
                       )}
                     >
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col space-y-1">
                         <div className="flex items-center space-x-2">
                           <span className={cn(
-                            "text-xs px-2 py-1 rounded",
-                            message.direction === 'in'
-                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                              : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            "text-xs px-1 py-0.5 rounded text-white font-medium",
+                            message.direction === 'in' ? "bg-blue-500" : "bg-green-500"
                           )}>
-                            {message.direction === 'in' ? '接收' : '发送'}
+                            {message.direction === 'in' ? '收' : '发'}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {message.timestamp.toLocaleTimeString()}
+                            {(message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp)).toLocaleTimeString()}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {message.size} 字节
+                            {message.size}B
                           </span>
-                          <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            UDP
+                          <span className={cn(
+                            "text-xs px-1 py-0.5 rounded border",
+                            "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                          )}>
+                            {receiveFormat.toUpperCase()}
                           </span>
                         </div>
-                      </div>
-                      <div className="text-sm font-mono bg-background/50 p-2 rounded border">
-                        {formatMessageData(message)}
+                        <div className="space-y-1">
+                          <div className="font-mono text-xs break-all">
+                            {formatMessageData(message)}
+                          </div>
+                          {receiveFormat !== 'hex' && (
+                            <div className="text-xs text-muted-foreground">
+                              <span className="text-xs font-medium">原始数据: </span>
+                              <span className="font-mono">{getRawDataHex(message)}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

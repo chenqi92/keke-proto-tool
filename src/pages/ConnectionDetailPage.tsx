@@ -1,5 +1,6 @@
 import React from 'react';
 import { TCPClientDetailContent } from '@/components/ProtocolSessions/TCPClientDetailContent';
+import { UDPClientDetailContent } from '@/components/ProtocolSessions/UDPClientDetailContent';
 import { AlertCircle } from 'lucide-react';
 
 interface ConnectionDetailPageProps {
@@ -40,17 +41,12 @@ export const ConnectionDetailPage: React.FC<ConnectionDetailPageProps> = ({ node
       );
     
     case 'UDP':
-      // TODO: 实现UDP客户端详情页面
       return (
-        <div className="h-full flex items-center justify-center">
-          <div className="text-center">
-            <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-muted-foreground mb-2">UDP客户端详情</h3>
-            <p className="text-sm text-muted-foreground">
-              UDP客户端详情页面正在开发中...
-            </p>
-          </div>
-        </div>
+        <UDPClientDetailContent
+          sessionId={sessionId}
+          clientId={clientConnection.id}
+          clientConnection={clientConnection}
+        />
       );
     
     case 'WebSocket':

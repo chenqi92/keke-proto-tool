@@ -238,24 +238,24 @@ impl SessionManager {
 
     /// Send UDP message to specific address
     pub async fn send_udp_message(&self, session_id: &str, data: &[u8], target_host: &str, target_port: u16) -> NetworkResult<bool> {
-        eprintln!("SessionManager: Sending UDP message to {}:{} in session {}", target_host, target_port, session_id);
+        eprintln!("🔥 SessionManager: SEND_UDP_MESSAGE CALLED - Sending {} bytes to {}:{} in session {}", data.len(), target_host, target_port, session_id);
 
         match self.sessions.get_mut(session_id) {
             Some(mut session) => {
-                eprintln!("SessionManager: Found session {}, sending UDP message", session_id);
+                eprintln!("✅ SessionManager: Found session {}, sending UDP message", session_id);
                 match session.send_udp_message(data, target_host, target_port).await {
                     Ok(_) => {
-                        eprintln!("SessionManager: UDP message sent to {}:{} in session {}", target_host, target_port, session_id);
+                        eprintln!("✅ SessionManager: UDP message sent to {}:{} in session {}", target_host, target_port, session_id);
                         Ok(true)
                     }
                     Err(e) => {
-                        eprintln!("SessionManager: Failed to send UDP message in session {}: {}", session_id, e);
+                        eprintln!("❌ SessionManager: Failed to send UDP message in session {}: {}", session_id, e);
                         Err(e)
                     }
                 }
             }
             None => {
-                eprintln!("SessionManager: Session {} not found for UDP send", session_id);
+                eprintln!("❌ SessionManager: Session {} not found for UDP send", session_id);
                 Err(NetworkError::SessionNotFound(session_id.to_string()))
             }
         }
