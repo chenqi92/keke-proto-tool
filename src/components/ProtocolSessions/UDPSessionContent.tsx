@@ -83,7 +83,10 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
       // 计算该客户端的消息统计
       let bytesReceived = 0;
       let bytesSent = 0;
-      let lastActivity = client.connectedAt;
+      // 确保 connectedAt 是 Date 对象
+      let lastActivity = client.connectedAt instanceof Date
+        ? client.connectedAt
+        : new Date(client.connectedAt);
 
       messages.forEach(message => {
         if (message.clientId === client.id) {
@@ -107,9 +110,11 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
       };
     });
 
-    return updatedConnections.sort((a, b) =>
-      new Date(b.connectedAt).getTime() - new Date(a.connectedAt).getTime()
-    );
+    return updatedConnections.sort((a, b) => {
+      const aConnectedAt = a.connectedAt instanceof Date ? a.connectedAt : new Date(a.connectedAt);
+      const bConnectedAt = b.connectedAt instanceof Date ? b.connectedAt : new Date(b.connectedAt);
+      return bConnectedAt.getTime() - aConnectedAt.getTime();
+    });
   }, [isServerMode, sessionId, getClientConnections, removeClientConnection, messages]);
 
   // 当服务端停止时清理客户端连接
@@ -167,7 +172,11 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
       // 计算平均客户端活动时间
       const now = new Date();
       const totalActivityTime = clientConnections.reduce((sum, client) => {
-        return sum + (now.getTime() - client.connectedAt.getTime());
+        // 确保 connectedAt 是 Date 对象
+        const connectedAt = client.connectedAt instanceof Date
+          ? client.connectedAt
+          : new Date(client.connectedAt);
+        return sum + (now.getTime() - connectedAt.getTime());
       }, 0);
       baseStats.avgClientActivity = Math.round(totalActivityTime / clientConnections.length / 1000); // 秒
     }
