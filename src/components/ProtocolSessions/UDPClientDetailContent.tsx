@@ -46,7 +46,7 @@ export const UDPClientDetailContent: React.FC<UDPClientDetailContentProps> = ({
   const config = session?.config;
 
   // 获取该客户端的消息
-  const messages = useAppStore(state => state.messages[sessionId] || []);
+  const messages = session?.messages || [];
   const clientMessages = useMemo(() => {
     return messages.filter(msg => msg.clientId === clientId);
   }, [messages, clientId]);
