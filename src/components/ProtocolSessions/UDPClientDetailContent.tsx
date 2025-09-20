@@ -101,10 +101,10 @@ export const UDPClientDetailContent: React.FC<UDPClientDetailContentProps> = ({
       const dataBytes = formatData.from[sendFormat](sendData);
       
       // 发送数据到指定客户端
-      await networkService.sendUdpMessage(
-        sessionId, 
-        dataBytes, 
-        clientConnection.remoteAddress, 
+      await networkService.sendUDPMessage(
+        sessionId,
+        dataBytes,
+        clientConnection.remoteAddress,
         clientConnection.remotePort
       );
 
