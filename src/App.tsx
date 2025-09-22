@@ -11,6 +11,7 @@ import { SessionPage } from '@/pages/SessionPage'
 import { PlaybackPage } from '@/pages/PlaybackPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { AboutPage } from '@/pages/AboutPage'
+import { UserGuidePage } from '@/pages/UserGuidePage'
 
 // Layout Components
 import { MainContent } from '@/components/Layout/MainContent'
@@ -198,6 +199,8 @@ function App() {
         return <AboutPage onClose={closeModal} />
       case 'settings-about':
         return <AboutPage onClose={closeModal} />
+      case 'user-guide':
+        return <UserGuidePage onClose={closeModal} />
       case 'update-modal':
         return (
           <UpdateModal

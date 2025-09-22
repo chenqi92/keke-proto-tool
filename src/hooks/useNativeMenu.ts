@@ -265,7 +265,7 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates }: UseNativeMenuProp
         // 帮助菜单
         case 'user_guide':
           console.log('User Guide');
-          // TODO: 实现用户指南逻辑
+          onOpenModal('user-guide');
           break;
         case 'keyboard_shortcuts':
           console.log('Keyboard Shortcuts');
