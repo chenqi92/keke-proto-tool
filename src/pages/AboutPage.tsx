@@ -67,20 +67,44 @@ ProtoTool 由 **programApe** 开发和维护。
 
   const handleLinkClick = async (href: string) => {
     try {
-      // 在 Tauri 应用中打开外部链接
-      if (href.startsWith('http')) {
-        await openPath(href);
-      } else if (href.startsWith('mailto:')) {
-        await openPath(href);
-      } else if (href.includes('@') && !href.startsWith('http')) {
-        // 处理纯邮箱地址
-        await openPath(`mailto:${href}`);
+      // 检查是否在 Tauri 环境中
+      if (typeof window !== 'undefined' && window.__TAURI__) {
+        // 在 Tauri 应用中打开外部链接
+        if (href.startsWith('http')) {
+          await openPath(href);
+        } else if (href.startsWith('mailto:')) {
+          await openPath(href);
+        } else if (href.includes('@') && !href.startsWith('http')) {
+          // 处理纯邮箱地址
+          await openPath(`mailto:${href}`);
+        }
+      } else {
+        // 在浏览器环境中直接使用 window.open
+        if (href.startsWith('http')) {
+          window.open(href, '_blank');
+        } else if (href.startsWith('mailto:')) {
+          window.open(href);
+        } else if (href.includes('@') && !href.startsWith('http')) {
+          window.open(`mailto:${href}`);
+        }
       }
     } catch (error) {
       console.error('Failed to open link:', error);
-      // 降级到传统方法
-      if (href.startsWith('http')) {
-        window.open(href, '_blank');
+      // 作为最后的回退，尝试使用 window.open
+      if (typeof window !== 'undefined') {
+        try {
+          if (href.startsWith('http')) {
+            window.open(href, '_blank');
+          } else if (href.startsWith('mailto:')) {
+            window.open(href);
+          } else if (href.includes('@') && !href.startsWith('http')) {
+            window.open(`mailto:${href}`);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback link opening also failed:', fallbackError);
+          // 显示用户友好的错误消息
+          alert(`无法打开链接: ${href}\n请手动复制链接到浏览器中打开。`);
+        }
       }
     }
   };

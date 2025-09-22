@@ -43,6 +43,7 @@ pub fn run() {
             set_window_theme
         ])
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
