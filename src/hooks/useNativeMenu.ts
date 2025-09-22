@@ -285,6 +285,10 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates }: UseNativeMenuProp
             onCheckUpdates();
           }
           break;
+        case 'about':
+          console.log('About ProtoTool');
+          onOpenModal('about');
+          break;
 
         default:
           console.log('Unknown menu action:', action);

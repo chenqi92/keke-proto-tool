@@ -26,8 +26,8 @@ const welcomeSteps = [
     title: '欢迎使用 ProtoTool',
     content: (
       <div className="text-center space-y-4">
-        <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
-          <Network className="w-10 h-10 text-primary" />
+        <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
+          <Network className="w-8 h-8 text-primary" />
         </div>
         <h2 className="text-2xl font-bold">专业的网络协议分析工具</h2>
         <p className="text-muted-foreground max-w-md mx-auto">

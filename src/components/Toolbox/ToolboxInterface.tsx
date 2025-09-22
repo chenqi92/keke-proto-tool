@@ -198,8 +198,8 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
 
   const renderEmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center mb-6">
-        <Search className="w-10 h-10 text-primary/60" />
+      <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center mb-6">
+        <Search className="w-8 h-8 text-primary/60" />
       </div>
       <h3 className="text-xl font-semibold mb-3">没有找到工具</h3>
       <p className="text-muted-foreground max-w-md mb-6">
@@ -443,7 +443,7 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
         <div className="flex-1 overflow-y-auto p-2">
           {filteredTools.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Search className="w-12 h-12 text-muted-foreground mb-3" />
+              <Search className="w-8 h-8 text-muted-foreground mb-3" />
               <p className="text-sm text-muted-foreground">
                 {searchQuery ? '没有找到匹配的工具' : '当前分类下没有工具'}
               </p>
@@ -487,8 +487,8 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                <Wrench className="w-10 h-10 text-primary/60" />
+              <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Wrench className="w-8 h-8 text-primary/60" />
               </div>
               <h3 className="text-xl font-semibold mb-3">选择一个工具</h3>
               <p className="text-muted-foreground max-w-md">

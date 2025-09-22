@@ -10,6 +10,7 @@ import { MainLayout } from '@/components/Layout/MainLayout'
 import { SessionPage } from '@/pages/SessionPage'
 import { PlaybackPage } from '@/pages/PlaybackPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { AboutPage } from '@/pages/AboutPage'
 
 // Layout Components
 import { MainContent } from '@/components/Layout/MainContent'
@@ -193,18 +194,10 @@ function App() {
             <SettingsPage />
           </Modal>
         )
+      case 'about':
+        return <AboutPage onClose={closeModal} />
       case 'settings-about':
-        return (
-          <Modal
-            isOpen={true}
-            onClose={closeModal}
-            title="关于"
-            size="lg"
-            fixedHeight={true}
-          >
-            <SettingsPage defaultSection="about" />
-          </Modal>
-        )
+        return <AboutPage onClose={closeModal} />
       case 'update-modal':
         return (
           <UpdateModal

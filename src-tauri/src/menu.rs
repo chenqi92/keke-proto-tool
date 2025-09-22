@@ -184,7 +184,7 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
             &MenuItem::with_id(app, "report_issue", "报告问题", true, None::<&str>)?,
             &MenuItem::with_id(app, "check_updates", "检查更新", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::about(app, Some("关于 ProtoTool"), None)?,
+            &MenuItem::with_id(app, "about", "关于 ProtoTool", true, None::<&str>)?,
         ],
     )?;
 
@@ -436,6 +436,9 @@ pub fn handle_menu_event(app: &AppHandle, event: &str) {
         }
         "check_updates" => {
             let _ = app.emit("menu-action", "check_updates");
+        }
+        "about" => {
+            let _ = app.emit("menu-action", "about");
         }
 
         _ => {

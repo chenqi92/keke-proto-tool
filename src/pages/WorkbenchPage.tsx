@@ -216,7 +216,7 @@ export const WorkbenchPage: React.FC = () => {
             
             {recentProjects.length === 0 && (
               <div className="p-8 text-center text-muted-foreground">
-                <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <FileText className="w-8 h-8 mx-auto mb-4 opacity-50" />
                 <p>暂无最近项目</p>
                 <p className="text-sm mt-1">开始创建您的第一个会话</p>
               </div>
@@ -238,7 +238,7 @@ export const WorkbenchPage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">总会话数</p>
                 <p className="text-2xl font-bold">12</p>
               </div>
-              <Network className="w-8 h-8 text-blue-500" />
+              <Network className="w-6 h-6 text-blue-500" />
             </div>
           </div>
           <div className="p-4 border border-border rounded-lg">
@@ -247,7 +247,7 @@ export const WorkbenchPage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">处理报文</p>
                 <p className="text-2xl font-bold">1.2K</p>
               </div>
-              <Activity className="w-8 h-8 text-green-500" />
+              <Activity className="w-6 h-6 text-green-500" />
             </div>
           </div>
           <div className="p-4 border border-border rounded-lg">
@@ -256,7 +256,7 @@ export const WorkbenchPage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">解析成功率</p>
                 <p className="text-2xl font-bold">99.8%</p>
               </div>
-              <TrendingUp className="w-8 h-8 text-emerald-500" />
+              <TrendingUp className="w-6 h-6 text-emerald-500" />
             </div>
           </div>
           <div className="p-4 border border-border rounded-lg">
@@ -265,7 +265,7 @@ export const WorkbenchPage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">存储使用</p>
                 <p className="text-2xl font-bold">2.3GB</p>
               </div>
-              <Activity className="w-8 h-8 text-orange-500" />
+              <Activity className="w-6 h-6 text-orange-500" />
             </div>
           </div>
         </div>
