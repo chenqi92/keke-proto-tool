@@ -19,6 +19,8 @@ import { WelcomeDialog } from '@/components/WelcomeDialog'
 import { Modal } from '@/components/Modal'
 import { NewSessionModal, SessionData } from '@/components/NewSessionModal'
 import { UpdateNotification } from '@/components/UpdateNotification'
+import { MenuUpdateNotification } from '@/components/MenuUpdateNotification'
+import { UpdateModal } from '@/components/UpdateModal'
 
 // Context
 import { SessionProvider } from '@/contexts/SessionContext'
@@ -27,6 +29,7 @@ import { useAppStore } from '@/stores/AppStore'
 // Hooks
 import { useTheme } from '@/hooks/useTheme'
 import { useNativeMenu } from '@/hooks/useNativeMenu'
+import { useUpdateCheck } from '@/hooks/useUpdateCheck'
 
 
 
@@ -49,8 +52,12 @@ function App() {
   const [showWelcome, setShowWelcome] = useState(false)
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [showMenuUpdateNotification, setShowMenuUpdateNotification] = useState(false)
   const createSession = useAppStore(state => state.createSession)
   const shortcutHelp = useShortcutHelp()
+
+  // Initialize update check hook
+  const updateCheck = useUpdateCheck()
 
   // Initialize theme system at app level
   useTheme()
@@ -64,8 +71,17 @@ function App() {
     setActiveModal(null)
   }
 
+  // Handle menu-triggered update check
+  const handleMenuUpdateCheck = async () => {
+    setShowMenuUpdateNotification(true)
+    await updateCheck.checkForUpdates()
+  }
+
   // Initialize native menu handling
-  useNativeMenu({ onOpenModal: openModal })
+  useNativeMenu({
+    onOpenModal: openModal,
+    onCheckUpdates: handleMenuUpdateCheck
+  })
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -189,6 +205,14 @@ function App() {
             <SettingsPage defaultSection="about" />
           </Modal>
         )
+      case 'update-modal':
+        return (
+          <UpdateModal
+            isOpen={true}
+            onClose={closeModal}
+            updateInfo={updateCheck.updateInfo}
+          />
+        )
       default:
         return null
     }
@@ -225,6 +249,19 @@ function App() {
       {activeModal && renderModal()}
 
       <UpdateNotification />
+
+      <MenuUpdateNotification
+        isVisible={showMenuUpdateNotification}
+        isChecking={updateCheck.isChecking}
+        updateInfo={updateCheck.updateInfo}
+        error={updateCheck.error}
+        onClose={() => setShowMenuUpdateNotification(false)}
+        onOpenModal={() => openModal('update-modal')}
+        onUpdateNow={() => {
+          // TODO: Implement actual update process
+          console.log('Update now clicked');
+        }}
+      />
     </SessionProvider>
   )
 }

@@ -4,9 +4,10 @@ import { useTheme } from '@/hooks/useTheme';
 
 interface UseNativeMenuProps {
   onOpenModal: (modalType: string) => void;
+  onCheckUpdates?: () => void;
 }
 
-export const useNativeMenu = ({ onOpenModal }: UseNativeMenuProps) => {
+export const useNativeMenu = ({ onOpenModal, onCheckUpdates }: UseNativeMenuProps) => {
   const { setTheme, setColorTheme } = useTheme();
 
   useEffect(() => {
@@ -280,7 +281,9 @@ export const useNativeMenu = ({ onOpenModal }: UseNativeMenuProps) => {
           break;
         case 'check_updates':
           console.log('Check Updates');
-          // TODO: 实现检查更新逻辑
+          if (onCheckUpdates) {
+            onCheckUpdates();
+          }
           break;
 
         default:
@@ -292,5 +295,5 @@ export const useNativeMenu = ({ onOpenModal }: UseNativeMenuProps) => {
     return () => {
       unlisten.then(f => f());
     };
-  }, [onOpenModal, setTheme, setColorTheme]);
+  }, [onOpenModal, onCheckUpdates, setTheme, setColorTheme]);
 };
