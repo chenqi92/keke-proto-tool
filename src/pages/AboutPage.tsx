@@ -91,8 +91,8 @@ ProtoTool 由 **programApe** 开发和维护。
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Heart className="w-4 h-4 text-primary-foreground" />
+            <div className="w-4 h-4 bg-primary rounded flex items-center justify-center">
+              <Heart className="w-2 h-2 text-primary-foreground" />
             </div>
             <h2 className="text-xl font-semibold text-foreground">关于 ProtoTool</h2>
           </div>
@@ -205,6 +205,15 @@ ProtoTool 由 **programApe** 开发和维护。
                     <blockquote {...props} className="border-l-4 border-primary pl-4 italic text-muted-foreground mb-4">
                       {children}
                     </blockquote>
+                  ),
+                  // 自定义图片样式
+                  img: ({ src, alt, ...props }) => (
+                    <img
+                      {...props}
+                      src={src}
+                      alt={alt}
+                      className="max-w-16 max-h-16 w-auto h-auto object-contain mx-auto mb-4 rounded"
+                    />
                   ),
                   // 自定义表格样式
                   table: ({ children, ...props }) => (

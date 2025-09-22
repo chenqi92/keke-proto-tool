@@ -149,14 +149,47 @@ export class VersionUpdateService {
     }
 
     try {
-      const release = await invoke<GitHubRelease>('check_for_updates', {
-        repositoryOwner: this.config.repositoryOwner,
-        repositoryName: this.config.repositoryName,
-        includePrerelease: this.config.includePrerelease,
-      });
+      // Check if we're running in Tauri environment
+      if (typeof window !== 'undefined' && window.__TAURI__) {
+        const release = await invoke<GitHubRelease>('check_for_updates', {
+          repositoryOwner: this.config.repositoryOwner,
+          repositoryName: this.config.repositoryName,
+          includePrerelease: this.config.includePrerelease,
+        });
 
-      this.setCachedData(cacheKey, release);
-      return release;
+        this.setCachedData(cacheKey, release);
+        return release;
+      } else {
+        // Fallback for web environment - use direct fetch
+        const url = this.config.includePrerelease
+          ? `https://api.github.com/repos/${this.config.repositoryOwner}/${this.config.repositoryName}/releases`
+          : `https://api.github.com/repos/${this.config.repositoryOwner}/${this.config.repositoryName}/releases/latest`;
+
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'ProtoTool-UpdateChecker',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Handle both single release and array of releases
+        const release = this.config.includePrerelease && Array.isArray(data)
+          ? data.find(r => !r.draft && (this.config.includePrerelease || !r.prerelease))
+          : data;
+
+        if (!release) {
+          throw new Error('No suitable release found');
+        }
+
+        this.setCachedData(cacheKey, release);
+        return release;
+      }
     } catch (error) {
       console.error('Failed to fetch latest release:', error);
       throw error;
@@ -191,7 +224,20 @@ export class VersionUpdateService {
       return updateInfo;
     } catch (error) {
       console.error('Update check failed:', error);
-      
+
+      // Provide more user-friendly error logging
+      if (error instanceof Error) {
+        if (error.message.includes('unexpected EOF during handshake')) {
+          console.warn('网络连接问题：无法建立安全连接，将使用缓存数据或跳过更新检查');
+        } else if (error.message.includes('GitHub API error: 403')) {
+          console.warn('GitHub API 访问受限：请求频率过高，将稍后重试');
+        } else if (error.message.includes('GitHub API error: 404')) {
+          console.warn('仓库不存在：无法找到指定的 GitHub 仓库');
+        } else if (error.message.includes('Failed to fetch')) {
+          console.warn('网络请求失败：请检查网络连接，将使用缓存数据');
+        }
+      }
+
       // Return cached info if available, otherwise create error state
       const updateInfo: UpdateInfo = this.updateInfo || {
         hasUpdate: false,

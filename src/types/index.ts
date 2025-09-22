@@ -1,5 +1,15 @@
 // 基础类型定义
 
+// Tauri 全局类型声明
+declare global {
+  interface Window {
+    __TAURI__?: {
+      invoke: (cmd: string, args?: any) => Promise<any>;
+      [key: string]: any;
+    };
+  }
+}
+
 export interface AppConfig {
   theme: 'light' | 'dark' | 'system'
   language: 'zh-CN' | 'en-US'
