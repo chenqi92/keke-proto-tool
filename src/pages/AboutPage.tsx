@@ -91,9 +91,11 @@ ProtoTool 由 **programApe** 开发和维护。
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center space-x-3">
-            <div className="w-4 h-4 bg-primary rounded flex items-center justify-center">
-              <Heart className="w-2 h-2 text-primary-foreground" />
-            </div>
+            <img
+              src="../icons/windows-icon.png"
+              alt="ProtoTool Logo"
+              className="w-12 h-12 object-contain"
+            />
             <h2 className="text-xl font-semibold text-foreground">关于 ProtoTool</h2>
           </div>
           {onClose && (
@@ -145,12 +147,8 @@ ProtoTool 由 **programApe** 开发和维护。
                       )}
                     </a>
                   ),
-                  // 自定义标题样式
-                  h1: ({ children, ...props }) => (
-                    <h1 {...props} className="text-3xl font-bold text-foreground mb-6 pb-2 border-b border-border">
-                      {children}
-                    </h1>
-                  ),
+                  // 自定义标题样式 - 隐藏 h1 标题
+                  h1: ({ children, ...props }) => null,
                   h2: ({ children, ...props }) => (
                     <h2 {...props} className="text-2xl font-semibold text-foreground mt-8 mb-4">
                       {children}
