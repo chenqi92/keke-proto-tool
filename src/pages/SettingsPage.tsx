@@ -73,6 +73,32 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
   const [fontSize, setFontSize] = useState(14);
   const [language, setLanguage] = useState('zh-CN');
 
+  // Network settings state
+  const [connectionTimeout, setConnectionTimeout] = useState(30);
+  const [readTimeout, setReadTimeout] = useState(10);
+  const [bufferSize, setBufferSize] = useState(64);
+  const [keepAliveEnabled, setKeepAliveEnabled] = useState(true);
+  const [nagleDisabled, setNagleDisabled] = useState(false);
+
+  // Security settings state
+  const [pluginVerifyEnabled, setPluginVerifyEnabled] = useState(true);
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
+  const [telemetryEnabled, setTelemetryEnabled] = useState(false);
+  const [dataMaskingLevel, setDataMaskingLevel] = useState('basic');
+
+  // Storage settings state
+  const [dataRetentionDays, setDataRetentionDays] = useState(30);
+  const [maxStorageGB, setMaxStorageGB] = useState(10);
+  const [autoArchiveEnabled, setAutoArchiveEnabled] = useState(true);
+  const [compressionEnabled, setCompressionEnabled] = useState(true);
+
+  // Notification settings state
+  const [connectionNotifyEnabled, setConnectionNotifyEnabled] = useState(true);
+  const [errorNotifyEnabled, setErrorNotifyEnabled] = useState(true);
+  const [updateNotifyEnabled, setUpdateNotifyEnabled] = useState(true);
+  const [pluginNotifyEnabled, setPluginNotifyEnabled] = useState(false);
+  const [notificationDuration, setNotificationDuration] = useState(5);
+
   // Updates settings state
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
@@ -80,34 +106,83 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
   const [checkInterval, setCheckInterval] = useState(24); // hours
   const [includePrerelease, setIncludePrerelease] = useState(false);
 
-  // Initialize update settings
+  // Load all settings from localStorage
   useEffect(() => {
+    // Load appearance settings
+    const savedFontSize = localStorage.getItem('prototool-font-size');
+    const savedLanguage = localStorage.getItem('prototool-language');
+
+    if (savedFontSize) setFontSize(Number(savedFontSize));
+    if (savedLanguage) setLanguage(savedLanguage);
+
+    // Load network settings
+    const savedConnectionTimeout = localStorage.getItem('prototool-connection-timeout');
+    const savedReadTimeout = localStorage.getItem('prototool-read-timeout');
+    const savedBufferSize = localStorage.getItem('prototool-buffer-size');
+    const savedKeepAlive = localStorage.getItem('prototool-keep-alive');
+    const savedNagle = localStorage.getItem('prototool-nagle-disabled');
+
+    if (savedConnectionTimeout) setConnectionTimeout(Number(savedConnectionTimeout));
+    if (savedReadTimeout) setReadTimeout(Number(savedReadTimeout));
+    if (savedBufferSize) setBufferSize(Number(savedBufferSize));
+    if (savedKeepAlive !== null) setKeepAliveEnabled(JSON.parse(savedKeepAlive));
+    if (savedNagle !== null) setNagleDisabled(JSON.parse(savedNagle));
+
+    // Load security settings
+    const savedPluginVerify = localStorage.getItem('prototool-plugin-verify');
+    const savedAutoUpdate = localStorage.getItem('prototool-auto-update');
+    const savedTelemetry = localStorage.getItem('prototool-telemetry');
+    const savedDataMasking = localStorage.getItem('prototool-data-masking');
+
+    if (savedPluginVerify !== null) setPluginVerifyEnabled(JSON.parse(savedPluginVerify));
+    if (savedAutoUpdate !== null) setAutoUpdateEnabled(JSON.parse(savedAutoUpdate));
+    if (savedTelemetry !== null) setTelemetryEnabled(JSON.parse(savedTelemetry));
+    if (savedDataMasking) setDataMaskingLevel(savedDataMasking);
+
+    // Load storage settings
+    const savedRetentionDays = localStorage.getItem('prototool-retention-days');
+    const savedMaxStorage = localStorage.getItem('prototool-max-storage');
+    const savedAutoArchive = localStorage.getItem('prototool-auto-archive');
+    const savedCompression = localStorage.getItem('prototool-compression');
+
+    if (savedRetentionDays) setDataRetentionDays(Number(savedRetentionDays));
+    if (savedMaxStorage) setMaxStorageGB(Number(savedMaxStorage));
+    if (savedAutoArchive !== null) setAutoArchiveEnabled(JSON.parse(savedAutoArchive));
+    if (savedCompression !== null) setCompressionEnabled(JSON.parse(savedCompression));
+
+    // Load notification settings
+    const savedConnectionNotify = localStorage.getItem('prototool-connection-notify');
+    const savedErrorNotify = localStorage.getItem('prototool-error-notify');
+    const savedUpdateNotify = localStorage.getItem('prototool-update-notify');
+    const savedPluginNotify = localStorage.getItem('prototool-plugin-notify');
+    const savedNotificationDuration = localStorage.getItem('prototool-notification-duration');
+
+    if (savedConnectionNotify !== null) setConnectionNotifyEnabled(JSON.parse(savedConnectionNotify));
+    if (savedErrorNotify !== null) setErrorNotifyEnabled(JSON.parse(savedErrorNotify));
+    if (savedUpdateNotify !== null) setUpdateNotifyEnabled(JSON.parse(savedUpdateNotify));
+    if (savedPluginNotify !== null) setPluginNotifyEnabled(JSON.parse(savedPluginNotify));
+    if (savedNotificationDuration) setNotificationDuration(Number(savedNotificationDuration));
+
+    // Load update settings
     const currentInfo = versionUpdateService.getCurrentUpdateInfo();
     if (currentInfo) {
       setUpdateInfo(currentInfo);
     }
 
-    // Load settings from localStorage
     const savedAutoCheck = localStorage.getItem('prototool-auto-check-updates');
     const savedInterval = localStorage.getItem('prototool-check-interval');
     const savedPrerelease = localStorage.getItem('prototool-include-prerelease');
 
-    if (savedAutoCheck !== null) {
-      setAutoCheckEnabled(JSON.parse(savedAutoCheck));
-    }
-    if (savedInterval !== null) {
-      setCheckInterval(Number(savedInterval));
-    }
-    if (savedPrerelease !== null) {
-      setIncludePrerelease(JSON.parse(savedPrerelease));
-    }
+    if (savedAutoCheck !== null) setAutoCheckEnabled(JSON.parse(savedAutoCheck));
+    if (savedInterval !== null) setCheckInterval(Number(savedInterval));
+    if (savedPrerelease !== null) setIncludePrerelease(JSON.parse(savedPrerelease));
   }, []);
 
   const renderAppearanceSettings = () => (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">外观设置</h3>
-        
+
         {/* Theme */}
         <div className="space-y-3">
           <label className="text-sm font-medium">主题风格</label>
@@ -115,7 +190,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
             <button
               onClick={() => setTheme('light')}
               className={cn(
-                "p-3 border rounded-lg flex flex-col items-center space-y-2 transition-colors",
+                "h-20 px-4 py-3 border rounded-lg flex flex-col items-center justify-center space-y-2 transition-colors",
                 theme === 'light' ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
               )}
             >
@@ -125,7 +200,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
             <button
               onClick={() => setTheme('dark')}
               className={cn(
-                "p-3 border rounded-lg flex flex-col items-center space-y-2 transition-colors",
+                "h-20 px-4 py-3 border rounded-lg flex flex-col items-center justify-center space-y-2 transition-colors",
                 theme === 'dark' ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
               )}
             >
@@ -135,7 +210,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
             <button
               onClick={() => setTheme('system')}
               className={cn(
-                "p-3 border rounded-lg flex flex-col items-center space-y-2 transition-colors",
+                "h-20 px-4 py-3 border rounded-lg flex flex-col items-center justify-center space-y-2 transition-colors",
                 theme === 'system' ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
               )}
             >
@@ -154,7 +229,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
                 key={ct.value}
                 onClick={() => setColorTheme(ct.value)}
                 className={cn(
-                  "p-3 border rounded-lg flex flex-col items-center space-y-2 transition-colors",
+                  "h-20 px-3 py-3 border rounded-lg flex flex-col items-center justify-center space-y-2 transition-colors",
                   colorTheme === ct.value ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
                 )}
                 title={ct.label}
@@ -179,9 +254,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
               max={18}
               value={fontSize}
               onChange={(e) => setFontSize(Number(e.target.value))}
-              className="flex-1"
+              className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <span className="text-sm w-12">{fontSize}px</span>
+            <span className="text-sm w-12 font-mono">{fontSize}px</span>
           </div>
           <p className="text-xs text-muted-foreground">
             调整界面文字大小
@@ -194,7 +269,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="w-full p-2 border border-border rounded-md bg-background"
+            className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
           >
             <option value="zh-CN">简体中文</option>
             <option value="zh-TW">繁體中文</option>
@@ -210,42 +285,57 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">网络设置</h3>
-        
+
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-2 block">连接超时 (秒)</label>
             <input
               type="number"
-              defaultValue={30}
-              className="w-full p-2 border border-border rounded-md bg-background"
+              value={connectionTimeout}
+              onChange={(e) => setConnectionTimeout(Number(e.target.value))}
+              className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             />
           </div>
-          
+
           <div>
             <label className="text-sm font-medium mb-2 block">读取超时 (秒)</label>
             <input
               type="number"
-              defaultValue={10}
-              className="w-full p-2 border border-border rounded-md bg-background"
+              value={readTimeout}
+              onChange={(e) => setReadTimeout(Number(e.target.value))}
+              className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             />
           </div>
-          
+
           <div>
             <label className="text-sm font-medium mb-2 block">缓冲区大小 (KB)</label>
             <input
               type="number"
-              defaultValue={64}
-              className="w-full p-2 border border-border rounded-md bg-background"
+              value={bufferSize}
+              onChange={(e) => setBufferSize(Number(e.target.value))}
+              className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             />
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="keepalive" defaultChecked />
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="keepalive"
+              checked={keepAliveEnabled}
+              onChange={(e) => setKeepAliveEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="keepalive" className="text-sm">启用 Keep-Alive</label>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="nagle" />
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="nagle"
+              checked={nagleDisabled}
+              onChange={(e) => setNagleDisabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="nagle" className="text-sm">禁用 Nagle 算法</label>
           </div>
         </div>
@@ -257,26 +347,48 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">安全设置</h3>
-        
+
         <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="plugin-verify" defaultChecked />
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="plugin-verify"
+              checked={pluginVerifyEnabled}
+              onChange={(e) => setPluginVerifyEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="plugin-verify" className="text-sm">验证插件签名</label>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="auto-update" defaultChecked />
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="auto-update"
+              checked={autoUpdateEnabled}
+              onChange={(e) => setAutoUpdateEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="auto-update" className="text-sm">自动检查更新</label>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="telemetry" />
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="telemetry"
+              checked={telemetryEnabled}
+              onChange={(e) => setTelemetryEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="telemetry" className="text-sm">发送匿名使用统计</label>
           </div>
-          
+
           <div>
             <label className="text-sm font-medium mb-2 block">数据脱敏级别</label>
-            <select className="w-full p-2 border border-border rounded-md bg-background">
+            <select
+              value={dataMaskingLevel}
+              onChange={(e) => setDataMaskingLevel(e.target.value)}
+              className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
+            >
               <option value="none">无</option>
               <option value="basic">基础</option>
               <option value="strict">严格</option>
@@ -291,54 +403,68 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">存储设置</h3>
-        
+
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-2 block">数据保留期 (天)</label>
             <input
               type="number"
-              defaultValue={30}
-              className="w-full p-2 border border-border rounded-md bg-background"
+              value={dataRetentionDays}
+              onChange={(e) => setDataRetentionDays(Number(e.target.value))}
+              className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             />
           </div>
-          
+
           <div>
             <label className="text-sm font-medium mb-2 block">最大存储空间 (GB)</label>
             <input
               type="number"
-              defaultValue={10}
-              className="w-full p-2 border border-border rounded-md bg-background"
+              value={maxStorageGB}
+              onChange={(e) => setMaxStorageGB(Number(e.target.value))}
+              className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             />
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="auto-archive" defaultChecked />
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="auto-archive"
+              checked={autoArchiveEnabled}
+              onChange={(e) => setAutoArchiveEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="auto-archive" className="text-sm">自动归档旧数据</label>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="compress" defaultChecked />
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="compress"
+              checked={compressionEnabled}
+              onChange={(e) => setCompressionEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="compress" className="text-sm">压缩存储数据</label>
           </div>
-          
-          <div className="p-4 bg-muted rounded-lg">
-            <h4 className="font-medium mb-2">存储使用情况</h4>
+
+          <div className="p-4 bg-muted/50 rounded-lg border border-border">
+            <h4 className="font-medium mb-3">存储使用情况</h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>会话数据:</span>
-                <span>2.3 GB</span>
+                <span className="font-mono">2.3 GB</span>
               </div>
               <div className="flex justify-between">
                 <span>日志文件:</span>
-                <span>1.1 GB</span>
+                <span className="font-mono">1.1 GB</span>
               </div>
               <div className="flex justify-between">
                 <span>插件数据:</span>
-                <span>256 MB</span>
+                <span className="font-mono">256 MB</span>
               </div>
-              <div className="flex justify-between font-medium">
+              <div className="flex justify-between font-medium pt-2 border-t border-border">
                 <span>总计:</span>
-                <span>3.7 GB</span>
+                <span className="font-mono">3.7 GB</span>
               </div>
             </div>
           </div>
@@ -351,7 +477,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">快捷键设置</h3>
-        
+
         <div className="space-y-3">
           {[
             { action: '新建会话', shortcut: 'Ctrl+N' },
@@ -363,13 +489,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
             { action: '命令面板', shortcut: 'Ctrl+K' },
             { action: '切换主题', shortcut: 'Ctrl+J' },
           ].map((item, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border border-border rounded-lg">
-              <span className="text-sm">{item.action}</span>
-              <div className="flex items-center space-x-2">
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">
+            <div key={index} className="flex items-center justify-between p-4 border border-border rounded-lg bg-card hover:bg-accent/50 transition-colors">
+              <span className="text-sm font-medium">{item.action}</span>
+              <div className="flex items-center space-x-3">
+                <kbd className="px-3 py-1.5 bg-muted border border-border rounded text-xs font-mono">
                   {item.shortcut}
                 </kbd>
-                <button className="text-xs text-primary hover:underline">
+                <button
+                  onClick={() => {
+                    // TODO: Implement shortcut modification functionality
+                    console.log(`Modify shortcut for: ${item.action}`);
+                  }}
+                  className="px-3 py-1.5 text-xs text-primary hover:bg-primary/10 rounded-md transition-colors border border-transparent hover:border-primary/20"
+                >
                   修改
                 </button>
               </div>
@@ -384,34 +516,59 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">通知设置</h3>
-        
+
         <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="connection-notify" defaultChecked />
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="connection-notify"
+              checked={connectionNotifyEnabled}
+              onChange={(e) => setConnectionNotifyEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="connection-notify" className="text-sm">连接状态变化</label>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="error-notify" defaultChecked />
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="error-notify"
+              checked={errorNotifyEnabled}
+              onChange={(e) => setErrorNotifyEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="error-notify" className="text-sm">错误和警告</label>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="update-notify" defaultChecked />
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="update-notify"
+              checked={updateNotifyEnabled}
+              onChange={(e) => setUpdateNotifyEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="update-notify" className="text-sm">软件更新</label>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="plugin-notify" />
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="plugin-notify"
+              checked={pluginNotifyEnabled}
+              onChange={(e) => setPluginNotifyEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
             <label htmlFor="plugin-notify" className="text-sm">插件活动</label>
           </div>
-          
+
           <div>
             <label className="text-sm font-medium mb-2 block">通知持续时间 (秒)</label>
             <input
               type="number"
-              defaultValue={5}
-              className="w-full p-2 border border-border rounded-md bg-background"
+              value={notificationDuration}
+              onChange={(e) => setNotificationDuration(Number(e.target.value))}
+              className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             />
           </div>
         </div>
@@ -432,21 +589,58 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
   };
 
   const handleUpdateSettings = () => {
-    // Save settings to localStorage
-    localStorage.setItem('prototool-auto-check-updates', JSON.stringify(autoCheckEnabled));
-    localStorage.setItem('prototool-check-interval', checkInterval.toString());
-    localStorage.setItem('prototool-include-prerelease', JSON.stringify(includePrerelease));
+    try {
+      // Save appearance settings
+      localStorage.setItem('prototool-font-size', fontSize.toString());
+      localStorage.setItem('prototool-language', language);
 
-    // Update service configuration
-    versionUpdateService.updateConfig({
-      checkInterval: checkInterval * 60 * 60 * 1000, // Convert hours to milliseconds
-      includePrerelease,
-    });
+      // Save network settings
+      localStorage.setItem('prototool-connection-timeout', connectionTimeout.toString());
+      localStorage.setItem('prototool-read-timeout', readTimeout.toString());
+      localStorage.setItem('prototool-buffer-size', bufferSize.toString());
+      localStorage.setItem('prototool-keep-alive', JSON.stringify(keepAliveEnabled));
+      localStorage.setItem('prototool-nagle-disabled', JSON.stringify(nagleDisabled));
 
-    if (autoCheckEnabled) {
-      versionUpdateService.startAutomaticChecking();
-    } else {
-      versionUpdateService.stopAutomaticChecking();
+      // Save security settings
+      localStorage.setItem('prototool-plugin-verify', JSON.stringify(pluginVerifyEnabled));
+      localStorage.setItem('prototool-auto-update', JSON.stringify(autoUpdateEnabled));
+      localStorage.setItem('prototool-telemetry', JSON.stringify(telemetryEnabled));
+      localStorage.setItem('prototool-data-masking', dataMaskingLevel);
+
+      // Save storage settings
+      localStorage.setItem('prototool-retention-days', dataRetentionDays.toString());
+      localStorage.setItem('prototool-max-storage', maxStorageGB.toString());
+      localStorage.setItem('prototool-auto-archive', JSON.stringify(autoArchiveEnabled));
+      localStorage.setItem('prototool-compression', JSON.stringify(compressionEnabled));
+
+      // Save notification settings
+      localStorage.setItem('prototool-connection-notify', JSON.stringify(connectionNotifyEnabled));
+      localStorage.setItem('prototool-error-notify', JSON.stringify(errorNotifyEnabled));
+      localStorage.setItem('prototool-update-notify', JSON.stringify(updateNotifyEnabled));
+      localStorage.setItem('prototool-plugin-notify', JSON.stringify(pluginNotifyEnabled));
+      localStorage.setItem('prototool-notification-duration', notificationDuration.toString());
+
+      // Save update settings
+      localStorage.setItem('prototool-auto-check-updates', JSON.stringify(autoCheckEnabled));
+      localStorage.setItem('prototool-check-interval', checkInterval.toString());
+      localStorage.setItem('prototool-include-prerelease', JSON.stringify(includePrerelease));
+
+      // Update service configuration
+      versionUpdateService.updateConfig({
+        checkInterval: checkInterval * 60 * 60 * 1000, // Convert hours to milliseconds
+        includePrerelease,
+      });
+
+      if (autoCheckEnabled) {
+        versionUpdateService.startAutomaticChecking();
+      } else {
+        versionUpdateService.stopAutomaticChecking();
+      }
+
+      // Show success feedback (you could add a toast notification here)
+      console.log('Settings saved successfully');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
     }
   };
 
@@ -456,7 +650,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
         <h3 className="text-lg font-semibold mb-4">更新设置</h3>
 
         {/* Current Version */}
-        <div className="p-4 bg-secondary/30 rounded-lg mb-6">
+        <div className="p-4 bg-muted/50 rounded-lg border border-border mb-6">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="font-medium">当前版本</h4>
@@ -468,7 +662,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
               onClick={handleCheckForUpdates}
               disabled={isCheckingUpdates}
               className={cn(
-                "flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md transition-colors",
+                "h-9 flex items-center space-x-2 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
                 "bg-primary text-primary-foreground hover:bg-primary/90",
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
@@ -501,30 +695,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
 
         {/* Auto Check Settings */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
             <div>
               <label className="text-sm font-medium">自动检查更新</label>
               <p className="text-xs text-muted-foreground">启动时自动检查新版本</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoCheckEnabled}
-                onChange={(e) => setAutoCheckEnabled(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-            </label>
+            <input
+              type="checkbox"
+              checked={autoCheckEnabled}
+              onChange={(e) => setAutoCheckEnabled(e.target.checked)}
+              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+            />
           </div>
 
           {autoCheckEnabled && (
             <>
               <div>
-                <label className="text-sm font-medium">检查频率</label>
+                <label className="text-sm font-medium mb-2 block">检查频率</label>
                 <select
                   value={checkInterval}
                   onChange={(e) => setCheckInterval(Number(e.target.value))}
-                  className="mt-1 block w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
                 >
                   <option value={1}>每小时</option>
                   <option value={6}>每6小时</option>
@@ -534,20 +725,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
                 </select>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
                 <div>
                   <label className="text-sm font-medium">包含预发布版本</label>
                   <p className="text-xs text-muted-foreground">检查测试版本和预发布版本</p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includePrerelease}
-                    onChange={(e) => setIncludePrerelease(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-                </label>
+                <input
+                  type="checkbox"
+                  checked={includePrerelease}
+                  onChange={(e) => setIncludePrerelease(e.target.checked)}
+                  className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+                />
               </div>
             </>
           )}
@@ -605,24 +793,23 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
             </p>
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex space-x-3">
             <button
-              onClick={handleCheckForUpdates}
-              disabled={isCheckingUpdates}
-              className={cn(
-                "flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md transition-colors",
-                "bg-primary text-primary-foreground hover:bg-primary/90",
-                "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
+              onClick={() => {
+                // TODO: Implement view source functionality
+                window.open('https://github.com/chenqi92/keke-proto-tool', '_blank');
+              }}
+              className="h-9 px-4 py-1.5 text-sm font-medium border border-border rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
             >
-              <RefreshCw className={cn("w-4 h-4", isCheckingUpdates && "animate-spin")} />
-              <span>{isCheckingUpdates ? '检查中...' : '检查更新'}</span>
-            </button>
-            <button className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors">
               查看源码
             </button>
-            <button className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors">
+            <button
+              onClick={() => {
+                // TODO: Implement report issue functionality
+                window.open('https://github.com/chenqi92/keke-proto-tool/issues', '_blank');
+              }}
+              className="h-9 px-4 py-1.5 text-sm font-medium border border-border rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
+            >
               报告问题
             </button>
           </div>
@@ -684,7 +871,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
       <div className="flex-1 flex flex-col">
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 max-w-2xl">
-            {renderContent()}
+            <div className="animate-in fade-in-0 duration-200">
+              {renderContent()}
+            </div>
           </div>
         </div>
 
@@ -693,11 +882,40 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
           <div className="flex items-center space-x-3 max-w-2xl">
             <button
               onClick={handleUpdateSettings}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+              className="h-9 px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
             >
               保存设置
             </button>
-            <button className="px-4 py-2 border border-border rounded-md hover:bg-accent">
+            <button
+              onClick={() => {
+                // Reset all settings to defaults
+                setFontSize(14);
+                setLanguage('zh-CN');
+                setConnectionTimeout(30);
+                setReadTimeout(10);
+                setBufferSize(64);
+                setKeepAliveEnabled(true);
+                setNagleDisabled(false);
+                setPluginVerifyEnabled(true);
+                setAutoUpdateEnabled(true);
+                setTelemetryEnabled(false);
+                setDataMaskingLevel('basic');
+                setDataRetentionDays(30);
+                setMaxStorageGB(10);
+                setAutoArchiveEnabled(true);
+                setCompressionEnabled(true);
+                setConnectionNotifyEnabled(true);
+                setErrorNotifyEnabled(true);
+                setUpdateNotifyEnabled(true);
+                setPluginNotifyEnabled(false);
+                setNotificationDuration(5);
+                setAutoCheckEnabled(true);
+                setCheckInterval(24);
+                setIncludePrerelease(false);
+                console.log('Settings reset to defaults');
+              }}
+              className="h-9 px-4 py-1.5 text-sm font-medium border border-border rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
+            >
               重置为默认
             </button>
           </div>
