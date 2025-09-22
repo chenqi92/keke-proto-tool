@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils';
 import {
   Settings,
@@ -11,10 +11,14 @@ import {
   Moon,
   Sun,
   Laptop,
-  Info
+  Info,
+  Download,
+  RefreshCw
 } from 'lucide-react';
 import { VERSION_INFO, getFullVersionString } from '@/constants/version';
 import { useTheme, ColorTheme } from '@/hooks/useTheme';
+import { versionUpdateService, UpdateInfo } from '@/services/VersionUpdateService';
+import { formatVersionForDisplay } from '@/utils/version';
 
 interface SettingsSection {
   id: string;
@@ -33,6 +37,7 @@ const settingsSections: SettingsSection[] = [
   { id: 'storage', name: '存储', icon: Database },
   { id: 'shortcuts', name: '快捷键', icon: Keyboard },
   { id: 'notifications', name: '通知', icon: Bell },
+  { id: 'updates', name: '更新', icon: Download },
   { id: 'about', name: '关于', icon: Info },
 ];
 
@@ -67,6 +72,36 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
   const { theme, colorTheme, setTheme, setColorTheme } = useTheme();
   const [fontSize, setFontSize] = useState(14);
   const [language, setLanguage] = useState('zh-CN');
+
+  // Updates settings state
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [autoCheckEnabled, setAutoCheckEnabled] = useState(true);
+  const [checkInterval, setCheckInterval] = useState(24); // hours
+  const [includePrerelease, setIncludePrerelease] = useState(false);
+
+  // Initialize update settings
+  useEffect(() => {
+    const currentInfo = versionUpdateService.getCurrentUpdateInfo();
+    if (currentInfo) {
+      setUpdateInfo(currentInfo);
+    }
+
+    // Load settings from localStorage
+    const savedAutoCheck = localStorage.getItem('prototool-auto-check-updates');
+    const savedInterval = localStorage.getItem('prototool-check-interval');
+    const savedPrerelease = localStorage.getItem('prototool-include-prerelease');
+
+    if (savedAutoCheck !== null) {
+      setAutoCheckEnabled(JSON.parse(savedAutoCheck));
+    }
+    if (savedInterval !== null) {
+      setCheckInterval(Number(savedInterval));
+    }
+    if (savedPrerelease !== null) {
+      setIncludePrerelease(JSON.parse(savedPrerelease));
+    }
+  }, []);
 
   const renderAppearanceSettings = () => (
     <div className="space-y-6">
@@ -384,6 +419,145 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
     </div>
   );
 
+  const handleCheckForUpdates = async () => {
+    setIsCheckingUpdates(true);
+    try {
+      const info = await versionUpdateService.checkForUpdates();
+      setUpdateInfo(info);
+    } catch (error) {
+      console.error('Failed to check for updates:', error);
+    } finally {
+      setIsCheckingUpdates(false);
+    }
+  };
+
+  const handleUpdateSettings = () => {
+    // Save settings to localStorage
+    localStorage.setItem('prototool-auto-check-updates', JSON.stringify(autoCheckEnabled));
+    localStorage.setItem('prototool-check-interval', checkInterval.toString());
+    localStorage.setItem('prototool-include-prerelease', JSON.stringify(includePrerelease));
+
+    // Update service configuration
+    versionUpdateService.updateConfig({
+      checkInterval: checkInterval * 60 * 60 * 1000, // Convert hours to milliseconds
+      includePrerelease,
+    });
+
+    if (autoCheckEnabled) {
+      versionUpdateService.startAutomaticChecking();
+    } else {
+      versionUpdateService.stopAutomaticChecking();
+    }
+  };
+
+  const renderUpdatesSettings = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-4">更新设置</h3>
+
+        {/* Current Version */}
+        <div className="p-4 bg-secondary/30 rounded-lg mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium">当前版本</h4>
+              <p className="text-sm text-muted-foreground">
+                {getFullVersionString()}
+              </p>
+            </div>
+            <button
+              onClick={handleCheckForUpdates}
+              disabled={isCheckingUpdates}
+              className={cn(
+                "flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md transition-colors",
+                "bg-primary text-primary-foreground hover:bg-primary/90",
+                "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <RefreshCw className={cn("w-4 h-4", isCheckingUpdates && "animate-spin")} />
+              <span>{isCheckingUpdates ? '检查中...' : '检查更新'}</span>
+            </button>
+          </div>
+
+          {updateInfo && (
+            <div className="mt-4 pt-4 border-t border-border">
+              {updateInfo.hasUpdate ? (
+                <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
+                  <Download className="w-4 h-4" />
+                  <span>发现新版本: {formatVersionForDisplay(updateInfo.latestVersion)}</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2 text-muted-foreground">
+                  <Info className="w-4 h-4" />
+                  <span>已是最新版本</span>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                最后检查: {updateInfo.lastChecked.toLocaleString()}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Auto Check Settings */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium">自动检查更新</label>
+              <p className="text-xs text-muted-foreground">启动时自动检查新版本</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoCheckEnabled}
+                onChange={(e) => setAutoCheckEnabled(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+            </label>
+          </div>
+
+          {autoCheckEnabled && (
+            <>
+              <div>
+                <label className="text-sm font-medium">检查频率</label>
+                <select
+                  value={checkInterval}
+                  onChange={(e) => setCheckInterval(Number(e.target.value))}
+                  className="mt-1 block w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value={1}>每小时</option>
+                  <option value={6}>每6小时</option>
+                  <option value={12}>每12小时</option>
+                  <option value={24}>每天</option>
+                  <option value={168}>每周</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm font-medium">包含预发布版本</label>
+                  <p className="text-xs text-muted-foreground">检查测试版本和预发布版本</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includePrerelease}
+                    onChange={(e) => setIncludePrerelease(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                </label>
+              </div>
+            </>
+          )}
+
+
+        </div>
+      </div>
+    </div>
+  );
+
   const renderAboutSettings = () => (
     <div className="space-y-6">
       <div>
@@ -432,8 +606,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
           </div>
 
           <div className="flex space-x-2">
-            <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
-              检查更新
+            <button
+              onClick={handleCheckForUpdates}
+              disabled={isCheckingUpdates}
+              className={cn(
+                "flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md transition-colors",
+                "bg-primary text-primary-foreground hover:bg-primary/90",
+                "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <RefreshCw className={cn("w-4 h-4", isCheckingUpdates && "animate-spin")} />
+              <span>{isCheckingUpdates ? '检查中...' : '检查更新'}</span>
             </button>
             <button className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors">
               查看源码
@@ -461,6 +645,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
         return renderShortcutsSettings();
       case 'notifications':
         return renderNotificationsSettings();
+      case 'updates':
+        return renderUpdatesSettings();
       case 'about':
         return renderAboutSettings();
       default:
@@ -472,12 +658,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
     <div className="h-full flex">
       {/* Settings Navigation */}
       <div className="w-64 border-r border-border bg-card flex flex-col">
-        <div className="p-4 border-b border-border shrink-0">
-          <h2 className="font-semibold flex items-center space-x-2">
-            <Settings className="w-5 h-5" />
-            <span>设置</span>
-          </h2>
-        </div>
         <div className="p-2 flex-1 overflow-y-auto">
           {settingsSections.map((section) => {
             const Icon = section.icon;
@@ -511,7 +691,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
         {/* Save Button - Fixed at bottom */}
         <div className="shrink-0 p-6 border-t border-border bg-card">
           <div className="flex items-center space-x-3 max-w-2xl">
-            <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
+            <button
+              onClick={handleUpdateSettings}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+            >
               保存设置
             </button>
             <button className="px-4 py-2 border border-border rounded-md hover:bg-accent">

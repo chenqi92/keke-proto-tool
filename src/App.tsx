@@ -18,6 +18,7 @@ import { MainContent } from '@/components/Layout/MainContent'
 import { WelcomeDialog } from '@/components/WelcomeDialog'
 import { Modal } from '@/components/Modal'
 import { NewSessionModal, SessionData } from '@/components/NewSessionModal'
+import { UpdateNotification } from '@/components/UpdateNotification'
 
 // Context
 import { SessionProvider } from '@/contexts/SessionContext'
@@ -37,6 +38,7 @@ import { performanceMonitor } from '@/services/PerformanceMonitor'
 import { keyboardShortcutManager } from '@/services/KeyboardShortcutManager'
 import { initializeLazyLoading } from '@/services/ToolLazyLoader'
 import { initializeTools } from '@/tools'
+import { versionUpdateService } from '@/services/VersionUpdateService'
 
 // Components
 import { ShortcutHelp, useShortcutHelp } from '@/components/ShortcutHelp'
@@ -82,6 +84,9 @@ function App() {
 
         // Initialize keyboard shortcuts
         keyboardShortcutManager.setEnabled(true)
+
+        // Initialize version update service
+        versionUpdateService.startAutomaticChecking()
 
         setIsInitialized(true)
         console.log('App initialized successfully')
@@ -219,8 +224,7 @@ function App() {
 
       {activeModal && renderModal()}
 
-
-
+      <UpdateNotification />
     </SessionProvider>
   )
 }

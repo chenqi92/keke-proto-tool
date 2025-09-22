@@ -10,10 +10,13 @@ import {
   CheckCircle,
   Download,
   Upload,
-  Info
+  Info,
+  RefreshCw
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { getVersionDisplayText } from '@/constants/version';
+import { versionUpdateService, UpdateInfo } from '@/services/VersionUpdateService';
+import { UpdateModal } from '@/components/UpdateModal';
 
 interface StatusBarProps {
   className?: string;
@@ -47,7 +50,7 @@ interface StatusInfo {
 
 export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
   const layoutConfig = useLayoutConfig();
-  const [status, _setStatus] = useState<StatusInfo>({
+  const [status, setStatus] = useState<StatusInfo>({
     connections: { active: 2, total: 5 },
     performance: {
       cpu: 15,
@@ -61,6 +64,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
   });
 
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -68,6 +73,27 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
+
+  // Update service listener
+  useEffect(() => {
+    const handleUpdateInfo = (info: UpdateInfo) => {
+      setUpdateInfo(info);
+      setStatus(prev => ({ ...prev, hasUpdates: info.hasUpdate }));
+    };
+
+    versionUpdateService.addUpdateListener(handleUpdateInfo);
+
+    // Check for existing update info
+    const currentInfo = versionUpdateService.getCurrentUpdateInfo();
+    if (currentInfo) {
+      setUpdateInfo(currentInfo);
+      setStatus(prev => ({ ...prev, hasUpdates: currentInfo.hasUpdate }));
+    }
+
+    return () => {
+      versionUpdateService.removeUpdateListener(handleUpdateInfo);
+    };
   }, []);
 
   const formatThroughput = (bytes: number): string => {
@@ -175,9 +201,18 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
 
         {/* Updates - 仅桌面显示 */}
         {status.hasUpdates && layoutConfig.statusBar.showAllInfo && (
-          <button className="flex items-center space-x-1 hover:text-foreground transition-colors">
-            <Download className="w-3 h-3" />
-            <span>有更新</span>
+          <button
+            onClick={() => setShowUpdateModal(true)}
+            className="flex items-center space-x-1 hover:text-primary transition-colors group"
+            title={updateInfo ? `发现新版本 ${updateInfo.latestVersion.raw}` : '有更新可用'}
+          >
+            <Download className="w-3 h-3 text-primary group-hover:animate-bounce" />
+            <span className="text-primary font-medium">有更新</span>
+            {updateInfo && (
+              <span className="text-xs text-muted-foreground">
+                v{updateInfo.latestVersion.major}.{updateInfo.latestVersion.minor}.{updateInfo.latestVersion.patch}
+              </span>
+            )}
           </button>
         )}
 
@@ -203,6 +238,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
           })}</span>
         </div>
       </div>
+
+      {/* Update Modal */}
+      <UpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        updateInfo={updateInfo}
+      />
     </div>
   );
 };

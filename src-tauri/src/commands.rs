@@ -4,11 +4,102 @@ use crate::utils::{validate_port, is_common_port};
 use crate::parser::{ProtocolParser, get_parser_registry, Parser};
 use tauri::{State, AppHandle, Theme, Manager};
 use tauri::window::Color;
+use serde::{Deserialize, Serialize};
 
 /// Get application version
 #[tauri::command]
 pub fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// GitHub Release information
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GitHubRelease {
+    pub tag_name: String,
+    pub name: String,
+    pub body: String,
+    pub html_url: String,
+    pub published_at: String,
+    pub prerelease: bool,
+    pub draft: bool,
+    pub assets: Vec<GitHubAsset>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GitHubAsset {
+    pub name: String,
+    pub browser_download_url: String,
+    pub size: u64,
+    pub download_count: u64,
+}
+
+/// Check for updates from GitHub
+#[tauri::command]
+pub async fn check_for_updates(
+    repository_owner: String,
+    repository_name: String,
+    include_prerelease: Option<bool>,
+) -> Result<GitHubRelease, String> {
+    let include_prerelease = include_prerelease.unwrap_or(false);
+
+    let url = if include_prerelease {
+        format!("https://api.github.com/repos/{}/{}/releases", repository_owner, repository_name)
+    } else {
+        format!("https://api.github.com/repos/{}/{}/releases/latest", repository_owner, repository_name)
+    };
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
+        .header("Accept", "application/vnd.github.v3+json")
+        .header("User-Agent", "ProtoTool-UpdateChecker")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch release information: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("GitHub API error: {}", response.status()));
+    }
+
+    let releases: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    // If fetching all releases, find the latest non-draft release
+    let release_data = if include_prerelease {
+        if let Some(releases_array) = releases.as_array() {
+            releases_array
+                .iter()
+                .find(|r| !r["draft"].as_bool().unwrap_or(true) &&
+                         (include_prerelease || !r["prerelease"].as_bool().unwrap_or(false)))
+                .ok_or("No suitable release found")?
+        } else {
+            return Err("Invalid response format".to_string());
+        }
+    } else {
+        &releases
+    };
+
+    let release: GitHubRelease = serde_json::from_value(release_data.clone())
+        .map_err(|e| format!("Failed to parse release data: {}", e))?;
+
+    Ok(release)
+}
+
+/// Get current application version info
+#[tauri::command]
+pub fn get_version_info() -> Result<serde_json::Value, String> {
+    let version = env!("CARGO_PKG_VERSION");
+    let name = env!("CARGO_PKG_NAME");
+    let description = env!("CARGO_PKG_DESCRIPTION");
+
+    Ok(serde_json::json!({
+        "version": version,
+        "name": name,
+        "description": description,
+        "build_date": "unknown", // We'll implement proper build date later
+    }))
 }
 
 /// Check if there's an internal TCP server listening on the specified host and port
