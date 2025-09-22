@@ -91,10 +91,10 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
   );
 
   // 判断是否可以连接：选中的节点必须是会话类型且有连接类型
-  const canConnect = selectedNode &&
+  const canConnect = Boolean(selectedNode &&
     selectedNode.type === 'session' &&
     selectedNode.connectionType &&
-    ['client', 'server'].includes(selectedNode.connectionType);
+    ['client', 'server'].includes(selectedNode.connectionType));
 
   // 获取当前会话的连接状态
   const isConnected = currentSession?.status === 'connected';
@@ -247,7 +247,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
       {/* 右侧工具和设置按钮 */}
       <div className="flex items-center space-x-2">
         {/* 主题切换按钮 */}
-        <ThemeToggle compact={true} />
+        <ThemeToggle compact />
 
         {/* 设置按钮 */}
         <div className="flex items-center space-x-1">

@@ -48,7 +48,7 @@ export const UDPClientDetailContent: React.FC<UDPClientDetailContentProps> = ({
   // 获取该客户端的消息
   const messages = session?.messages || [];
   const clientMessages = useMemo(() => {
-    return messages.filter(msg => msg.clientId === clientId);
+    return messages.filter(msg => msg.sourceClientId === clientId || msg.targetClientId === clientId);
   }, [messages, clientId]);
 
   // 计算客户端统计信息
@@ -62,18 +62,19 @@ export const UDPClientDetailContent: React.FC<UDPClientDetailContentProps> = ({
 
     clientMessages.forEach(message => {
       if (message.direction === 'in') {
-        bytesReceived += message.size;
+        bytesReceived += message.size || 0;
         packetsReceived++;
       } else if (message.direction === 'out') {
-        bytesSent += message.size;
+        bytesSent += message.size || 0;
         packetsSent++;
       }
-      
-      if (message.timestamp > lastActivity) {
-        lastActivity = message.timestamp;
+
+      const messageTime = message.timestamp instanceof Date ? message.timestamp : new Date(message.timestamp);
+      if (messageTime > lastActivity) {
+        lastActivity = messageTime;
       }
-      if (message.timestamp < firstActivity) {
-        firstActivity = message.timestamp;
+      if (messageTime < firstActivity) {
+        firstActivity = messageTime;
       }
     });
 
@@ -85,7 +86,7 @@ export const UDPClientDetailContent: React.FC<UDPClientDetailContentProps> = ({
       totalMessages: clientMessages.length,
       firstActivity,
       lastActivity,
-      sessionDuration: lastActivity - firstActivity
+      sessionDuration: lastActivity.getTime() - firstActivity.getTime()
     };
   }, [clientMessages, clientConnection.connectedAt]);
 
@@ -145,7 +146,9 @@ export const UDPClientDetailContent: React.FC<UDPClientDetailContentProps> = ({
     if (clientMessages.length > 0) {
       // 清除所有消息，然后重新添加不属于该客户端的消息
       const allMessages = messages;
-      const otherMessages = allMessages.filter(msg => msg.clientId !== clientId);
+      const otherMessages = allMessages.filter(msg =>
+        msg.sourceClientId !== clientId && msg.targetClientId !== clientId
+      );
       
       clearMessages(sessionId);
       

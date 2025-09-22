@@ -12,6 +12,7 @@ import {
   SSEEventFilter
 } from '@/types';
 import { logSessionStateChange, validateSessionStateIsolation } from '@/utils/sessionStateDebug';
+import { statusBarService } from '@/services/StatusBarService';
 
 interface AppStore extends WorkspaceState {
   // State properties
@@ -358,15 +359,24 @@ export const useAppStore = create<AppStore>()(
           updatedStats.lastError = `Message ${message.id} failed`;
         }
 
+        const updatedSession = {
+          ...session,
+          messages: updatedMessages,
+          statistics: updatedStats,
+          lastActivity: new Date(),
+        };
+
+        // Update status bar service with throughput data
+        statusBarService.updateThroughputData(
+          sessionId,
+          updatedStats.bytesReceived,
+          updatedStats.bytesSent
+        );
+
         return {
           sessions: {
             ...state.sessions,
-            [sessionId]: {
-              ...session,
-              messages: updatedMessages,
-              statistics: updatedStats,
-              lastActivity: new Date(),
-            },
+            [sessionId]: updatedSession,
           },
         };
       });

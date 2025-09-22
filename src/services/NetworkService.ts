@@ -2,6 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { Message, ConnectionStatus, NetworkConnection, WebSocketErrorType, MQTTQoSLevel, MQTTErrorType, MQTTSubscription, MQTTPublishOptions, SSEEvent, SSEEventFilter } from '@/types';
 import { useAppStore } from '@/stores/AppStore';
+import { statusBarService } from './StatusBarService';
+import { protocolParsingService } from './ProtocolParsingService';
 
 export interface NetworkEvent {
   sessionId: string;
@@ -187,6 +189,23 @@ class NetworkService {
 
     console.log('✅ NetworkService - Message added to store for session:', sessionId);
 
+    // Record protocol parsing attempt for incoming messages
+    if (direction === 'in') {
+      const session = store.getSession(sessionId);
+      if (session) {
+        // For now, we'll consider all incoming messages as successful parsing attempts
+        // In a real implementation, this would be based on actual protocol parsing results
+        const isParseSuccess = message.status !== 'error';
+        protocolParsingService.recordParseAttempt(
+          sessionId,
+          session.config.protocol,
+          isParseSuccess,
+          data.length,
+          isParseSuccess ? undefined : 'Parse failed'
+        );
+      }
+    }
+
     // Update client connection byte statistics if clientId is provided
     if (clientId) {
       const session = store.getSession(sessionId);
@@ -206,6 +225,16 @@ class NetworkService {
           });
         }
       }
+    }
+
+    // Update status bar service with throughput data
+    const session = store.getSession(sessionId);
+    if (session) {
+      statusBarService.updateThroughputData(
+        sessionId,
+        session.statistics.bytesReceived,
+        session.statistics.bytesSent
+      );
     }
   }
 

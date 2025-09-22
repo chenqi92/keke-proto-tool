@@ -89,11 +89,11 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
         : new Date(client.connectedAt);
 
       messages.forEach(message => {
-        if (message.clientId === client.id) {
+        if (message.sourceClientId === client.id || message.targetClientId === client.id) {
           if (message.direction === 'in') {
-            bytesReceived += message.size;
+            bytesReceived += message.size || 0;
           } else if (message.direction === 'out') {
-            bytesSent += message.size;
+            bytesSent += message.size || 0;
           }
           if (message.timestamp > lastActivity) {
             lastActivity = message.timestamp;

@@ -17,6 +17,15 @@ import { useLayoutConfig } from '@/hooks/useResponsive';
 import { getVersionDisplayText } from '@/constants/version';
 import { versionUpdateService, UpdateInfo } from '@/services/VersionUpdateService';
 import { UpdateModal } from '@/components/UpdateModal';
+import { statusBarService, StatusBarData } from '@/services/StatusBarService';
+import {
+  formatConnectionCount,
+  formatBytesPerSecond,
+  formatParsingRate,
+  formatErrorCount,
+  formatThroughputWithColor,
+  formatParsingRateWithColor
+} from '@/utils/formatUtils';
 
 interface StatusBarProps {
   className?: string;
@@ -51,13 +60,13 @@ interface StatusInfo {
 export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
   const layoutConfig = useLayoutConfig();
   const [status, setStatus] = useState<StatusInfo>({
-    connections: { active: 2, total: 5 },
+    connections: { active: 0, total: 0 },
     performance: {
       cpu: 15,
       memory: 45,
-      throughput: { rx: 1024, tx: 512 }
+      throughput: { rx: 0, tx: 0 }
     },
-    parsing: { success: 1250, error: 3, rate: 99.8 },
+    parsing: { success: 0, error: 0, rate: 100 },
     storage: { used: '2.3 GB', available: '15.7 GB' },
     recording: false,
     hasUpdates: false
@@ -73,6 +82,31 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
+
+  // Status bar data listener
+  useEffect(() => {
+    const handleStatusUpdate = (data: StatusBarData) => {
+      setStatus(prev => ({
+        ...prev,
+        connections: data.connections,
+        performance: {
+          ...prev.performance,
+          throughput: data.performance.throughput,
+        },
+        parsing: data.parsing,
+      }));
+    };
+
+    statusBarService.addListener(handleStatusUpdate);
+
+    // Get initial data
+    const initialData = statusBarService.getCurrentData();
+    handleStatusUpdate(initialData);
+
+    return () => {
+      statusBarService.removeListener(handleStatusUpdate);
+    };
   }, []);
 
   // Update service listener
@@ -96,20 +130,34 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
     };
   }, []);
 
-  const formatThroughput = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B/s`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB/s`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB/s`;
-  };
-
   const getConnectionStatus = () => {
     if (status.connections.active === 0) {
       return { icon: WifiOff, color: 'text-muted-foreground', text: '未连接' };
     }
-    return { 
-      icon: Wifi, 
-      color: 'text-green-500', 
-      text: `${status.connections.active}/${status.connections.total} 连接` 
+    return {
+      icon: Wifi,
+      color: 'text-green-500',
+      text: formatConnectionCount(status.connections.active, status.connections.total)
+    };
+  };
+
+  const getThroughputDisplay = () => {
+    const rxDisplay = formatThroughputWithColor(status.performance.throughput.rx);
+    const txDisplay = formatThroughputWithColor(status.performance.throughput.tx);
+
+    return {
+      rx: rxDisplay,
+      tx: txDisplay,
+    };
+  };
+
+  const getParsingDisplay = () => {
+    const rateDisplay = formatParsingRateWithColor(status.parsing.rate);
+    const errorText = formatErrorCount(status.parsing.error);
+
+    return {
+      rate: rateDisplay,
+      error: errorText,
     };
   };
 
@@ -145,32 +193,44 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
         )}
 
         {/* Throughput - 仅桌面显示 */}
-        {layoutConfig.statusBar.showAllInfo && (
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1">
-              <Download className="w-3 h-3 text-blue-500" />
-              <span>{formatThroughput(status.performance.throughput.rx)}</span>
+        {layoutConfig.statusBar.showAllInfo && (() => {
+          const throughputDisplay = getThroughputDisplay();
+          return (
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
+                <Download className="w-3 h-3 text-blue-500" />
+                <span className={`text-${throughputDisplay.rx.color}-500`}>
+                  {throughputDisplay.rx.text}
+                </span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Upload className="w-3 h-3 text-green-500" />
+                <span className={`text-${throughputDisplay.tx.color}-500`}>
+                  {throughputDisplay.tx.text}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center space-x-1">
-              <Upload className="w-3 h-3 text-green-500" />
-              <span>{formatThroughput(status.performance.throughput.tx)}</span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Parsing Status - 仅桌面显示 */}
-        {layoutConfig.statusBar.showAllInfo && (
-          <div className="flex items-center space-x-1">
-            <CheckCircle className="w-3 h-3 text-green-500" />
-            <span>解析成功率: {status.parsing.rate}%</span>
-            {status.parsing.error > 0 && (
-              <>
-                <AlertCircle className="w-3 h-3 text-yellow-500" />
-                <span>{status.parsing.error} 错误</span>
-              </>
-            )}
-          </div>
-        )}
+        {layoutConfig.statusBar.showAllInfo && (() => {
+          const parsingDisplay = getParsingDisplay();
+          return (
+            <div className="flex items-center space-x-1">
+              <CheckCircle className={`w-3 h-3 text-${parsingDisplay.rate.color}-500`} />
+              <span className={`text-${parsingDisplay.rate.color}-500`}>
+                解析成功率: {parsingDisplay.rate.text}
+              </span>
+              {status.parsing.error > 0 && (
+                <>
+                  <AlertCircle className="w-3 h-3 text-yellow-500" />
+                  <span className="text-yellow-500">{parsingDisplay.error}</span>
+                </>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Right Section */}

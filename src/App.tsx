@@ -28,6 +28,9 @@ import { UpdateModal } from '@/components/UpdateModal'
 import { SessionProvider } from '@/contexts/SessionContext'
 import { useAppStore } from '@/stores/AppStore'
 
+// Services
+import { statusBarService } from '@/services/StatusBarService'
+
 // Hooks
 import { useTheme } from '@/hooks/useTheme'
 import { useNativeMenu } from '@/hooks/useNativeMenu'
@@ -63,6 +66,15 @@ function App() {
 
   // Initialize theme system at app level
   useTheme()
+
+  // Initialize status bar service
+  useEffect(() => {
+    // Status bar service is automatically initialized as a singleton
+    // No explicit initialization needed, but we can add cleanup on unmount
+    return () => {
+      // Cleanup will be handled by the service itself
+    }
+  }, [])
 
   // Modal handling functions (defined before useNativeMenu)
   const openModal = (modalType: string) => {
