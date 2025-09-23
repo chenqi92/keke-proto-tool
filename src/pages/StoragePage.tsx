@@ -608,7 +608,8 @@ export const StoragePage: React.FC = () => {
               }
             } catch (error) {
               console.error('Connection test failed:', error);
-              return false;
+              // Re-throw the error so the form can display the specific error message
+              throw error;
             }
           }}
         />

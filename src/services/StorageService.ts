@@ -201,7 +201,8 @@ export class StorageService {
       return result;
     } catch (error) {
       console.error(`Connection test failed for ${connectionId}:`, error);
-      return false;
+      // Re-throw the error to preserve the original error message for the UI
+      throw error;
     }
   }
 

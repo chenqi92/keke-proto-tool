@@ -60,6 +60,7 @@ export const DatabaseConnectionForm: React.FC<DatabaseConnectionFormProps> = ({
 
   const [showPassword, setShowPassword] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | 'testing' | null>(null);
+  const [testErrorMessage, setTestErrorMessage] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Initialize form data
@@ -142,15 +143,21 @@ export const DatabaseConnectionForm: React.FC<DatabaseConnectionFormProps> = ({
     }
 
     setTestResult('testing');
-    
+    setTestErrorMessage('');
+
     try {
       const result = await onTest({
         ...formData,
         status: 'disconnected'
       });
       setTestResult(result ? 'success' : 'error');
+      if (!result) {
+        setTestErrorMessage('Connection test failed');
+      }
     } catch (error) {
       setTestResult('error');
+      const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
+      setTestErrorMessage(errorMessage);
       console.error('Connection test failed:', error);
     }
   };
@@ -172,6 +179,7 @@ export const DatabaseConnectionForm: React.FC<DatabaseConnectionFormProps> = ({
     // Clear test result when form changes
     if (testResult) {
       setTestResult(null);
+      setTestErrorMessage('');
     }
   };
 
@@ -356,7 +364,7 @@ export const DatabaseConnectionForm: React.FC<DatabaseConnectionFormProps> = ({
             {testResult === 'testing' && <Loader2 className="w-4 h-4 animate-spin" />}
             <span className="text-sm">
               {testResult === 'success' && '连接测试成功'}
-              {testResult === 'error' && '连接测试失败'}
+              {testResult === 'error' && (testErrorMessage || '连接测试失败')}
               {testResult === 'testing' && '正在测试连接...'}
             </span>
           </div>
