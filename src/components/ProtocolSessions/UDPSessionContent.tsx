@@ -15,7 +15,8 @@ import {
   Loader2,
   Radio,
   Edit3,
-  Trash2
+  Trash2,
+  Filter
 } from 'lucide-react';
 
 interface UDPSessionContentProps {
@@ -78,8 +79,28 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
     const connections = getClientConnections(sessionId);
     console.log(`UDP服务端模式 - Session ${sessionId}: 获取到 ${connections.length} 个客户端连接`, connections);
 
+    // 过滤掉无效的客户端连接（地址为空或端口为0的连接）
+    const validConnections = connections.filter(client => {
+      const isValid = client.remoteAddress &&
+                     client.remoteAddress.trim() !== '' &&
+                     client.remotePort &&
+                     client.remotePort > 0;
+
+      if (!isValid) {
+        console.warn(`UDP服务端 - Session ${sessionId}: 发现无效的客户端连接，将被过滤:`, {
+          id: client.id,
+          remoteAddress: client.remoteAddress,
+          remotePort: client.remotePort
+        });
+        // 自动清理无效的客户端连接
+        removeClientConnection(sessionId, client.id);
+      }
+
+      return isValid;
+    });
+
     // 更新客户端连接的活动状态和字节统计
-    const updatedConnections = connections.map(client => {
+    const updatedConnections = validConnections.map(client => {
       // 计算该客户端的消息统计
       let bytesReceived = 0;
       let bytesSent = 0;
@@ -785,54 +806,71 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                       {isBound ? '等待客户端数据报...' : 'UDP服务端未启动'}
                     </div>
                   ) : (
-                    <div className="p-2 space-y-2">
-                      {/* 显示所有客户端选项 */}
-                      <div
-                        className={cn(
-                          "p-3 rounded-lg border cursor-pointer transition-colors",
-                          selectedClientForFilter === 'all' || selectedClientForFilter === null
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:bg-muted/50"
-                        )}
-                        onClick={() => setSelectedClientForFilter('all')}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 rounded-full bg-blue-500" />
-                            <span className="text-sm font-medium">所有客户端</span>
-                          </div>
+                    <div className="p-2 space-y-3">
+                      {/* 消息过滤区域 */}
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-2 px-1 flex items-center">
+                          <Filter className="w-3 h-3 mr-1" />
+                          消息过滤
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          显示来自所有客户端地址的数据报
+                        <div
+                          className={cn(
+                            "p-3 rounded-lg border cursor-pointer transition-colors",
+                            selectedClientForFilter === 'all' || selectedClientForFilter === null
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:bg-muted/50"
+                          )}
+                          onClick={() => setSelectedClientForFilter('all')}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 rounded-full bg-blue-500" />
+                              <span className="text-sm font-medium">显示所有消息</span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            显示来自所有客户端地址的数据报
+                          </div>
                         </div>
                       </div>
 
-                      {/* 广播选项 */}
-                      <div
-                        className={cn(
-                          "p-3 rounded-lg border cursor-pointer transition-colors",
-                          broadcastMode
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:bg-muted/50"
-                        )}
-                        onClick={() => {
-                          setBroadcastMode(true);
-                          setSelectedClient(null);
-                        }}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 rounded-full bg-orange-500" />
-                            <span className="text-sm font-medium">广播模式</span>
-                          </div>
+                      {/* 发送目标区域 */}
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-2 px-1 flex items-center">
+                          <Send className="w-3 h-3 mr-1" />
+                          发送目标
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          向所有客户端地址发送数据报
+                        <div
+                          className={cn(
+                            "p-3 rounded-lg border cursor-pointer transition-colors",
+                            broadcastMode
+                              ? "border-orange-500 bg-orange-50/50 dark:bg-orange-950/20"
+                              : "border-border hover:bg-muted/50"
+                          )}
+                          onClick={() => {
+                            setBroadcastMode(true);
+                            setSelectedClient(null);
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 rounded-full bg-orange-500" />
+                              <span className="text-sm font-medium">广播模式</span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            向所有客户端地址发送数据报
+                          </div>
                         </div>
                       </div>
 
                       {/* 客户端地址列表 */}
-                      {clientConnections.map((client) => (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-2 px-1 flex items-center">
+                          <Radio className="w-3 h-3 mr-1" />
+                          客户端地址 ({clientConnections.length})
+                        </div>
+                        {clientConnections.map((client) => (
                         <div
                           key={client.id}
                           className={cn(
@@ -870,7 +908,8 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                             </div>
                           </div>
                         </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

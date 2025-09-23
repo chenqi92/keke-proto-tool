@@ -368,34 +368,53 @@ impl ConnectionManager {
 
     /// Send UDP message to specific address
     pub async fn send_udp_message(&self, data: &[u8], target_host: &str, target_port: u16) -> NetworkResult<usize> {
-        eprintln!("ConnectionManager: Attempting to send UDP message to {}:{} for session {}", target_host, target_port, self.session_id);
+        eprintln!("🚀 ConnectionManager: Attempting to send UDP message to {}:{} for session {}", target_host, target_port, self.session_id);
 
         if let Some(connection) = self.connection.write().await.as_mut() {
-            eprintln!("ConnectionManager: Found connection for session {}, attempting UDP downcast", self.session_id);
-            // Try to downcast to UdpConnection
+            eprintln!("🔧 ConnectionManager: Found connection for session {}, attempting UDP downcast", self.session_id);
+
+            // Try to downcast to UdpClient first
             if let Some(udp_connection) = connection.as_any_mut().downcast_mut::<UdpClient>() {
-                eprintln!("ConnectionManager: Successfully downcast to UdpClient for session {}", self.session_id);
-                match udp_connection.send_to(data, target_host, target_port).await {
+                eprintln!("📤 ConnectionManager: Successfully downcast to UdpClient for session {}", self.session_id);
+                // For UDP client, use send() method instead of send_to() to maintain socket consistency
+                // UDP client already has the target address set during connection
+                match udp_connection.send(data).await {
                     Ok(bytes_sent) => {
-                        eprintln!("ConnectionManager: UdpClient sent {} bytes to {}:{} for session {}", bytes_sent, target_host, target_port, self.session_id);
+                        eprintln!("✅ ConnectionManager: UdpClient sent {} bytes to {}:{} for session {}", bytes_sent, target_host, target_port, self.session_id);
                         Ok(bytes_sent)
                     }
                     Err(e) => {
-                        eprintln!("ConnectionManager: UdpClient failed to send to {}:{} for session {}: {}", target_host, target_port, self.session_id, e);
+                        eprintln!("❌ ConnectionManager: UdpClient failed to send to {}:{} for session {}: {}", target_host, target_port, self.session_id, e);
                         Err(e)
                     }
                 }
-            } else if let Some(udp_connection) = connection.as_any_mut().downcast_mut::<UdpServer>() {
-                eprintln!("ConnectionManager: Successfully downcast to UdpServer for session {}", self.session_id);
-                udp_connection.send_to(data, target_host, target_port).await
+            }
+            // Try to downcast to UdpServer and use ServerConnection trait
+            else if let Some(udp_server) = connection.as_any_mut().downcast_mut::<UdpServer>() {
+                eprintln!("🏠 ConnectionManager: Successfully downcast to UdpServer for session {}", self.session_id);
+
+                // For UDP server, we need to use send_to_client method with the target address as client_id
+                let client_id = format!("{}:{}", target_host, target_port);
+                eprintln!("🎯 ConnectionManager: UdpServer sending to client_id: {}", client_id);
+
+                match udp_server.send_to_client(&client_id, data).await {
+                    Ok(bytes_sent) => {
+                        eprintln!("✅ ConnectionManager: UdpServer sent {} bytes to client {} for session {}", bytes_sent, client_id, self.session_id);
+                        Ok(bytes_sent)
+                    }
+                    Err(e) => {
+                        eprintln!("❌ ConnectionManager: UdpServer failed to send to client {} for session {}: {}", client_id, self.session_id, e);
+                        Err(e)
+                    }
+                }
             } else {
                 let error_msg = "Connection does not support UDP operations".to_string();
-                eprintln!("ConnectionManager: {}", error_msg);
+                eprintln!("❌ ConnectionManager: {}", error_msg);
                 Err(crate::types::NetworkError::ConnectionFailed(error_msg))
             }
         } else {
             let error_msg = "No active connection".to_string();
-            eprintln!("ConnectionManager: {}", error_msg);
+            eprintln!("❌ ConnectionManager: {}", error_msg);
             Err(crate::types::NetworkError::ConnectionFailed(error_msg))
         }
     }
