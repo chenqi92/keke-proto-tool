@@ -55,7 +55,7 @@ export const PluginsPage: React.FC = () => {
           <div className="h-full flex items-center justify-center text-muted-foreground">
             <div className="text-center">
               <Store className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">插件商店</h3>
+              <h3 className="text-lg font-semibold mb-2">协议商店</h3>
               <p>即将推出...</p>
             </div>
           </div>
@@ -65,7 +65,7 @@ export const PluginsPage: React.FC = () => {
           <div className="h-full flex items-center justify-center text-muted-foreground">
             <div className="text-center">
               <SettingsIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">插件设置</h3>
+              <h3 className="text-lg font-semibold mb-2">协议设置</h3>
               <p>即将推出...</p>
             </div>
           </div>
@@ -82,7 +82,7 @@ export const PluginsPage: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <Puzzle className="w-5 h-5 text-primary" />
-            <h1 className="text-xl font-semibold">插件管理</h1>
+            <h1 className="text-xl font-semibold">协议仓库</h1>
           </div>
         </div>
 
@@ -110,7 +110,7 @@ export const PluginsPage: React.FC = () => {
             )}
           >
             <Store className="w-4 h-4" />
-            <span>插件商店</span>
+            <span>协议商店</span>
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -122,7 +122,7 @@ export const PluginsPage: React.FC = () => {
             )}
           >
             <SettingsIcon className="w-4 h-4" />
-            <span>插件设置</span>
+            <span>协议设置</span>
           </button>
         </div>
       </div>

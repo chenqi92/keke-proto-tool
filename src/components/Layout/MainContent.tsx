@@ -7,6 +7,7 @@ import { useAppStore } from '@/stores/AppStore';
 import { WorkspacePage } from '@/pages/WorkspacePage';
 import { LogsPage } from '@/pages/LogsPage';
 import { PluginsPage } from '@/pages/PluginsPage';
+import { StoragePage } from '@/pages/StoragePage';
 import { SessionPage } from '@/pages/SessionPage';
 import { ConnectionDetailPage } from '@/pages/ConnectionDetailPage';
 import { ToolboxInterface } from '@/components/Toolbox/ToolboxInterface';
@@ -143,6 +144,13 @@ export const MainContent: React.FC<MainContentProps> = ({ className }) => {
         return (
           <Suspense fallback={<PageSkeleton />}>
             <PluginsPage />
+          </Suspense>
+        );
+
+      case 'storage':
+        return (
+          <Suspense fallback={<PageSkeleton />}>
+            <StoragePage />
           </Suspense>
         );
 

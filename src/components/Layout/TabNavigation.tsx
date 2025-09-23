@@ -6,6 +6,7 @@ import {
   Wrench,
   FileText,
   Puzzle,
+  Database,
   ChevronLeft,
   ChevronRight,
   Folder,
@@ -16,7 +17,7 @@ import {
   ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 
-export type TabId = 'workspace' | 'toolbox' | 'logs' | 'plugins';
+export type TabId = 'workspace' | 'toolbox' | 'logs' | 'plugins' | 'storage';
 
 interface Tab {
   id: TabId;
@@ -52,9 +53,15 @@ const tabs: Tab[] = [
   },
   {
     id: 'plugins',
-    label: '插件管理',
+    label: '协议仓库',
     icon: Puzzle,
     shortcut: 'Ctrl+4'
+  },
+  {
+    id: 'storage',
+    label: '储存方式',
+    icon: Database,
+    shortcut: 'Ctrl+5'
   }
 ];
 
