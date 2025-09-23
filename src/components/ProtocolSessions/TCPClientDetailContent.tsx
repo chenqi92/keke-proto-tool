@@ -168,16 +168,8 @@ export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
     const checkClientConnection = () => {
       const currentConnection = getClientConnection(sessionId, clientId);
       if (!currentConnection) {
-        console.log(`TCP客户端详情页面: 客户端 ${clientId} 已断开连接，准备关闭详情页面`);
+        console.log(`TCP客户端详情页面: 客户端 ${clientId} 已断开连接`);
         setIsClientDisconnected(true);
-
-        // 延迟2秒后自动切换到工作区概览页面
-        setTimeout(() => {
-          setSelectedNode('workspace-1', 'workspace', {
-            viewType: 'workspace-overview',
-            label: '工作区概览'
-          });
-        }, 2000);
       }
     };
 
@@ -222,13 +214,9 @@ export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
         <div className="text-center">
           <WifiOff className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-red-600 mb-2">客户端已断开连接</h3>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-muted-foreground">
             TCP客户端 {clientConnection.remoteAddress}:{clientConnection.remotePort} 已断开连接
           </p>
-          <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>正在返回工作区概览...</span>
-          </div>
         </div>
       </div>
     );
