@@ -115,6 +115,8 @@ export const StoragePage: React.FC = () => {
 
   // Initialize storage service and load connections
   useEffect(() => {
+    let hasShownToast = false;
+
     const initializeStorage = async () => {
       try {
         setIsLoading(true);
@@ -123,7 +125,12 @@ export const StoragePage: React.FC = () => {
         await storageService.initialize();
         await loadConnections();
 
-        toast.success('存储服务已初始化', '数据库连接管理已准备就绪');
+        // Only show toast once per session
+        if (!hasShownToast && !sessionStorage.getItem('storage-initialized')) {
+          toast.success('存储服务已初始化', '数据库连接管理已准备就绪');
+          sessionStorage.setItem('storage-initialized', 'true');
+          hasShownToast = true;
+        }
       } catch (error) {
         console.error('Failed to initialize storage service:', error);
         const errorMessage = error instanceof Error ? error.message : '未知错误';

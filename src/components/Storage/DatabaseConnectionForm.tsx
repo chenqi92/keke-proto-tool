@@ -179,32 +179,9 @@ export const DatabaseConnectionForm: React.FC<DatabaseConnectionFormProps> = ({
   const IconComponent = getIconComponent(config.icon);
 
   return (
-    <div className={cn("bg-background border border-border rounded-lg", className)}>
-      {/* Header */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className={cn("p-2 rounded-lg", config.bgColor)}>
-              <IconComponent className={cn("w-5 h-5", config.color)} />
-            </div>
-            <div>
-              <h3 className="font-semibold">
-                {connection ? '编辑连接' : '新建连接'}
-              </h3>
-              <p className="text-sm text-muted-foreground">{config.name}</p>
-            </div>
-          </div>
-          <button
-            onClick={onCancel}
-            className="p-1 hover:bg-accent rounded-md transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
+    <div className={cn("bg-background", className)}>
       {/* Form */}
-      <form onSubmit={handleSubmit} className="p-4 space-y-4">
+      <form onSubmit={handleSubmit} className="p-6 space-y-4">
         {/* Database Type Selection */}
         <div>
           <label className="block text-sm font-medium mb-2">数据库类型</label>
