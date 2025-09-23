@@ -44,6 +44,7 @@ export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
   const [isClientDisconnected, setIsClientDisconnected] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // 从会话状态获取数据
   const config = session?.config;
@@ -144,8 +145,25 @@ export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
     }
   };
 
+  // 初始化状态管理
+  useEffect(() => {
+    // 标记初始加载完成
+    const initTimeout = setTimeout(() => {
+      setIsInitialLoad(false);
+    }, 1000); // 1秒后认为初始加载完成
+
+    return () => {
+      clearTimeout(initTimeout);
+    };
+  }, []);
+
   // 监听客户端连接状态变化
   useEffect(() => {
+    // 如果还在初始加载阶段，不进行检查
+    if (isInitialLoad) {
+      return;
+    }
+
     // 检查客户端连接是否还存在
     const checkClientConnection = () => {
       const currentConnection = getClientConnection(sessionId, clientId);
@@ -172,7 +190,7 @@ export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
     return () => {
       clearInterval(interval);
     };
-  }, [sessionId, clientId, getClientConnection, setSelectedNode]);
+  }, [sessionId, clientId, getClientConnection, setSelectedNode, isInitialLoad]);
 
   // 断开该客户端连接
   const handleDisconnectClient = async () => {

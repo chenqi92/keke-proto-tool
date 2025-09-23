@@ -306,6 +306,7 @@ pub struct TcpServer {
     port: u16,
     listener: Option<TcpListener>,
     clients: Arc<RwLock<HashMap<String, Arc<RwLock<WriteHalf<TcpStream>>>>>>,
+    client_tasks: Arc<RwLock<HashMap<String, tokio::task::JoinHandle<()>>>>,
     connected: bool,
     app_handle: Arc<RwLock<Option<AppHandle>>>,
 }
@@ -327,6 +328,7 @@ impl TcpServer {
             port,
             listener: None,
             clients: Arc::new(RwLock::new(HashMap::new())),
+            client_tasks: Arc::new(RwLock::new(HashMap::new())),
             connected: false,
             app_handle: Arc::new(RwLock::new(None)),
         })
@@ -488,6 +490,7 @@ impl TcpServer {
 
         let session_id = self.session_id.clone();
         let clients = self.clients.clone();
+        let client_tasks = self.client_tasks.clone();
         let app_handle = self.app_handle.clone();
 
         eprintln!("TCPServer: Starting background task to accept connections");
@@ -580,11 +583,12 @@ impl TcpServer {
 
                         // Spawn task to handle this client using the read half
                         let clients_clone = clients.clone();
+                        let client_tasks_clone = client_tasks.clone();
                         let client_id_clone = client_id.clone();
                         let session_id_clone = session_id.clone();
                         let app_handle_clone = app_handle.clone();
 
-                        tokio::spawn(async move {
+                        let client_task = tokio::spawn(async move {
                             eprintln!("TCPServer: Starting client handler for {}", client_id_clone);
                             let mut buffer = [0u8; 8192];
                             let mut read_half = read_half;
@@ -671,8 +675,18 @@ impl TcpServer {
                                     }
                                 }
                             }
-                            eprintln!("TCPServer: Client handler for {} terminated", client_id_clone);
+
+                            // Clean up the task handle when the task terminates
+                            client_tasks_clone.write().await.remove(&client_id_clone);
+                            eprintln!("TCPServer: Client handler for {} terminated and cleaned up", client_id_clone);
                         });
+
+                        // Store the client task handle for later cleanup
+                        {
+                            let mut tasks = client_tasks.write().await;
+                            tasks.insert(client_id.clone(), client_task);
+                            eprintln!("TCPServer: Stored task handle for client {}", client_id);
+                        }
 
                         // Give a small delay to ensure all async operations are settled
                         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -1067,12 +1081,32 @@ impl ServerConnection for TcpServer {
     }
 
     async fn disconnect_client(&mut self, client_id: &str) -> NetworkResult<()> {
-        let mut clients = self.clients.write().await;
-        if let Some(write_half_arc) = clients.remove(client_id) {
-            // The write half will be dropped, closing the connection
-            drop(write_half_arc);
+        // First, remove and close the write half
+        let write_half_removed = {
+            let mut clients = self.clients.write().await;
+            clients.remove(client_id)
+        };
 
-            eprintln!("TCPServer: [DISCONNECT_CLIENT] Successfully removed and closed connection for client {}", client_id);
+        // Then, cancel the client task to force close the read half
+        let task_removed = {
+            let mut client_tasks = self.client_tasks.write().await;
+            client_tasks.remove(client_id)
+        };
+
+        if write_half_removed.is_some() || task_removed.is_some() {
+            // Force close the write half
+            if let Some(write_half_arc) = write_half_removed {
+                drop(write_half_arc);
+                eprintln!("TCPServer: [DISCONNECT_CLIENT] Closed write half for client {}", client_id);
+            }
+
+            // Cancel the client task to force close the read half
+            if let Some(task_handle) = task_removed {
+                task_handle.abort();
+                eprintln!("TCPServer: [DISCONNECT_CLIENT] Aborted client task for client {}", client_id);
+            }
+
+            eprintln!("TCPServer: [DISCONNECT_CLIENT] Successfully disconnected client {}", client_id);
 
             // Emit client-disconnected event to notify frontend
             if let Some(app_handle) = self.app_handle.read().await.as_ref() {
@@ -1088,7 +1122,7 @@ impl ServerConnection for TcpServer {
                 }
             }
         } else {
-            eprintln!("TCPServer: [DISCONNECT_CLIENT] Client {} not found in clients list", client_id);
+            eprintln!("TCPServer: [DISCONNECT_CLIENT] Client {} not found in clients or tasks list", client_id);
         }
         Ok(())
     }

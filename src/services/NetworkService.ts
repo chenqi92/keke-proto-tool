@@ -258,7 +258,40 @@ class NetworkService {
   }
 
   private handleClientDisconnected(sessionId: string, clientId: string) {
+    console.log('🔧 NetworkService - handleClientDisconnected called:', { sessionId, clientId });
+
+    // Remove client connection from the server session
     useAppStore.getState().removeClientConnection(sessionId, clientId);
+
+    // Find and update any TCP client sessions that might be connected to this server
+    // We need to check all TCP client sessions to see if any are connected to the same server
+    const store = useAppStore.getState();
+    const allSessions = store.sessions;
+
+    // Get the server session to find its host and port
+    const serverSession = allSessions[sessionId];
+    if (serverSession && serverSession.config.protocol === 'TCP' && serverSession.config.connectionType === 'server') {
+      const serverHost = serverSession.config.host;
+      const serverPort = serverSession.config.port;
+
+      // Look for TCP client sessions that are connected to this server
+      Object.values(allSessions).forEach(session => {
+        if (session.config.protocol === 'TCP' &&
+            session.config.connectionType === 'client' &&
+            session.config.host === serverHost &&
+            session.config.port === serverPort &&
+            session.status === 'connected') {
+
+          console.log(`🔧 NetworkService - Found TCP client session ${session.id} connected to server ${serverHost}:${serverPort}, updating status to disconnected`);
+
+          // Update the TCP client session status to disconnected
+          store.updateSession(session.id, {
+            status: 'disconnected',
+            error: 'Disconnected by server'
+          });
+        }
+      });
+    }
   }
 
   private handleConfigUpdate(sessionId: string, configUpdates: any) {
