@@ -18,6 +18,7 @@ pub struct TcpClient {
     port: u16,
     timeout: Option<u64>,
     write_half: Option<Arc<RwLock<WriteHalf<TcpStream>>>>,
+    read_task: Option<tokio::task::JoinHandle<()>>, // 后台读取任务句柄
     connected: bool,
     validate_internal_server: bool, // 是否验证内部服务端
     app_handle: Option<AppHandle>,
@@ -48,19 +49,20 @@ impl TcpClient {
             port,
             timeout,
             write_half: None,
+            read_task: None,
             connected: false,
             validate_internal_server,
             app_handle,
         })
     }
 
-    async fn start_receiving_with_read_half(&mut self, read_half: ReadHalf<TcpStream>) -> NetworkResult<()> {
+    async fn start_receiving_with_read_half(&mut self, read_half: ReadHalf<TcpStream>) -> NetworkResult<tokio::task::JoinHandle<()>> {
         let session_id = self.session_id.clone();
         let app_handle = self.app_handle.clone();
         let mut read_stream = read_half;
 
         // Spawn background task to read from stream
-        tokio::spawn(async move {
+        let task_handle = tokio::spawn(async move {
             let mut buffer = [0u8; 8192];
 
             loop {
@@ -128,7 +130,7 @@ impl TcpClient {
             }
         });
 
-        Ok(())
+        Ok(task_handle)
     }
 }
 
@@ -200,19 +202,28 @@ impl Connection for TcpClient {
 
         // Start receiving data from server immediately after connection
         eprintln!("TCPClient: Session {} - Starting to receive data from server", self.session_id);
-        self.start_receiving_with_read_half(read_half).await?;
+        let read_task = self.start_receiving_with_read_half(read_half).await?;
+        self.read_task = Some(read_task);
         eprintln!("TCPClient: Session {} - Successfully started receiving data from server", self.session_id);
 
         Ok(())
     }
 
     async fn disconnect(&mut self) -> NetworkResult<()> {
+        // 首先中止后台读取任务
+        if let Some(read_task) = self.read_task.take() {
+            eprintln!("TCPClient: Session {} - Aborting background read task", self.session_id);
+            read_task.abort();
+        }
+
+        // 然后关闭写入端
         if let Some(write_half) = self.write_half.take() {
             drop(write_half); // Close the write half
         }
+
         self.connected = false;
 
-        eprintln!("TCPClient: Session {} - Manually disconnected", self.session_id);
+        eprintln!("TCPClient: Session {} - Manually disconnected (both read and write halves closed)", self.session_id);
 
         // Emit connection-status event to notify frontend of manual disconnection
         if let Some(app_handle) = &self.app_handle {
