@@ -1005,9 +1005,17 @@ impl ServerConnection for TcpServer {
     }
 
     fn get_clients(&self) -> Vec<String> {
-        // This is a synchronous method, so we can't use async here
-        // We'll need to change this to async or use a different approach
-        Vec::new() // Placeholder for now
+        // Since this is a synchronous method, we need to use try_read() instead of read().await
+        // This will return the current client list without blocking
+        match self.clients.try_read() {
+            Ok(clients_guard) => clients_guard.keys().cloned().collect(),
+            Err(_) => {
+                // If we can't acquire the lock immediately, return empty list
+                // This prevents blocking but might miss some clients in rare cases
+                eprintln!("TCPServer: Warning - Could not acquire clients lock for get_clients()");
+                Vec::new()
+            }
+        }
     }
 
     async fn disconnect_client(&mut self, client_id: &str) -> NetworkResult<()> {

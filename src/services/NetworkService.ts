@@ -88,14 +88,10 @@ class NetworkService {
       });
 
       // Listen for client connection events (for server sessions)
-      await listen<{ sessionId: string; clientId: string; address: string; connectedAt: string }>('client-connected', (event) => {
+      await listen<{ sessionId: string; clientId: string; remoteAddress: string; remotePort: number; connectedAt?: string }>('client-connected', (event) => {
         console.log('🔗 NetworkService - Received client-connected event:', event.payload);
         console.log('🔍 NetworkService - Event payload details:', JSON.stringify(event.payload, null, 2));
-        const { sessionId, clientId, address, connectedAt } = event.payload;
-
-        // 解析地址字符串 "IP:PORT" 为分别的IP和端口
-        const [remoteAddress, remotePortStr] = address.split(':');
-        const remotePort = parseInt(remotePortStr, 10);
+        const { sessionId, clientId, remoteAddress, remotePort, connectedAt } = event.payload;
 
         console.log('👤 NetworkService - Processing client connection:', { sessionId, clientId, remoteAddress, remotePort, connectedAt });
         this.handleClientConnected(sessionId, clientId, remoteAddress, remotePort, connectedAt);
