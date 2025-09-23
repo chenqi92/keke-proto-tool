@@ -66,8 +66,23 @@ impl TcpClient {
             loop {
                 match read_stream.read(&mut buffer).await {
                     Ok(0) => {
-                        // Connection closed
+                        // Connection closed by server
                         eprintln!("TCPClient: Session {} - Connection closed by server", session_id);
+
+                        // Emit connection-status event to notify frontend of disconnection
+                        if let Some(app_handle) = &app_handle {
+                            let payload = serde_json::json!({
+                                "sessionId": session_id,
+                                "status": "disconnected",
+                                "error": "Connection closed by server"
+                            });
+
+                            if let Err(e) = app_handle.emit("connection-status", payload) {
+                                eprintln!("TCPClient: Failed to emit connection-status event for server disconnect: {}", e);
+                            } else {
+                                eprintln!("TCPClient: Successfully emitted connection-status event for server disconnect");
+                            }
+                        }
                         break;
                     }
                     Ok(n) => {
@@ -92,6 +107,21 @@ impl TcpClient {
                     Err(e) => {
                         // Error occurred
                         eprintln!("TCPClient: Session {} - Error reading from server: {}", session_id, e);
+
+                        // Emit connection-status event to notify frontend of connection error
+                        if let Some(app_handle) = &app_handle {
+                            let payload = serde_json::json!({
+                                "sessionId": session_id,
+                                "status": "disconnected",
+                                "error": format!("Connection error: {}", e)
+                            });
+
+                            if let Err(emit_err) = app_handle.emit("connection-status", payload) {
+                                eprintln!("TCPClient: Failed to emit connection-status event for read error: {}", emit_err);
+                            } else {
+                                eprintln!("TCPClient: Successfully emitted connection-status event for read error");
+                            }
+                        }
                         break;
                     }
                 }
@@ -181,6 +211,24 @@ impl Connection for TcpClient {
             drop(write_half); // Close the write half
         }
         self.connected = false;
+
+        eprintln!("TCPClient: Session {} - Manually disconnected", self.session_id);
+
+        // Emit connection-status event to notify frontend of manual disconnection
+        if let Some(app_handle) = &self.app_handle {
+            let payload = serde_json::json!({
+                "sessionId": self.session_id,
+                "status": "disconnected",
+                "error": null
+            });
+
+            if let Err(e) = app_handle.emit("connection-status", payload) {
+                eprintln!("TCPClient: Failed to emit connection-status event for manual disconnect: {}", e);
+            } else {
+                eprintln!("TCPClient: Successfully emitted connection-status event for manual disconnect");
+            }
+        }
+
         Ok(())
     }
 
@@ -1023,6 +1071,24 @@ impl ServerConnection for TcpServer {
         if let Some(write_half_arc) = clients.remove(client_id) {
             // The write half will be dropped, closing the connection
             drop(write_half_arc);
+
+            eprintln!("TCPServer: [DISCONNECT_CLIENT] Successfully removed and closed connection for client {}", client_id);
+
+            // Emit client-disconnected event to notify frontend
+            if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                let payload = serde_json::json!({
+                    "sessionId": self.session_id,
+                    "clientId": client_id
+                });
+
+                if let Err(e) = app_handle.emit("client-disconnected", payload) {
+                    eprintln!("TCPServer: Failed to emit client-disconnected event for manual disconnect: {}", e);
+                } else {
+                    eprintln!("TCPServer: Successfully emitted client-disconnected event for manual disconnect of client {}", client_id);
+                }
+            }
+        } else {
+            eprintln!("TCPServer: [DISCONNECT_CLIENT] Client {} not found in clients list", client_id);
         }
         Ok(())
     }

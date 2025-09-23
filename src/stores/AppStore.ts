@@ -44,6 +44,7 @@ interface AppStore extends WorkspaceState {
   removeClientConnection: (sessionId: string, clientId: string) => void;
   updateClientConnection: (sessionId: string, clientId: string, updates: Partial<ClientConnection>) => void;
   getClientConnections: (sessionId: string) => ClientConnection[];
+  getClientConnection: (sessionId: string, clientId: string) => ClientConnection | undefined;
 
   // MQTT Subscription Management
   addMQTTSubscription: (sessionId: string, subscription: MQTTSubscription) => void;
@@ -540,6 +541,11 @@ export const useAppStore = create<AppStore>()(
     getClientConnections: (sessionId: string) => {
       const session = get().sessions[sessionId];
       return session?.clientConnections ? Object.values(session.clientConnections) : [];
+    },
+
+    getClientConnection: (sessionId: string, clientId: string) => {
+      const session = get().sessions[sessionId];
+      return session?.clientConnections?.[clientId];
     },
 
     // MQTT Subscription Management

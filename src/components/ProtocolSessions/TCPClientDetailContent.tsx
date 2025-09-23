@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { cn } from '@/utils';
 import { DataFormatSelector, DataFormat, formatData } from '@/components/DataFormatSelector';
 import { useAppStore, useSessionById } from '@/stores/AppStore';
@@ -25,15 +25,17 @@ interface TCPClientDetailContentProps {
   clientConnection: ClientConnection;
 }
 
-export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({ 
-  sessionId, 
-  clientId, 
-  clientConnection 
+export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
+  sessionId,
+  clientId,
+  clientConnection
 }) => {
   // 从全局状态获取会话数据
   const session = useSessionById(sessionId);
   const clearMessages = useAppStore(state => state.clearMessages);
-  
+  const getClientConnection = useAppStore(state => state.getClientConnection);
+  const setSelectedNode = useAppStore(state => state.setSelectedNode);
+
   // 本地UI状态
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
   const [receiveFormat] = useState<DataFormat>('ascii');
@@ -41,6 +43,7 @@ export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
   const [formatError, setFormatError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
+  const [isClientDisconnected, setIsClientDisconnected] = useState(false);
 
   // 从会话状态获取数据
   const config = session?.config;
@@ -141,6 +144,36 @@ export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
     }
   };
 
+  // 监听客户端连接状态变化
+  useEffect(() => {
+    // 检查客户端连接是否还存在
+    const checkClientConnection = () => {
+      const currentConnection = getClientConnection(sessionId, clientId);
+      if (!currentConnection) {
+        console.log(`TCP客户端详情页面: 客户端 ${clientId} 已断开连接，准备关闭详情页面`);
+        setIsClientDisconnected(true);
+
+        // 延迟2秒后自动切换到工作区概览页面
+        setTimeout(() => {
+          setSelectedNode('workspace-1', 'workspace', {
+            viewType: 'workspace-overview',
+            label: '工作区概览'
+          });
+        }, 2000);
+      }
+    };
+
+    // 立即检查一次
+    checkClientConnection();
+
+    // 设置定时检查（每秒检查一次）
+    const interval = setInterval(checkClientConnection, 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [sessionId, clientId, getClientConnection, setSelectedNode]);
+
   // 断开该客户端连接
   const handleDisconnectClient = async () => {
     try {
@@ -159,6 +192,25 @@ export const TCPClientDetailContent: React.FC<TCPClientDetailContentProps> = ({
           <p className="text-sm text-muted-foreground">
             会话ID: {sessionId} 不存在或已被删除
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 如果客户端已断开连接，显示断开状态页面
+  if (isClientDisconnected) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <WifiOff className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-red-600 mb-2">客户端已断开连接</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            TCP客户端 {clientConnection.remoteAddress}:{clientConnection.remotePort} 已断开连接
+          </p>
+          <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>正在返回工作区概览...</span>
+          </div>
         </div>
       </div>
     );
