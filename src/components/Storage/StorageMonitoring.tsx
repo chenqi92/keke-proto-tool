@@ -25,7 +25,7 @@ interface ConnectionMetrics {
   id: string;
   name: string;
   type: string;
-  status: 'connected' | 'disconnected' | 'error';
+  status: 'connected' | 'disconnected' | 'connecting' | 'error';
   responseTime: number;
   throughput: number;
   errorRate: number;

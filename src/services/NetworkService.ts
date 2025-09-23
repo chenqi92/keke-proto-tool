@@ -282,10 +282,10 @@ class NetworkService {
             session.config.port === serverPort &&
             session.status === 'connected') {
 
-          console.log(`🔧 NetworkService - Found TCP client session ${session.id} connected to server ${serverHost}:${serverPort}, updating status to disconnected`);
+          console.log(`🔧 NetworkService - Found TCP client session ${session.config.id} connected to server ${serverHost}:${serverPort}, updating status to disconnected`);
 
           // Update the TCP client session status to disconnected
-          store.updateSession(session.id, {
+          store.updateSession(session.config.id, {
             status: 'disconnected',
             error: 'Disconnected by server'
           });

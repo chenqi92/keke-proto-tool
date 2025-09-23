@@ -415,6 +415,27 @@ class InfluxDBConnector extends BaseDatabaseConnector {
     }
   }
 
+  async store(data: DataStorageRequest): Promise<void> {
+    if (!this.connected) {
+      throw new Error('InfluxDB database not connected');
+    }
+
+    const startTime = Date.now();
+    try {
+      // In real implementation: write data to InfluxDB
+      await new Promise(resolve => setTimeout(resolve, 30 + Math.random() * 70));
+
+      const responseTime = Date.now() - startTime;
+      this.updateMetrics(1, JSON.stringify(data).length, responseTime, true);
+
+      console.log(`Stored data to InfluxDB database (${responseTime}ms)`);
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      this.updateMetrics(0, 0, responseTime, false);
+      throw error;
+    }
+  }
+
   async query(query: string, params?: any[]): Promise<any[]> {
     if (!this.connected) {
       throw new Error('InfluxDB database not connected');
