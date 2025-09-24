@@ -23,6 +23,7 @@ export type LogLevel = 'info' | 'warning' | 'error' | 'debug';
 interface LogServiceEvents {
   'log-added': LogEntry;
   'logs-cleared': void;
+  'logs-exported': { count: number; format: string };
 }
 
 class LogService extends EventEmitter<LogServiceEvents> {
@@ -310,6 +311,78 @@ class LogService extends EventEmitter<LogServiceEvents> {
   clearLogs(): void {
     this.logs = [];
     this.emit('logs-cleared');
+  }
+
+  /**
+   * Export logs based on filters
+   */
+  exportLogs(
+    filters: {
+      sessionId?: string;
+      level?: LogLevel;
+      category?: LogEntry['category'];
+      timeRange?: 'all' | 'today' | '24h' | '7d' | '30d';
+      searchQuery?: string;
+    },
+    format: 'json' | 'csv' = 'json'
+  ): void {
+    const filteredLogs = this.getFilteredLogs(filters);
+
+    if (filteredLogs.length === 0) {
+      alert('没有符合条件的日志可以导出');
+      return;
+    }
+
+    let content: string;
+    let filename: string;
+    let mimeType: string;
+
+    if (format === 'json') {
+      content = JSON.stringify(filteredLogs, null, 2);
+      filename = `logs_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+      mimeType = 'application/json';
+    } else {
+      // CSV format
+      const headers = [
+        'ID', '时间', '级别', '类别', '来源', '消息', '会话名称',
+        '客户端ID', '协议', '数据大小', '方向', '连接类型'
+      ];
+
+      const csvRows = [
+        headers.join(','),
+        ...filteredLogs.map(log => [
+          log.id,
+          log.timestamp.toISOString(),
+          log.level,
+          log.category || '',
+          log.source,
+          `"${log.message.replace(/"/g, '""')}"`, // Escape quotes in CSV
+          log.sessionName || '',
+          log.clientId || '',
+          log.protocol || '',
+          log.dataSize || '',
+          log.direction || '',
+          log.connectionType || ''
+        ].join(','))
+      ];
+
+      content = csvRows.join('\n');
+      filename = `logs_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+      mimeType = 'text/csv';
+    }
+
+    // Create and download file
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    this.emit('logs-exported', { count: filteredLogs.length, format });
   }
 
   /**

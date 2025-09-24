@@ -130,13 +130,13 @@ const getCategoryLabel = (log: LogEntry) => {
 export const LogsPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
-    const [selectedSource, setSelectedSource] = useState<string | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedTimeRange, setSelectedTimeRange] = useState('all');
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
     const [sessionFilter, setSessionFilter] = useState<string | null>(null);
     const [sessionName, setSessionName] = useState<string>('');
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [exportFormat, setExportFormat] = useState<'json' | 'csv'>('json');
 
     // 初始化日志数据
     useEffect(() => {
@@ -178,7 +178,6 @@ export const LogsPage: React.FC = () => {
     }, []);
 
     const levels = ['info', 'warning', 'error', 'debug'];
-    const sources = Array.from(new Set(logs.map(log => log.source)));
     const categories = [
         { value: 'network', label: '网络' },
         { value: 'message', label: '消息' },
@@ -198,7 +197,6 @@ export const LogsPage: React.FC = () => {
     const filteredLogs = logService.getFilteredLogs({
         sessionId: sessionFilter || undefined,
         level: selectedLevel as any,
-        source: selectedSource || undefined,
         category: selectedCategory as any,
         timeRange: selectedTimeRange as any,
         searchQuery: searchQuery || undefined
@@ -215,6 +213,26 @@ export const LogsPage: React.FC = () => {
         });
         const ms = timestamp.getMilliseconds().toString().padStart(3, '0');
         return `${dateStr}.${ms}`;
+    };
+
+    // 导出日志
+    const handleExportLogs = () => {
+        const currentFilters = {
+            sessionId: sessionFilter || undefined,
+            level: selectedLevel as any,
+            category: selectedCategory as any,
+            timeRange: selectedTimeRange as any,
+            searchQuery: searchQuery || undefined
+        };
+
+        logService.exportLogs(currentFilters, exportFormat);
+    };
+
+    // 清理日志
+    const handleClearLogs = () => {
+        if (confirm('确定要清理所有日志吗？此操作不可撤销。')) {
+            logService.clearLogs();
+        }
     };
 
     return (
@@ -240,12 +258,24 @@ export const LogsPage: React.FC = () => {
                         )}
                     </div>
                     <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
+                            <select
+                                value={exportFormat}
+                                onChange={(e) => setExportFormat(e.target.value as 'json' | 'csv')}
+                                className="px-2 py-1.5 border border-border rounded-l-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                                <option value="json">JSON</option>
+                                <option value="csv">CSV</option>
+                            </select>
+                            <button
+                                onClick={handleExportLogs}
+                                className="flex items-center space-x-2 px-2.5 py-1.5 border border-border border-l-0 rounded-r-md hover:bg-accent text-sm">
+                                <Download className="w-4 h-4"/>
+                                <span>导出</span>
+                            </button>
+                        </div>
                         <button
-                            className="flex items-center space-x-2 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
-                            <Download className="w-4 h-4"/>
-                            <span>导出</span>
-                        </button>
-                        <button
+                            onClick={handleClearLogs}
                             className="flex items-center space-x-2 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
                             <Trash2 className="w-4 h-4"/>
                             <span>清理</span>
@@ -254,9 +284,9 @@ export const LogsPage: React.FC = () => {
                 </div>
 
                 {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                     {/* Search */}
-                    <div className="relative">
+                    <div className="relative flex-1 min-w-64">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
                         <input
                             type="text"
@@ -271,7 +301,7 @@ export const LogsPage: React.FC = () => {
                     <select
                         value={selectedLevel || ''}
                         onChange={(e) => setSelectedLevel(e.target.value || null)}
-                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-24"
                     >
                         <option value="">所有级别</option>
                         {levels.map(level => (
@@ -285,7 +315,7 @@ export const LogsPage: React.FC = () => {
                     <select
                         value={selectedCategory || ''}
                         onChange={(e) => setSelectedCategory(e.target.value || null)}
-                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-24"
                     >
                         <option value="">所有类别</option>
                         {categories.map(category => (
@@ -295,25 +325,11 @@ export const LogsPage: React.FC = () => {
                         ))}
                     </select>
 
-                    {/* Source Filter */}
-                    <select
-                        value={selectedSource || ''}
-                        onChange={(e) => setSelectedSource(e.target.value || null)}
-                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                        <option value="">所有来源</option>
-                        {sources.map(source => (
-                            <option key={source} value={source}>
-                                {source}
-                            </option>
-                        ))}
-                    </select>
-
                     {/* Time Range */}
                     <select
                         value={selectedTimeRange}
                         onChange={(e) => setSelectedTimeRange(e.target.value)}
-                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-24"
                     >
                         {timeRanges.map(range => (
                             <option key={range.value} value={range.value}>
