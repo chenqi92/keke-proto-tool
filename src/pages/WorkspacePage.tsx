@@ -8,17 +8,16 @@ import {
   Users,
   Database,
   Activity,
-  Wifi,
-  MessageSquare,
-  Globe,
-  Radio,
+  Link,
+  Zap,
+  ArrowLeftRight,
+  Rss,
   Play,
   Square,
   AlertCircle,
   CheckCircle,
   Search,
   MoreHorizontal,
-  Zap,
   Server
 } from 'lucide-react';
 import { useAllSessions, useConnectedSessions, useAppStore } from '@/stores/AppStore';
@@ -210,16 +209,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const getProtocolIcon = (protocol: string) => {
     switch (protocol) {
       case 'TCP':
+        return <Link className="w-4 h-4" />;
       case 'UDP':
-        return <Wifi className="w-4 h-4" />;
+        return <Zap className="w-4 h-4" />;
       case 'MQTT':
-        return <MessageSquare className="w-4 h-4" />;
+        return <Rss className="w-4 h-4" />;
       case 'WebSocket':
-        return <Globe className="w-4 h-4" />;
+        return <ArrowLeftRight className="w-4 h-4" />;
       case 'SSE':
-        return <Radio className="w-4 h-4" />;
+        return <Activity className="w-4 h-4" />;
       default:
-        return <Wifi className="w-4 h-4" />;
+        return <Link className="w-4 h-4" />;
     }
   };
 
@@ -754,10 +754,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   <th className="text-left px-4 py-2 font-medium text-sm min-w-0">
                     <span className="truncate block">会话</span>
                   </th>
-                  <th className="text-left px-2 py-2 font-medium text-sm w-20 min-w-0">
+                  <th className="text-left px-2 py-2 font-medium text-sm w-20 min-w-20">
                     <span className="truncate block">协议</span>
                   </th>
-                  <th className="text-left px-2 py-2 font-medium text-sm w-24 min-w-0">
+                  <th className="text-left px-2 py-2 font-medium text-sm w-24 min-w-24">
                     <span className="truncate block">状态</span>
                   </th>
                   <th className="text-left px-2 py-2 font-medium text-sm w-20 min-w-0 hidden sm:table-cell">
@@ -783,14 +783,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                         <span className="font-medium text-sm truncate">{session.name}</span>
                       </div>
                     </td>
-                    <td className="px-2 py-2 w-20 min-w-0">
+                    <td className="px-2 py-2 w-20 min-w-20">
                       <ProtocolTag
                         protocol={session.protocol}
                         showIcon={true}
                         size="sm"
                       />
                     </td>
-                    <td className="px-2 py-2 w-24 min-w-0">
+                    <td className="px-2 py-2 w-24 min-w-24">
                       <StatusTag
                         status={mapStatusToStatusType(session.status)}
                         showIcon={true}

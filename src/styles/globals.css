@@ -218,6 +218,24 @@
   height: 3rem; /* Ensure consistent row height */
 }
 
+/* 协议和状态标签列最小宽度保护 */
+.table-header-sticky th:nth-child(2), /* 协议列 */
+.table-header-sticky th:nth-child(3)  /* 状态列 */ {
+  min-width: 5rem; /* 80px minimum width */
+}
+
+/* 表格体中的协议和状态列 */
+tbody td:nth-child(2), /* 协议列 */
+tbody td:nth-child(3)  /* 状态列 */ {
+  min-width: 5rem; /* 80px minimum width */
+}
+
+/* 确保标签组件不会被压缩 */
+.table-header-sticky th span,
+tbody td span {
+  min-width: fit-content;
+}
+
 /* 平滑滚动效果 */
 .table-scroll-container {
   scroll-behavior: smooth;

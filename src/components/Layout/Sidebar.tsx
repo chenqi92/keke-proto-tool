@@ -5,13 +5,14 @@ import {
   ChevronRight,
   Search,
   MoreHorizontal,
-  Wifi,
+  Link,
+  Zap,
+  ArrowLeftRight,
+  Rss,
+  Activity,
   Circle,
   Play,
   Square,
-  MessageSquare,
-  Globe,
-  Radio,
   RefreshCw,
   Folder
 } from 'lucide-react';
@@ -151,19 +152,46 @@ const getStatusIcon = (status?: string) => {
   }
 };
 
-const getProtocolIcon = (protocol?: string) => {
+const getProtocolIcon = (protocol?: string, status?: string) => {
+  // 根据连接状态确定颜色类
+  const getColorClass = (isConnected: boolean) => {
+    if (!isConnected) {
+      return "text-gray-400"; // 未连接时为灰色
+    }
+
+    // 连接后根据协议显示不同颜色
+    switch (protocol) {
+      case 'TCP':
+        return "text-blue-500";
+      case 'UDP':
+        return "text-purple-500";
+      case 'WebSocket':
+        return "text-green-500";
+      case 'MQTT':
+        return "text-orange-500";
+      case 'SSE':
+        return "text-pink-500";
+      default:
+        return "text-blue-500";
+    }
+  };
+
+  const isConnected = status === 'connected';
+  const colorClass = getColorClass(isConnected);
+
   switch (protocol) {
     case 'TCP':
+      return <Link className={cn("w-4 h-4", colorClass)} />;
     case 'UDP':
-      return <Wifi className="w-4 h-4" />;
+      return <Zap className={cn("w-4 h-4", colorClass)} />;
     case 'MQTT':
-      return <MessageSquare className="w-4 h-4" />;
+      return <Rss className={cn("w-4 h-4", colorClass)} />;
     case 'WebSocket':
-      return <Globe className="w-4 h-4" />;
+      return <ArrowLeftRight className={cn("w-4 h-4", colorClass)} />;
     case 'SSE':
-      return <Radio className="w-4 h-4" />;
+      return <Activity className={cn("w-4 h-4", colorClass)} />;
     default:
-      return <Wifi className="w-4 h-4" />;
+      return <Link className={cn("w-4 h-4", colorClass)} />;
   }
 };
 
@@ -236,9 +264,9 @@ const TreeItem: React.FC<{
         {/* Node Type Icon */}
         <div className="mr-2">
           {node.type === 'workspace' && <Folder className="w-4 h-4" />}
-          {node.type === 'protocol-type' && getProtocolIcon(node.protocol)}
-          {node.type === 'session' && getProtocolIcon(node.protocol)}
-          {node.type === 'connection' && <Globe className="w-4 h-4" />}
+          {node.type === 'protocol-type' && getProtocolIcon(node.protocol, 'connected')}
+          {node.type === 'session' && getProtocolIcon(node.protocol, node.status)}
+          {node.type === 'connection' && <ArrowLeftRight className="w-4 h-4 text-green-500" />}
         </div>
 
         {/* Status Icon */}

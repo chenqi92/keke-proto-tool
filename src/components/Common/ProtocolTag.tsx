@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/utils';
-import { Wifi, MessageSquare, Globe, Radio, Server } from 'lucide-react';
+import { Link, Zap, ArrowLeftRight, Rss, Activity } from 'lucide-react';
 
 export type ProtocolType = 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
 
@@ -14,27 +14,27 @@ interface ProtocolTagProps {
 const protocolConfig = {
   TCP: {
     label: 'TCP',
-    icon: Wifi,
+    icon: Link,
     className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800',
   },
   UDP: {
     label: 'UDP',
-    icon: Server,
+    icon: Zap,
     className: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800',
   },
   WebSocket: {
     label: 'WS',
-    icon: Globe,
+    icon: ArrowLeftRight,
     className: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800',
   },
   MQTT: {
     label: 'MQTT',
-    icon: MessageSquare,
+    icon: Rss,
     className: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800',
   },
   SSE: {
     label: 'SSE',
-    icon: Radio,
+    icon: Activity,
     className: 'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900/20 dark:text-pink-400 dark:border-pink-800',
   },
 };
@@ -60,7 +60,7 @@ export const ProtocolTag: React.FC<ProtocolTagProps> = ({
           className
         )}
       >
-        {showIcon && <Wifi className={size === 'sm' ? 'w-3 h-3' : 'w-4 h-4'} />}
+        {showIcon && <Link className={size === 'sm' ? 'w-3 h-3' : 'w-4 h-4'} />}
         {protocol}
       </span>
     );

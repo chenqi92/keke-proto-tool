@@ -3,12 +3,14 @@ import { cn } from '@/utils';
 import {
   Activity,
   Users,
+  Link,
+  Zap,
+  ArrowLeftRight,
+  Rss,
   MessageSquare,
   Database,
-  Wifi,
   CheckCircle,
-  Server,
-  Monitor
+  Server
 } from 'lucide-react';
 import { useAllSessions } from '@/stores/AppStore';
 import { StatusTag, StatusType, ProtocolTag } from '@/components/Common';
@@ -69,17 +71,17 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
   const getProtocolIcon = () => {
     switch (protocol) {
       case 'TCP':
-        return <Wifi className="w-6 h-6" />;
+        return <Link className="w-6 h-6" />;
       case 'UDP':
-        return <Wifi className="w-6 h-6" />;
+        return <Zap className="w-6 h-6" />;
       case 'WebSocket':
-        return <Monitor className="w-6 h-6" />;
+        return <ArrowLeftRight className="w-6 h-6" />;
       case 'MQTT':
-        return <MessageSquare className="w-6 h-6" />;
+        return <Rss className="w-6 h-6" />;
       case 'SSE':
         return <Activity className="w-6 h-6" />;
       default:
-        return <Wifi className="w-6 h-6" />;
+        return <Link className="w-6 h-6" />;
     }
   };
 
