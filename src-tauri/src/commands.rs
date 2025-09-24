@@ -380,8 +380,12 @@ pub async fn parse_data_with_rule(
 #[tauri::command]
 pub async fn parse_data_auto(data: Vec<u8>) -> Result<String, String> {
     let registry = get_parser_registry();
+    let result = {
+        let guard = registry.read().unwrap();
+        guard.parse_auto(&data)
+    };
 
-    match registry.parse_auto(&data) {
+    match result {
         Ok(result) => {
             Ok(serde_json::to_string(&result).unwrap_or_default())
         }
@@ -413,7 +417,11 @@ pub async fn validate_parsed_data(
 #[tauri::command]
 pub async fn get_available_parsers() -> Result<Vec<String>, String> {
     let registry = get_parser_registry();
-    Ok(registry.get_parser_ids())
+    let parser_ids = {
+        let guard = registry.read().unwrap();
+        guard.get_parser_ids()
+    };
+    Ok(parser_ids)
 }
 
 /// Register a new parser from rule content
@@ -425,7 +433,7 @@ pub async fn register_parser(
     match ProtocolParser::from_rule_string(parser_id.clone(), &rule_content) {
         Ok(parser) => {
             let registry = get_parser_registry();
-            registry.register_parser(Box::new(parser));
+            registry.write().unwrap().register_parser(Box::new(parser));
             Ok(true)
         }
         Err(e) => Err(format!("Failed to register parser: {}", e)),

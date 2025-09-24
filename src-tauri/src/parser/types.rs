@@ -4,9 +4,8 @@
 //! integers, floating point numbers, strings, and binary data.
 
 use crate::parser::schema::{FieldType, Endianness};
-use crate::parser::result::{FieldValue, ParseError, ErrorSeverity};
-use crate::types::{NetworkResult, NetworkError};
-use std::collections::HashMap;
+use crate::parser::result::FieldValue;
+use crate::types::{NetworkError, NetworkResult};
 
 /// Type parser for basic data types
 pub struct TypeParser;

@@ -153,7 +153,7 @@ impl InheritanceResolver {
     }
     
     /// Resolve inheritance and references in a rule
-    fn resolve_inheritance(&mut self, mut rule: ProtocolRule, base_path: &Path) -> NetworkResult<ProtocolRule> {
+    fn resolve_inheritance(&mut self, rule: ProtocolRule, _base_path: &Path) -> NetworkResult<ProtocolRule> {
         // TODO: Implement inheritance resolution
         // This would handle:
         // - extends: "base_protocol.kkp.yaml"
@@ -366,7 +366,7 @@ impl RuleValidator {
     }
     
     fn validate_conditions(&self, conditions: &[ConditionalRule], fields: &[FieldDefinition]) -> NetworkResult<()> {
-        let field_names: std::collections::HashSet<_> = fields.iter().map(|f| &f.name).collect();
+        let _field_names: std::collections::HashSet<_> = fields.iter().map(|f| &f.name).collect();
         
         for condition in conditions {
             if condition.condition.is_empty() {

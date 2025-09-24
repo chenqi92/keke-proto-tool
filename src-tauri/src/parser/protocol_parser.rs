@@ -10,7 +10,7 @@ use crate::parser::compiler::{RuleCompiler, CompiledRule};
 use crate::parser::cache::RuleCache;
 use crate::parser::framing::FrameDetector;
 use crate::parser::types::TypeParser;
-use crate::parser::result::{ParseResult, ParseError, ErrorSeverity, FieldValue, ParsedField, ParsedFields, ValidationResults, ProtocolInfo, FieldMetadata, FieldValidationResult};
+use crate::parser::result::{ParseResult, ParseError, ErrorSeverity, FieldValue, ParsedField, ParsedFields, ProtocolInfo, FieldMetadata, FieldValidationResult};
 use crate::parser::validation_report::{ValidationReport, ValidationIssue, IssueSeverity, IssueCategory, IssueLocation};
 use crate::types::{NetworkResult, NetworkError};
 use std::collections::HashMap;

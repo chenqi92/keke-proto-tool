@@ -1,4 +1,4 @@
-use crate::network::{Connection, ServerConnection, UdpConnection};
+use crate::network::{Connection, ServerConnection};
 use crate::network::tcp::TcpServer;
 use crate::network::websocket::WebSocketServer;
 use crate::network::udp::{UdpClient, UdpServer};
@@ -489,7 +489,7 @@ impl ConnectionManager {
                 udp_client.set_app_handle(app_handle.clone()).await;
             }
             // Add WebSocket server support
-            else if let Some(ws_server) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
+            else if let Some(_ws_server) = connection.as_any_mut().downcast_mut::<WebSocketServer>() {
                 eprintln!("ConnectionManager: Setting app handle on WebSocket server for session {}", self.session_id);
                 // WebSocket server doesn't have set_app_handle method yet, but we can add it later
             }

@@ -4,7 +4,7 @@
 //! performs dependency analysis, and generates execution plans.
 
 use crate::parser::schema::ProtocolRule;
-use crate::types::{NetworkResult, NetworkError};
+use crate::types::NetworkResult;
 use std::collections::HashMap;
 
 /// Compiled protocol rule ready for execution

@@ -34,8 +34,6 @@ pub mod protocol_matcher;
 pub mod protocol_parser;
 
 // Re-export key types for convenience
-pub use schema::*;
-pub use rules::*;
 pub use result::*;
 pub use validation_report::*;
 pub use protocol_parser::ProtocolParser;
@@ -142,30 +140,28 @@ impl Default for ParserRegistry {
     }
 }
 
+use std::sync::{Arc, RwLock, OnceLock};
+
 /// Global parser registry instance
-static mut PARSER_REGISTRY: Option<ParserRegistry> = None;
-static REGISTRY_INIT: std::sync::Once = std::sync::Once::new();
+static PARSER_REGISTRY: OnceLock<Arc<RwLock<ParserRegistry>>> = OnceLock::new();
 
 /// Get the global parser registry
-pub fn get_parser_registry() -> &'static mut ParserRegistry {
-    unsafe {
-        REGISTRY_INIT.call_once(|| {
-            PARSER_REGISTRY = Some(ParserRegistry::new());
-        });
-        PARSER_REGISTRY.as_mut().unwrap()
-    }
+pub fn get_parser_registry() -> Arc<RwLock<ParserRegistry>> {
+    PARSER_REGISTRY.get_or_init(|| {
+        Arc::new(RwLock::new(ParserRegistry::new()))
+    }).clone()
 }
 
 /// Initialize the parser system with built-in parsers
 pub fn initialize_parser_system() -> NetworkResult<()> {
     let registry = get_parser_registry();
-    
+
     // TODO: Register built-in parsers here
-    // registry.register_parser(Box::new(ModbusParser::new()));
-    // registry.register_parser(Box::new(TcpParser::new()));
+    // registry.write().unwrap().register_parser(Box::new(ModbusParser::new()));
+    // registry.write().unwrap().register_parser(Box::new(TcpParser::new()));
     // etc.
-    
-    log::info!("Parser system initialized with {} parsers", registry.get_parser_ids().len());
+
+    log::info!("Parser system initialized with {} parsers", registry.read().unwrap().get_parser_ids().len());
     Ok(())
 }
 

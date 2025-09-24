@@ -4,7 +4,7 @@
 //! including byte replacement and custom escape rules.
 
 use crate::parser::schema::{EscapeRule, EscapeDirection};
-use crate::types::{NetworkResult, NetworkError};
+use crate::types::NetworkResult;
 
 /// Escape sequence processor
 pub struct EscapeProcessor {

@@ -329,7 +329,7 @@ impl Connection for UdpClient {
             return Err(NetworkError::NotConnected);
         }
 
-        let (tx, rx) = mpsc::channel(1000);
+        let (_tx, rx) = mpsc::channel(1000);
 
         // For UDP client, we don't start receiving here anymore
         // The receiving is handled by start_receiving_background which is called when app_handle is set

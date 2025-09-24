@@ -5,7 +5,7 @@
 
 use crate::parser::compiler::CompiledRule;
 use lru::LruCache;
-use std::collections::HashMap;
+
 use std::num::NonZeroUsize;
 use std::sync::{Arc, RwLock};
 
@@ -227,31 +227,28 @@ impl Default for RuleCache {
     }
 }
 
+use std::sync::OnceLock;
+
 /// Global rule cache instance
-static mut GLOBAL_CACHE: Option<RuleCache> = None;
-static CACHE_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_CACHE: OnceLock<RuleCache> = OnceLock::new();
 
 /// Get the global rule cache
 pub fn get_global_cache() -> &'static RuleCache {
-    unsafe {
-        CACHE_INIT.call_once(|| {
-            GLOBAL_CACHE = Some(RuleCache::new(1000)); // Global cache with 1000 entries
-        });
-        GLOBAL_CACHE.as_ref().unwrap()
-    }
+    GLOBAL_CACHE.get_or_init(|| {
+        RuleCache::new(1000) // Global cache with 1000 entries
+    })
 }
 
 /// Initialize the global cache with custom capacity
-pub fn initialize_global_cache(capacity: usize) {
-    unsafe {
-        CACHE_INIT.call_once(|| {
-            GLOBAL_CACHE = Some(RuleCache::new(capacity));
-        });
-    }
+/// Note: This function is deprecated since OnceLock doesn't support custom initialization after first access
+pub fn initialize_global_cache(_capacity: usize) {
+    // With OnceLock, the cache is initialized on first access with a fixed capacity
+    // This function is kept for API compatibility but doesn't do anything
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use super::*;
     use crate::parser::schema::*;
     use crate::parser::compiler::*;
