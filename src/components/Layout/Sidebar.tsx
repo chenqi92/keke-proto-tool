@@ -664,8 +664,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
       }
     },
     onViewLogs: (sessionId: string) => {
-      console.log('查看日志:', sessionId);
-      // TODO: 打开日志查看器
+      // 导航到日志页面，并过滤特定会话的日志
+      const session = sessionsMap[sessionId];
+      if (session) {
+        // 使用路由导航到日志页面，并传递会话ID作为查询参数
+        window.location.hash = `#/logs?session=${sessionId}&name=${encodeURIComponent(session.config.name)}`;
+      }
     },
     onConnect: async (sessionId: string) => {
       try {

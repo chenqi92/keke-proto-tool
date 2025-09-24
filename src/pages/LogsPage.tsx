@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {cn} from '@/utils';
 import {
     Search,
@@ -91,6 +91,20 @@ export const LogsPage: React.FC = () => {
     const [selectedSource, setSelectedSource] = useState<string | null>(null);
     const [selectedTimeRange, setSelectedTimeRange] = useState('all');
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+    const [sessionFilter, setSessionFilter] = useState<string | null>(null);
+    const [sessionName, setSessionName] = useState<string>('');
+
+    // 解析URL参数来设置会话过滤
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+        const sessionId = urlParams.get('session');
+        const sessionNameParam = urlParams.get('name');
+
+        if (sessionId) {
+            setSessionFilter(sessionId);
+            setSessionName(decodeURIComponent(sessionNameParam || sessionId));
+        }
+    }, []);
 
     const levels = ['info', 'warning', 'error', 'debug'];
     const sources = Array.from(new Set(mockLogs.map(log => log.source)));
@@ -109,6 +123,11 @@ export const LogsPage: React.FC = () => {
 
         const matchesLevel = !selectedLevel || log.level === selectedLevel;
         const matchesSource = !selectedSource || log.source === selectedSource;
+
+        // 会话过滤：如果设置了会话过滤，只显示相关的日志
+        const matchesSession = !sessionFilter ||
+            log.source.toLowerCase().includes(sessionName.toLowerCase()) ||
+            log.message.toLowerCase().includes(sessionFilter.toLowerCase());
 
         // 简化的时间过滤逻辑
         let matchesTime = true;
@@ -131,7 +150,7 @@ export const LogsPage: React.FC = () => {
             }
         }
 
-        return matchesSearch && matchesLevel && matchesSource && matchesTime;
+        return matchesSearch && matchesLevel && matchesSource && matchesTime && matchesSession;
     });
 
     const formatTimestamp = (timestamp: Date) => {
@@ -152,7 +171,24 @@ export const LogsPage: React.FC = () => {
             {/* Header */}
             <div className="border-b border-border p-4 bg-muted/30">
                 <div className="flex items-center justify-between mb-4">
-                    <h1 className="text-xl font-semibold">日志管理</h1>
+                    <div>
+                        <h1 className="text-xl font-semibold">日志管理</h1>
+                        {sessionFilter && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                                正在查看会话: <span className="font-medium text-foreground">{sessionName}</span>
+                                <button
+                                    onClick={() => {
+                                        setSessionFilter(null);
+                                        setSessionName('');
+                                        window.location.hash = '#/logs';
+                                    }}
+                                    className="ml-2 text-xs text-primary hover:underline"
+                                >
+                                    清除过滤
+                                </button>
+                            </p>
+                        )}
+                    </div>
                     <div className="flex items-center space-x-2">
                         <button
                             className="flex items-center space-x-2 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent text-sm">

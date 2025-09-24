@@ -22,7 +22,9 @@ import {
 } from 'lucide-react';
 import { useAllSessions, useConnectedSessions, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
+import { SessionConfig } from '@/types';
 import { NewSessionModal } from '@/components/NewSessionModal';
+import { EditConfigModal } from '@/components/EditConfigModal';
 import {
   ContextMenu,
   createSessionMenuItems,
@@ -72,6 +74,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
   // New session modal state
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+
+  // Edit config modal state
+  const [isEditConfigModalOpen, setIsEditConfigModalOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<SessionConfig | null>(null);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -359,13 +365,23 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
   const handleContextMenuAction = {
     onEditConfig: (sessionId: string) => {
-      console.log('编辑配置:', sessionId);
-      // TODO: 实现配置编辑功能
+      const session = allSessions.find(s => s.config.id === sessionId);
+      if (session) {
+        setEditingSession(session.config);
+        setIsEditConfigModalOpen(true);
+      }
       setContextMenu(null);
     },
     onDuplicateSession: (sessionId: string) => {
-      console.log('复制会话:', sessionId);
-      // TODO: 实现会话复制功能
+      const session = allSessions.find(s => s.config.id === sessionId);
+      if (session) {
+        const newSessionConfig: SessionConfig = {
+          ...session.config,
+          id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          name: `${session.config.name} (副本)`
+        };
+        createSession(newSessionConfig);
+      }
       setContextMenu(null);
     },
     onDeleteSession: (sessionId: string) => {
@@ -383,8 +399,12 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       setContextMenu(null);
     },
     onViewLogs: (sessionId: string) => {
-      console.log('查看日志:', sessionId);
-      // TODO: 实现日志查看功能
+      // 导航到日志页面，并过滤特定会话的日志
+      const session = allSessions.find(s => s.config.id === sessionId);
+      if (session) {
+        // 使用路由导航到日志页面，并传递会话ID作为查询参数
+        window.location.hash = `#/logs?session=${sessionId}&name=${encodeURIComponent(session.config.name)}`;
+      }
       setContextMenu(null);
     },
     onConnect: async (sessionId: string) => {
@@ -403,6 +423,13 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       }
       setContextMenu(null);
     }
+  };
+
+  const handleSaveConfig = (config: SessionConfig) => {
+    const updateSession = useAppStore.getState().updateSession;
+    updateSession(config.id, { config });
+    setEditingSession(null);
+    setIsEditConfigModalOpen(false);
   };
 
   const getContextMenuItems = () => {
@@ -866,6 +893,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           onClose={() => setContextMenu(null)}
         />
       )}
+
+      {/* Edit Configuration Modal */}
+      <EditConfigModal
+        isOpen={isEditConfigModalOpen}
+        onClose={() => {
+          setIsEditConfigModalOpen(false);
+          setEditingSession(null);
+        }}
+        onSave={handleSaveConfig}
+        config={editingSession}
+      />
 
       {/* Delete Confirmation Modal */}
       <sessionDeleteModal.Modal />
