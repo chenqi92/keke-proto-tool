@@ -9,7 +9,15 @@ import {
     FileText,
     AlertCircle,
     CheckCircle,
-    Info
+    Info,
+    Network,
+    MessageSquare,
+    ArrowUp,
+    ArrowDown,
+    Server,
+    Monitor,
+    Zap,
+    Settings
 } from 'lucide-react';
 
 // LogEntry interface is now imported from LogService
@@ -44,10 +52,86 @@ const getLevelColor = (level: string) => {
     }
 };
 
+// 获取日志类别图标
+const getCategoryIcon = (log: LogEntry) => {
+    const { category, direction } = log;
+
+    switch (category) {
+        case 'network':
+            return <Network className="w-4 h-4 text-green-500"/>;
+        case 'message':
+            if (direction === 'in') {
+                return <ArrowDown className="w-4 h-4 text-blue-500"/>;
+            } else if (direction === 'out') {
+                return <ArrowUp className="w-4 h-4 text-orange-500"/>;
+            }
+            return <MessageSquare className="w-4 h-4 text-purple-500"/>;
+        case 'protocol':
+            return <Settings className="w-4 h-4 text-indigo-500"/>;
+        case 'system':
+            return <Monitor className="w-4 h-4 text-gray-500"/>;
+        case 'console':
+            return <FileText className="w-4 h-4 text-gray-400"/>;
+        default:
+            return getLevelIcon(log.level);
+    }
+};
+
+// 获取日志类别颜色
+const getCategoryColor = (log: LogEntry) => {
+    const { category, direction } = log;
+
+    switch (category) {
+        case 'network':
+            return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        case 'message':
+            if (direction === 'in') {
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+            } else if (direction === 'out') {
+                return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+            }
+            return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+        case 'protocol':
+            return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+        case 'system':
+            return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        case 'console':
+            return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200';
+        default:
+            return getLevelColor(log.level);
+    }
+};
+
+// 获取日志类别标签文本
+const getCategoryLabel = (log: LogEntry) => {
+    const { category, direction } = log;
+
+    switch (category) {
+        case 'network':
+            return '网络';
+        case 'message':
+            if (direction === 'in') {
+                return '接收';
+            } else if (direction === 'out') {
+                return '发送';
+            }
+            return '消息';
+        case 'protocol':
+            return '协议';
+        case 'system':
+            return '系统';
+        case 'console':
+            return '控制台';
+        default:
+            return log.level.toUpperCase();
+    }
+};
+
 export const LogsPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
     const [selectedSource, setSelectedSource] = useState<string | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedTimeRange, setSelectedTimeRange] = useState('all');
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
     const [sessionFilter, setSessionFilter] = useState<string | null>(null);
@@ -95,6 +179,13 @@ export const LogsPage: React.FC = () => {
 
     const levels = ['info', 'warning', 'error', 'debug'];
     const sources = Array.from(new Set(logs.map(log => log.source)));
+    const categories = [
+        { value: 'network', label: '网络' },
+        { value: 'message', label: '消息' },
+        { value: 'protocol', label: '协议' },
+        { value: 'system', label: '系统' },
+        { value: 'console', label: '控制台' }
+    ];
     const timeRanges = [
         {value: 'all', label: '全部时间'},
         {value: 'today', label: '今天'},
@@ -108,6 +199,7 @@ export const LogsPage: React.FC = () => {
         sessionId: sessionFilter || undefined,
         level: selectedLevel as any,
         source: selectedSource || undefined,
+        category: selectedCategory as any,
         timeRange: selectedTimeRange as any,
         searchQuery: searchQuery || undefined
     });
@@ -189,6 +281,20 @@ export const LogsPage: React.FC = () => {
                         ))}
                     </select>
 
+                    {/* Category Filter */}
+                    <select
+                        value={selectedCategory || ''}
+                        onChange={(e) => setSelectedCategory(e.target.value || null)}
+                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                        <option value="">所有类别</option>
+                        {categories.map(category => (
+                            <option key={category.value} value={category.value}>
+                                {category.label}
+                            </option>
+                        ))}
+                    </select>
+
                     {/* Source Filter */}
                     <select
                         value={selectedSource || ''}
@@ -243,16 +349,24 @@ export const LogsPage: React.FC = () => {
                                 >
                                     <div className="flex items-start space-x-2">
                                         <div className="mt-0.5">
-                                            {getLevelIcon(log.level)}
+                                            {getCategoryIcon(log)}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center space-x-2 mb-0.5">
                         <span className={cn(
                             "px-1.5 py-0.5 rounded text-xs font-medium",
-                            getLevelColor(log.level)
+                            getCategoryColor(log)
                         )}>
-                          {log.level.toUpperCase()}
+                          {getCategoryLabel(log)}
                         </span>
+                                                {log.level !== 'info' && (
+                                                    <span className={cn(
+                                                        "px-1 py-0.5 rounded text-xs font-medium",
+                                                        getLevelColor(log.level)
+                                                    )}>
+                                                        {log.level.toUpperCase()}
+                                                    </span>
+                                                )}
                                                 <span className="text-xs text-muted-foreground">
                           {log.source}
                         </span>
@@ -263,6 +377,26 @@ export const LogsPage: React.FC = () => {
                                             <p className="text-xs text-foreground leading-tight">
                                                 {log.message}
                                             </p>
+                                            {/* 显示额外的消息详情 */}
+                                            {(log.clientId || log.dataSize || log.protocol) && (
+                                                <div className="flex items-center space-x-2 mt-1">
+                                                    {log.clientId && (
+                                                        <span className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs text-gray-600 dark:text-gray-400">
+                                                            客户端: {log.clientId}
+                                                        </span>
+                                                    )}
+                                                    {log.dataSize && (
+                                                        <span className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900 rounded text-xs text-blue-600 dark:text-blue-400">
+                                                            {log.dataSize} bytes
+                                                        </span>
+                                                    )}
+                                                    {log.protocol && (
+                                                        <span className="px-1 py-0.5 bg-purple-100 dark:bg-purple-900 rounded text-xs text-purple-600 dark:text-purple-400">
+                                                            {log.protocol}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         <button
                                             className="p-0.5 hover:bg-accent rounded opacity-0 group-hover:opacity-100 transition-opacity"
@@ -291,20 +425,70 @@ export const LogsPage: React.FC = () => {
                                 </p>
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-muted-foreground">级别</label>
-                                <div className="mt-1">
-                  <span className={cn(
-                      "px-2 py-0.5 rounded-full text-xs font-medium",
-                      getLevelColor(selectedLog.level)
-                  )}>
-                    {selectedLog.level.toUpperCase()}
-                  </span>
+                                <label className="text-sm font-medium text-muted-foreground">类别</label>
+                                <div className="mt-1 flex items-center space-x-2">
+                                    <span className={cn(
+                                        "px-2 py-0.5 rounded-full text-xs font-medium",
+                                        getCategoryColor(selectedLog)
+                                    )}>
+                                        {getCategoryLabel(selectedLog)}
+                                    </span>
+                                    {selectedLog.level !== 'info' && (
+                                        <span className={cn(
+                                            "px-2 py-0.5 rounded-full text-xs font-medium",
+                                            getLevelColor(selectedLog.level)
+                                        )}>
+                                            {selectedLog.level.toUpperCase()}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">来源</label>
                                 <p className="text-sm mt-1">{selectedLog.source}</p>
                             </div>
+                            {selectedLog.sessionName && (
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">会话</label>
+                                    <p className="text-sm mt-1">{selectedLog.sessionName}</p>
+                                </div>
+                            )}
+                            {selectedLog.clientId && (
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">客户端ID</label>
+                                    <p className="text-sm mt-1 font-mono">{selectedLog.clientId}</p>
+                                </div>
+                            )}
+                            {selectedLog.protocol && (
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">协议</label>
+                                    <p className="text-sm mt-1">{selectedLog.protocol}</p>
+                                </div>
+                            )}
+                            {selectedLog.dataSize && (
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">数据大小</label>
+                                    <p className="text-sm mt-1">{selectedLog.dataSize} bytes</p>
+                                </div>
+                            )}
+                            {selectedLog.direction && (
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">方向</label>
+                                    <div className="mt-1 flex items-center space-x-1">
+                                        {selectedLog.direction === 'in' ? (
+                                            <>
+                                                <ArrowDown className="w-4 h-4 text-blue-500"/>
+                                                <span className="text-sm text-blue-600">接收</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ArrowUp className="w-4 h-4 text-orange-500"/>
+                                                <span className="text-sm text-orange-600">发送</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">消息</label>
                                 <p className="text-sm mt-1">{selectedLog.message}</p>

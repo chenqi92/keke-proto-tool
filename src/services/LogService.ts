@@ -9,6 +9,13 @@ export interface LogEntry {
   sessionId?: string;
   sessionName?: string;
   details?: any;
+  // 扩展字段用于更详细的日志分类
+  category?: 'network' | 'protocol' | 'system' | 'console' | 'message';
+  direction?: 'in' | 'out';
+  clientId?: string;
+  protocol?: string;
+  dataSize?: number;
+  connectionType?: 'client' | 'server';
 }
 
 export type LogLevel = 'info' | 'warning' | 'error' | 'debug';
@@ -98,7 +105,15 @@ class LogService extends EventEmitter<LogServiceEvents> {
     message: string,
     sessionId?: string,
     sessionName?: string,
-    details?: any
+    details?: any,
+    options?: {
+      category?: LogEntry['category'];
+      direction?: LogEntry['direction'];
+      clientId?: string;
+      protocol?: string;
+      dataSize?: number;
+      connectionType?: LogEntry['connectionType'];
+    }
   ): void {
     const logEntry: LogEntry = {
       id: `log_${this.logIdCounter++}`,
@@ -108,7 +123,8 @@ class LogService extends EventEmitter<LogServiceEvents> {
       message,
       sessionId,
       sessionName,
-      details
+      details,
+      ...options
     };
 
     this.logs.push(logEntry);
@@ -133,26 +149,42 @@ class LogService extends EventEmitter<LogServiceEvents> {
   ): void {
     let level: LogLevel = 'info';
     let message = '';
+    let category: LogEntry['category'] = 'network';
+    let direction: LogEntry['direction'] | undefined;
 
     switch (event) {
       case 'connected':
-        message = `连接建立成功`;
+        message = details?.clientId
+          ? `客户端 ${details.clientId} 连接成功`
+          : `连接建立成功`;
         level = 'info';
         break;
       case 'disconnected':
-        message = `连接断开`;
+        message = details?.clientId
+          ? `客户端 ${details.clientId} 断开连接`
+          : `连接断开`;
         level = 'warning';
         break;
       case 'message_sent':
-        message = `发送消息`;
+        message = details?.clientId
+          ? `向客户端 ${details.clientId} 发送消息 (${details.size || 0} bytes)`
+          : `发送消息 (${details.size || 0} bytes)`;
         level = 'info';
+        category = 'message';
+        direction = 'out';
         break;
       case 'message_received':
-        message = `接收消息`;
+        message = details?.clientId
+          ? `从客户端 ${details.clientId} 接收消息 (${details.size || 0} bytes)`
+          : `接收消息 (${details.size || 0} bytes)`;
         level = 'info';
+        category = 'message';
+        direction = 'in';
         break;
       case 'connection_error':
-        message = `连接错误: ${details?.error || '未知错误'}`;
+        message = details?.clientId
+          ? `客户端 ${details.clientId} 连接错误: ${details?.error || '未知错误'}`
+          : `连接错误: ${details?.error || '未知错误'}`;
         level = 'error';
         break;
       case 'connection_timeout':
@@ -164,7 +196,14 @@ class LogService extends EventEmitter<LogServiceEvents> {
         level = 'debug';
     }
 
-    this.addLog(level, sessionName, message, sessionId, sessionName, details);
+    this.addLog(level, sessionName, message, sessionId, sessionName, details, {
+      category,
+      direction,
+      clientId: details?.clientId,
+      protocol: details?.protocol,
+      dataSize: details?.size,
+      connectionType: details?.connectionType
+    });
   }
 
   /**
@@ -178,11 +217,15 @@ class LogService extends EventEmitter<LogServiceEvents> {
     details?: any
   ): void {
     const level: LogLevel = success ? 'info' : 'error';
-    const message = success 
+    const message = success
       ? `协议解析成功 (${protocol})`
       : `协议解析失败 (${protocol}): ${details?.error || '未知错误'}`;
 
-    this.addLog(level, 'Protocol Parser', message, sessionId, sessionName, details);
+    this.addLog(level, 'Protocol Parser', message, sessionId, sessionName, details, {
+      category: 'protocol',
+      protocol,
+      dataSize: details?.dataSize
+    });
   }
 
   /**
@@ -199,6 +242,7 @@ class LogService extends EventEmitter<LogServiceEvents> {
     sessionId?: string;
     level?: LogLevel;
     source?: string;
+    category?: LogEntry['category'];
     timeRange?: 'all' | 'today' | '24h' | '7d' | '30d';
     searchQuery?: string;
   }): LogEntry[] {
@@ -220,6 +264,11 @@ class LogService extends EventEmitter<LogServiceEvents> {
     // Filter by source
     if (filters.source) {
       filteredLogs = filteredLogs.filter(log => log.source === filters.source);
+    }
+
+    // Filter by category
+    if (filters.category) {
+      filteredLogs = filteredLogs.filter(log => log.category === filters.category);
     }
 
     // Filter by time range

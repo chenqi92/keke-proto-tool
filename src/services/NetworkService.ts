@@ -125,24 +125,38 @@ class NetworkService {
         if (clientId) {
           // This is a client connection to a server, not the server itself connecting
           console.log(`NetworkService: Client ${clientId} connected to server session ${sessionId}`);
-          logService.logNetworkEvent(sessionId, sessionName, 'connected', { clientId });
+          logService.logNetworkEvent(sessionId, sessionName, 'connected', {
+            clientId,
+            protocol: session?.config.protocol,
+            connectionType: 'server'
+          });
           // Handle client connection events separately if needed
         } else {
           // This is the session itself connecting
           store.updateSessionStatus(sessionId, 'connected');
-          logService.logNetworkEvent(sessionId, sessionName, 'connected');
+          logService.logNetworkEvent(sessionId, sessionName, 'connected', {
+            protocol: session?.config.protocol,
+            connectionType: session?.config.connectionType
+          });
         }
         break;
       case 'disconnected':
         if (clientId) {
           // This is a client disconnecting from a server, not the server itself disconnecting
           console.log(`NetworkService: Client ${clientId} disconnected from server session ${sessionId}`);
-          logService.logNetworkEvent(sessionId, sessionName, 'disconnected', { clientId });
+          logService.logNetworkEvent(sessionId, sessionName, 'disconnected', {
+            clientId,
+            protocol: session?.config.protocol,
+            connectionType: 'server'
+          });
           // Don't trigger auto-reconnect for client disconnections
         } else {
           // This is the session itself disconnecting
           store.updateSessionStatus(sessionId, 'disconnected');
-          logService.logNetworkEvent(sessionId, sessionName, 'disconnected');
+          logService.logNetworkEvent(sessionId, sessionName, 'disconnected', {
+            protocol: session?.config.protocol,
+            connectionType: session?.config.connectionType
+          });
           this.handleAutoReconnect(sessionId);
         }
         break;
@@ -182,7 +196,9 @@ class NetworkService {
     logService.logNetworkEvent(sessionId, sessionName, eventType, {
       size: data.length,
       clientId,
-      protocol: session?.config.protocol
+      protocol: session?.config.protocol,
+      connectionType: session?.config.connectionType,
+      raw: this.uint8ArrayToString(data).substring(0, 100) // 前100个字符用于预览
     });
 
     const message: Message = {
