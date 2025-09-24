@@ -664,11 +664,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
       }
     },
     onViewLogs: (sessionId: string) => {
-      // 导航到日志页面，并过滤特定会话的日志
+      // 切换到日志页面，并设置会话过滤
       const session = sessionsMap[sessionId];
       if (session) {
-        // 使用路由导航到日志页面，并传递会话ID作为查询参数
-        window.location.hash = `#/logs?session=${sessionId}&name=${encodeURIComponent(session.config.name)}`;
+        // 触发自定义事件来切换到日志页面并设置过滤
+        const event = new CustomEvent('navigate-to-logs', {
+          detail: {
+            sessionId: sessionId,
+            sessionName: session.config.name
+          }
+        });
+        window.dispatchEvent(event);
       }
     },
     onConnect: async (sessionId: string) => {

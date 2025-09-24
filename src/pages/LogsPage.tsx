@@ -94,16 +94,19 @@ export const LogsPage: React.FC = () => {
     const [sessionFilter, setSessionFilter] = useState<string | null>(null);
     const [sessionName, setSessionName] = useState<string>('');
 
-    // 解析URL参数来设置会话过滤
+    // 监听日志过滤设置事件
     useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
-        const sessionId = urlParams.get('session');
-        const sessionNameParam = urlParams.get('name');
-
-        if (sessionId) {
+        const handleSetLogFilter = (event: CustomEvent) => {
+            const { sessionId, sessionName } = event.detail;
             setSessionFilter(sessionId);
-            setSessionName(decodeURIComponent(sessionNameParam || sessionId));
-        }
+            setSessionName(sessionName);
+        };
+
+        window.addEventListener('set-log-filter', handleSetLogFilter as EventListener);
+
+        return () => {
+            window.removeEventListener('set-log-filter', handleSetLogFilter as EventListener);
+        };
     }, []);
 
     const levels = ['info', 'warning', 'error', 'debug'];
@@ -180,7 +183,6 @@ export const LogsPage: React.FC = () => {
                                     onClick={() => {
                                         setSessionFilter(null);
                                         setSessionName('');
-                                        window.location.hash = '#/logs';
                                     }}
                                     className="ml-2 text-xs text-primary hover:underline"
                                 >

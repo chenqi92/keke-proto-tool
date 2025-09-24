@@ -177,6 +177,30 @@ export const MainContent: React.FC<MainContentProps> = ({ className }) => {
     }
   }, [selectedNodeId, selectedNodeData, lastSelectedNodeId]);
 
+  // 监听导航到日志页面的事件
+  useEffect(() => {
+    const handleNavigateToLogs = (event: CustomEvent) => {
+      const { sessionId, sessionName } = event.detail;
+
+      // 切换到日志页面
+      setActiveTab('logs');
+
+      // 触发日志页面的会话过滤设置
+      setTimeout(() => {
+        const filterEvent = new CustomEvent('set-log-filter', {
+          detail: { sessionId, sessionName }
+        });
+        window.dispatchEvent(filterEvent);
+      }, 100);
+    };
+
+    window.addEventListener('navigate-to-logs', handleNavigateToLogs as EventListener);
+
+    return () => {
+      window.removeEventListener('navigate-to-logs', handleNavigateToLogs as EventListener);
+    };
+  }, []);
+
 
 
   return (
