@@ -223,15 +223,17 @@ class NetworkService {
       }
     }
 
-    // Update status bar service with throughput data
-    const session = store.getSession(sessionId);
-    if (session) {
-      statusBarService.updateThroughputData(
-        sessionId,
-        session.statistics.bytesReceived,
-        session.statistics.bytesSent
-      );
-    }
+    // Update status bar service with throughput data after message is added
+    setTimeout(() => {
+      const session = store.getSession(sessionId);
+      if (session) {
+        statusBarService.updateThroughputData(
+          sessionId,
+          session.statistics.bytesReceived,
+          session.statistics.bytesSent
+        );
+      }
+    }, 0);
   }
 
   private handleClientConnected(sessionId: string, clientId: string, remoteAddress: string, remotePort: number, connectedAt?: string) {
@@ -255,6 +257,17 @@ class NetworkService {
     // Verify the connection was added
     const connections = useAppStore.getState().getClientConnections(sessionId);
     console.log('✅ NetworkService - Client connections after adding:', { count: connections.length, connections });
+
+    // Trigger status bar update to reflect new connection count
+    const store = useAppStore.getState();
+    const session = store.getSession(sessionId);
+    if (session) {
+      statusBarService.updateThroughputData(
+        sessionId,
+        session.statistics.bytesReceived,
+        session.statistics.bytesSent
+      );
+    }
   }
 
   private handleClientDisconnected(sessionId: string, clientId: string) {
@@ -263,9 +276,19 @@ class NetworkService {
     // Remove client connection from the server session
     useAppStore.getState().removeClientConnection(sessionId, clientId);
 
+    // Trigger status bar update to reflect updated connection count
+    const store = useAppStore.getState();
+    const session = store.getSession(sessionId);
+    if (session) {
+      statusBarService.updateThroughputData(
+        sessionId,
+        session.statistics.bytesReceived,
+        session.statistics.bytesSent
+      );
+    }
+
     // Find and update any TCP client sessions that might be connected to this server
     // We need to check all TCP client sessions to see if any are connected to the same server
-    const store = useAppStore.getState();
     const allSessions = store.sessions;
 
     // Get the server session to find its host and port

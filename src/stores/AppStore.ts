@@ -300,6 +300,11 @@ export const useAppStore = create<AppStore>()(
 
         console.log(`AppStore: Session ${sessionId} status updated from ${session.status} to ${status}`);
 
+        // Trigger status bar update when connection status changes
+        setTimeout(() => {
+          statusBarService.forceUpdate();
+        }, 0);
+
         return {
           sessions: {
             ...state.sessions,
@@ -367,12 +372,17 @@ export const useAppStore = create<AppStore>()(
           lastActivity: new Date(),
         };
 
-        // Update status bar service with throughput data
+        // Update status bar service with throughput data immediately
         statusBarService.updateThroughputData(
           sessionId,
           updatedStats.bytesReceived,
           updatedStats.bytesSent
         );
+
+        // Also trigger a status bar update to refresh the display
+        setTimeout(() => {
+          statusBarService.forceUpdate();
+        }, 0);
 
         return {
           sessions: {

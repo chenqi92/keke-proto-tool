@@ -108,11 +108,21 @@ class StatusBarService {
     }
 
     const history = this.throughputHistory.get(sessionId)!;
-    history.push(data);
 
-    // Keep only recent history
-    if (history.length > this.HISTORY_WINDOW) {
-      history.shift();
+    // Only add data if it's different from the last entry or enough time has passed
+    const lastEntry = history[history.length - 1];
+    const shouldUpdate = !lastEntry ||
+      (timestamp - lastEntry.timestamp >= 500) || // At least 500ms between updates
+      (bytesReceived !== lastEntry.bytesReceived) ||
+      (bytesSent !== lastEntry.bytesSent);
+
+    if (shouldUpdate) {
+      history.push(data);
+
+      // Keep only recent history
+      if (history.length > this.HISTORY_WINDOW) {
+        history.shift();
+      }
     }
   }
 
@@ -198,19 +208,30 @@ class StatusBarService {
   private calculateThroughput(): { rx: number; tx: number } {
     let totalRx = 0;
     let totalTx = 0;
+    const now = Date.now();
 
     this.throughputHistory.forEach((history, sessionId) => {
       if (history.length >= 2) {
         const latest = history[history.length - 1];
         const previous = history[history.length - 2];
-        
+
+        // Check if the latest data is recent (within last 5 seconds)
+        const timeSinceLastUpdate = (now - latest.timestamp) / 1000;
+        if (timeSinceLastUpdate > 5) {
+          // If no recent activity, gradually reduce the displayed speed
+          return;
+        }
+
         const timeDiff = (latest.timestamp - previous.timestamp) / 1000; // seconds
         if (timeDiff > 0) {
           const rxRate = (latest.bytesReceived - previous.bytesReceived) / timeDiff;
           const txRate = (latest.bytesSent - previous.bytesSent) / timeDiff;
-          
-          totalRx += Math.max(0, rxRate);
-          totalTx += Math.max(0, txRate);
+
+          // Apply decay factor based on how old the data is
+          const decayFactor = Math.max(0, 1 - (timeSinceLastUpdate / 5));
+
+          totalRx += Math.max(0, rxRate * decayFactor);
+          totalTx += Math.max(0, txRate * decayFactor);
         }
       }
     });
@@ -261,6 +282,14 @@ class StatusBarService {
    */
   public getCurrentData(): StatusBarData {
     return this.calculateStatusBarData();
+  }
+
+  /**
+   * Force an immediate update of status bar data
+   */
+  public forceUpdate(): void {
+    const data = this.calculateStatusBarData();
+    this.notifyListeners(data);
   }
 
   /**

@@ -29,7 +29,8 @@ import {
   createSessionMenuItems,
   useSessionDeleteModal,
   StatusTag,
-  StatusType
+  StatusType,
+  ProtocolTag
 } from '@/components/Common';
 
 interface WorkspaceStats {
@@ -196,7 +197,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       name: session.config.name,
       protocol: session.config.protocol,
       status: session.status,
-      lastActivity: session.lastActivity || new Date(),
+      // Only use actual lastActivity if it exists, don't create fake timestamps
+      lastActivity: session.lastActivity || new Date(0), // Use epoch time for never-connected sessions
       messageCount: session.statistics.messagesReceived + session.statistics.messagesSent,
       bytesTransferred: session.statistics.bytesReceived + session.statistics.bytesSent
     }));
@@ -274,10 +276,16 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       return '无效时间';
     }
 
+    // Check if this is epoch time (never connected)
+    if (dateObj.getTime() === 0) {
+      return '从未';
+    }
+
     const now = new Date();
     const diffMs = now.getTime() - dateObj.getTime();
     const diffMins = Math.floor(diffMs / 60000);
 
+    // Only show "刚刚" for sessions that have actually been active recently
     if (diffMins < 1) return '刚刚';
     if (diffMins < 60) return `${diffMins}分钟前`;
     const diffHours = Math.floor(diffMins / 60);
@@ -742,47 +750,63 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           <div className="max-h-96 min-h-32 overflow-y-auto table-scroll-container">
             <table className="w-full">
               <thead className="table-header-sticky">
-                <tr>
-                  <th className="text-left p-4 font-medium text-sm">会话</th>
-                  <th className="text-left p-4 font-medium text-sm w-20">协议</th>
-                  <th className="text-left p-4 font-medium text-sm w-28">状态</th>
-                  <th className="text-left p-4 font-medium text-sm w-24">最后活动</th>
-                  <th className="text-left p-4 font-medium text-sm w-20">消息数</th>
-                  <th className="text-left p-4 font-medium text-sm w-20">传输量</th>
-                  <th className="text-left p-4 font-medium text-sm w-20">操作</th>
+                <tr className="h-12"> {/* Fixed header height */}
+                  <th className="text-left px-4 py-2 font-medium text-sm min-w-0">
+                    <span className="truncate block">会话</span>
+                  </th>
+                  <th className="text-left px-2 py-2 font-medium text-sm w-20 min-w-0">
+                    <span className="truncate block">协议</span>
+                  </th>
+                  <th className="text-left px-2 py-2 font-medium text-sm w-24 min-w-0">
+                    <span className="truncate block">状态</span>
+                  </th>
+                  <th className="text-left px-2 py-2 font-medium text-sm w-20 min-w-0 hidden sm:table-cell">
+                    <span className="truncate block">最后活动</span>
+                  </th>
+                  <th className="text-left px-2 py-2 font-medium text-sm w-16 min-w-0 hidden md:table-cell">
+                    <span className="truncate block">消息数</span>
+                  </th>
+                  <th className="text-left px-2 py-2 font-medium text-sm w-16 min-w-0 hidden lg:table-cell">
+                    <span className="truncate block">传输量</span>
+                  </th>
+                  <th className="text-left px-2 py-2 font-medium text-sm w-16 min-w-0">
+                    <span className="truncate block">操作</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSessions.map((session) => (
                   <tr key={session.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="p-4">
-                      <div className="flex items-center space-x-3">
+                    <td className="px-4 py-2 min-w-0">
+                      <div className="flex items-center space-x-2 min-w-0">
                         {getProtocolIcon(session.protocol)}
-                        <span className="font-medium text-sm">{session.name}</span>
+                        <span className="font-medium text-sm truncate">{session.name}</span>
                       </div>
                     </td>
-                    <td className="p-4 w-20">
-                      <span className="px-2 py-1 bg-muted rounded text-xs font-medium whitespace-nowrap">
-                        {session.protocol}
-                      </span>
+                    <td className="px-2 py-2 w-20 min-w-0">
+                      <ProtocolTag
+                        protocol={session.protocol}
+                        showIcon={true}
+                        size="sm"
+                      />
                     </td>
-                    <td className="p-4 w-28">
+                    <td className="px-2 py-2 w-24 min-w-0">
                       <StatusTag
                         status={mapStatusToStatusType(session.status)}
                         showIcon={true}
                         size="sm"
                       />
                     </td>
-                    <td className="p-4 text-sm text-muted-foreground">
-                      {formatTimeAgo(session.lastActivity)}
+                    <td className="px-2 py-2 text-sm text-muted-foreground w-20 min-w-0 hidden sm:table-cell">
+                      <span className="truncate block">{formatTimeAgo(session.lastActivity)}</span>
                     </td>
-                    <td className="p-4 text-sm">
-                      {session.messageCount.toLocaleString()}
+                    <td className="px-2 py-2 text-sm w-16 min-w-0 hidden md:table-cell">
+                      <span className="truncate block">{session.messageCount.toLocaleString()}</span>
                     </td>
-                    <td className="p-4 text-sm">
-                      {formatBytes(session.bytesTransferred)}
+                    <td className="px-2 py-2 text-sm w-16 min-w-0 hidden lg:table-cell">
+                      <span className="truncate block">{formatBytes(session.bytesTransferred)}</span>
                     </td>
-                    <td className="p-4">
+                    <td className="px-2 py-2 w-16 min-w-0">
                       <div className="flex items-center space-x-1">
                         {session.status === 'connected' ? (
                           <button

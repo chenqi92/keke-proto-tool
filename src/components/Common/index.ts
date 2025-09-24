@@ -11,4 +11,5 @@ export {
   useWorkspaceClearModal
 } from './DeleteConfirmationModal';
 export { StatusTag, type StatusType } from './StatusTag';
+export { ProtocolTag, type ProtocolType } from './ProtocolTag';
 export { PageSkeleton } from './PageSkeleton';

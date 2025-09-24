@@ -11,7 +11,7 @@ import {
   Monitor
 } from 'lucide-react';
 import { useAllSessions } from '@/stores/AppStore';
-import { StatusTag, StatusType } from '@/components/Common';
+import { StatusTag, StatusType, ProtocolTag } from '@/components/Common';
 
 interface ProtocolTypeOverviewProps {
   protocol?: string;
@@ -173,11 +173,18 @@ export const ProtocolTypeOverview: React.FC<ProtocolTypeOverviewProps> = ({
                   <div key={session.config.id} className="p-4 hover:bg-muted/30 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <StatusTag
-                          status={mapStatusToStatusType(session.status)}
-                          showIcon={true}
-                          size="sm"
-                        />
+                        <div className="flex items-center space-x-2">
+                          <ProtocolTag
+                            protocol={session.config.protocol}
+                            showIcon={true}
+                            size="sm"
+                          />
+                          <StatusTag
+                            status={mapStatusToStatusType(session.status)}
+                            showIcon={true}
+                            size="sm"
+                          />
+                        </div>
                         <div>
                           <p className="font-medium text-sm">{session.config.name}</p>
                           <p className="text-sm text-muted-foreground">

@@ -205,6 +205,19 @@
   border-bottom: 1px solid hsl(var(--border));
 }
 
+/* 表格响应式布局优化 */
+.table-header-sticky th {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 3rem; /* Fixed header height */
+  vertical-align: middle;
+}
+
+.table-header-sticky tr {
+  height: 3rem; /* Ensure consistent row height */
+}
+
 /* 平滑滚动效果 */
 .table-scroll-container {
   scroll-behavior: smooth;
