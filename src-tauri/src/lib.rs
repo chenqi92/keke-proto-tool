@@ -1,10 +1,12 @@
 use tauri::Manager;
 
 // Modules
+mod logging;
 mod network;
 mod session;
 mod parser;
 mod commands;
+mod storage;
 mod types;
 mod utils;
 mod menu;
@@ -40,7 +42,14 @@ pub fn run() {
             get_available_parsers,
             register_parser,
             // Theme commands
-            set_window_theme
+            set_window_theme,
+            // Logging commands
+            add_log_entry,
+            get_logs,
+            export_logs,
+            clear_logs,
+            get_log_stats,
+            log_network_event
         ])
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
@@ -72,6 +81,14 @@ pub fn run() {
             if let Err(e) = parser::initialize_parser_system() {
                 log::error!("Failed to initialize parser system: {}", e);
             }
+
+            // Initialize logging system
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = commands::init_log_manager(app_handle).await {
+                    log::error!("Failed to initialize log manager: {}", e);
+                }
+            });
 
             // Setup cleanup on app exit
             tauri::async_runtime::spawn(async move {

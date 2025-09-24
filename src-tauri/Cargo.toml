@@ -59,3 +59,8 @@ nom = "7.1"         # Parser combinators for complex parsing
 bitflags = "2.4"    # Bit manipulation utilities
 chrono = { version = "0.4", features = ["serde"] }
 tempfile = "3.8"  # Timestamp handling
+
+# Database for logging
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
+csv = "1.3"
+rand = "0.8"  # CSV export support

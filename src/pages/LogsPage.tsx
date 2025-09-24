@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {cn} from '@/utils';
-import { logService, LogEntry } from '@/services/LogService';
+import { backendLogService, LogEntry } from '@/services/BackendLogService';
 import {
     Search,
     Download,
@@ -140,9 +140,13 @@ export const LogsPage: React.FC = () => {
 
     // 初始化日志数据
     useEffect(() => {
-        const updateLogs = () => {
-            const allLogs = logService.getAllLogs();
-            setLogs(allLogs);
+        const updateLogs = async () => {
+            try {
+                const allLogs = await backendLogService.getAllLogs();
+                setLogs(allLogs);
+            } catch (error) {
+                console.error('Failed to load logs:', error);
+            }
         };
 
         // 初始加载
@@ -153,12 +157,12 @@ export const LogsPage: React.FC = () => {
             updateLogs();
         };
 
-        logService.on('log-added', handleLogAdded);
-        logService.on('logs-cleared', updateLogs);
+        backendLogService.on('log-added', handleLogAdded);
+        backendLogService.on('logs-cleared', updateLogs);
 
         return () => {
-            logService.off('log-added', handleLogAdded);
-            logService.off('logs-cleared', updateLogs);
+            backendLogService.off('log-added', handleLogAdded);
+            backendLogService.off('logs-cleared', updateLogs);
         };
     }, []);
 
@@ -193,14 +197,29 @@ export const LogsPage: React.FC = () => {
         {value: '30d', label: '30天'}
     ];
 
-    // 使用LogService的过滤功能
-    const filteredLogs = logService.getFilteredLogs({
-        sessionId: sessionFilter || undefined,
-        level: selectedLevel as any,
-        category: selectedCategory as any,
-        timeRange: selectedTimeRange as any,
-        searchQuery: searchQuery || undefined
-    });
+    // 使用BackendLogService的过滤功能
+    const [filteredLogs, setFilteredLogs] = useState<LogEntry[]>([]);
+
+    // 实时过滤日志
+    useEffect(() => {
+        const filterLogs = async () => {
+            try {
+                const filtered = await backendLogService.getFilteredLogs({
+                    sessionId: sessionFilter || undefined,
+                    level: selectedLevel as any,
+                    category: selectedCategory as any,
+                    timeRange: selectedTimeRange as any,
+                    searchQuery: searchQuery || undefined
+                });
+                setFilteredLogs(filtered);
+            } catch (error) {
+                console.error('Failed to filter logs:', error);
+                setFilteredLogs([]);
+            }
+        };
+
+        filterLogs();
+    }, [logs, sessionFilter, selectedLevel, selectedCategory, selectedTimeRange, searchQuery]);
 
     const formatTimestamp = (timestamp: Date) => {
         const dateStr = timestamp.toLocaleString('zh-CN', {
@@ -216,7 +235,7 @@ export const LogsPage: React.FC = () => {
     };
 
     // 导出日志
-    const handleExportLogs = () => {
+    const handleExportLogs = async () => {
         const currentFilters = {
             sessionId: sessionFilter || undefined,
             level: selectedLevel as any,
@@ -225,13 +244,25 @@ export const LogsPage: React.FC = () => {
             searchQuery: searchQuery || undefined
         };
 
-        logService.exportLogs(currentFilters, exportFormat);
+        try {
+            const exportPath = await backendLogService.exportLogs(currentFilters, exportFormat);
+            alert(`日志已导出到: ${exportPath}`);
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('导出失败: ' + error);
+        }
     };
 
     // 清理日志
-    const handleClearLogs = () => {
+    const handleClearLogs = async () => {
         if (confirm('确定要清理所有日志吗？此操作不可撤销。')) {
-            logService.clearLogs();
+            try {
+                await backendLogService.clearLogs();
+                alert('日志已清理完成');
+            } catch (error) {
+                console.error('Clear logs failed:', error);
+                alert('清理失败: ' + error);
+            }
         }
     };
 

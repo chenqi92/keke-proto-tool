@@ -4,10 +4,11 @@
 pub mod connector;
 pub mod manager;
 pub mod mysql;
-pub mod influxdb;
-pub mod redis;
-pub mod timescaledb;
-pub mod minio;
+// TODO: Implement these storage modules
+// pub mod influxdb;
+// pub mod redis;
+// pub mod timescaledb;
+// pub mod minio;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -38,7 +39,7 @@ pub enum DatabaseType {
 }
 
 /// Connection status
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum ConnectionStatus {
     Connected,

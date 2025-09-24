@@ -134,7 +134,7 @@ impl DatabaseConnector for MySQLConnector {
         Ok(())
     }
     
-    async fn query(&self, query: &str, params: Option<Vec<serde_json::Value>>) -> StorageResult<Vec<HashMap<String, serde_json::Value>>> {
+    async fn query(&self, query: &str, _params: Option<Vec<serde_json::Value>>) -> StorageResult<Vec<HashMap<String, serde_json::Value>>> {
         if !self.base.connected {
             return Err(StorageError::ConnectionFailed(
                 "Not connected to database".to_string()

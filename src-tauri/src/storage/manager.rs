@@ -81,7 +81,7 @@ pub struct StorageManager {
 impl StorageManager {
     /// Create a new storage manager
     pub fn new(config: StorageManagerConfig) -> Self {
-        let mut registry = ConnectorRegistry::new();
+        let registry = ConnectorRegistry::new();
         
         // Register built-in connector factories
         // Note: These would be implemented in their respective modules

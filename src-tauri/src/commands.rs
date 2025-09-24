@@ -546,3 +546,302 @@ pub async fn set_window_theme(
 
     Ok(())
 }
+
+// ============================================================================
+// Logging Commands
+// ============================================================================
+
+use crate::logging::{LogManager, LogEntry, LogFilter, LogLevel, LogCategory, Direction, ConnectionType, TimeRange};
+use crate::logging::export::{ExportFormat, ExportStats};
+use crate::logging::manager::{LogConfig, LogStats};
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+// Global log manager instance
+static LOG_MANAGER: tokio::sync::OnceCell<Arc<RwLock<LogManager>>> = tokio::sync::OnceCell::const_new();
+
+/// Initialize the log manager
+pub async fn init_log_manager(app_handle: tauri::AppHandle) -> Result<(), String> {
+    // Get the app data directory
+    let app_data_dir = app_handle.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    // Ensure the app data directory exists
+    tokio::fs::create_dir_all(&app_data_dir).await
+        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+
+    // Create the logs database path
+    let db_path = app_data_dir.join("logs.db");
+
+    log::info!("Initializing log manager with database path: {}", db_path.display());
+
+    let config = LogConfig {
+        max_logs: 100_000,
+        auto_cleanup_days: 30,
+        db_path,
+    };
+
+    let manager = LogManager::new(config).await
+        .map_err(|e| format!("Failed to initialize log manager: {}", e))?;
+
+    LOG_MANAGER.set(Arc::new(RwLock::new(manager)))
+        .map_err(|_| "Log manager already initialized".to_string())?;
+
+    log::info!("Log manager initialized successfully");
+    Ok(())
+}
+
+/// Get the log manager instance
+async fn get_log_manager() -> Result<Arc<RwLock<LogManager>>, String> {
+    LOG_MANAGER.get()
+        .ok_or_else(|| "Log manager not initialized".to_string())
+        .map(|manager| manager.clone())
+}
+
+/// Add a log entry
+#[tauri::command]
+pub async fn add_log_entry(
+    level: String,
+    source: String,
+    message: String,
+    session_id: Option<String>,
+    session_name: Option<String>,
+    category: Option<String>,
+    direction: Option<String>,
+    client_id: Option<String>,
+    protocol: Option<String>,
+    data_size: Option<i64>,
+    connection_type: Option<String>,
+    details: Option<serde_json::Value>,
+) -> Result<(), String> {
+    let manager = get_log_manager().await?;
+    let manager = manager.read().await;
+
+    let log_level = match level.to_lowercase().as_str() {
+        "info" => LogLevel::Info,
+        "warning" => LogLevel::Warning,
+        "error" => LogLevel::Error,
+        "debug" => LogLevel::Debug,
+        _ => LogLevel::Info,
+    };
+
+    let log_category = category.and_then(|c| match c.to_lowercase().as_str() {
+        "network" => Some(LogCategory::Network),
+        "protocol" => Some(LogCategory::Protocol),
+        "system" => Some(LogCategory::System),
+        "console" => Some(LogCategory::Console),
+        "message" => Some(LogCategory::Message),
+        _ => None,
+    });
+
+    let log_direction = direction.and_then(|d| match d.to_lowercase().as_str() {
+        "in" => Some(Direction::In),
+        "out" => Some(Direction::Out),
+        _ => None,
+    });
+
+    let log_connection_type = connection_type.and_then(|ct| match ct.to_lowercase().as_str() {
+        "client" => Some(ConnectionType::Client),
+        "server" => Some(ConnectionType::Server),
+        _ => None,
+    });
+
+    let mut entry = LogEntry::new(log_level, source, message);
+
+    if let Some(session_id) = session_id {
+        entry = entry.with_session(session_id, session_name);
+    }
+
+    if let Some(category) = log_category {
+        entry = entry.with_category(category);
+    }
+
+    if let Some(direction) = log_direction {
+        entry = entry.with_direction(direction);
+    }
+
+    if let Some(client_id) = client_id {
+        entry = entry.with_client_id(client_id);
+    }
+
+    if let Some(protocol) = protocol {
+        entry = entry.with_protocol(protocol);
+    }
+
+    if let Some(data_size) = data_size {
+        entry = entry.with_data_size(data_size);
+    }
+
+    if let Some(connection_type) = log_connection_type {
+        entry = entry.with_connection_type(connection_type);
+    }
+
+    if let Some(details) = details {
+        entry = entry.with_details(details);
+    }
+
+    manager.add_log(entry).await
+        .map_err(|e| format!("Failed to add log entry: {}", e))?;
+
+    Ok(())
+}
+
+/// Get logs based on filter criteria
+#[tauri::command]
+pub async fn get_logs(
+    session_id: Option<String>,
+    level: Option<String>,
+    category: Option<String>,
+    time_range: Option<String>,
+    search_query: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> Result<Vec<LogEntry>, String> {
+    let manager = get_log_manager().await?;
+    let manager = manager.read().await;
+
+    let log_level = level.and_then(|l| match l.to_lowercase().as_str() {
+        "info" => Some(LogLevel::Info),
+        "warning" => Some(LogLevel::Warning),
+        "error" => Some(LogLevel::Error),
+        "debug" => Some(LogLevel::Debug),
+        _ => None,
+    });
+
+    let log_category = category.and_then(|c| match c.to_lowercase().as_str() {
+        "network" => Some(LogCategory::Network),
+        "protocol" => Some(LogCategory::Protocol),
+        "system" => Some(LogCategory::System),
+        "console" => Some(LogCategory::Console),
+        "message" => Some(LogCategory::Message),
+        _ => None,
+    });
+
+    let log_time_range = time_range.and_then(|tr| match tr.to_lowercase().as_str() {
+        "all" => Some(TimeRange::All),
+        "today" => Some(TimeRange::Today),
+        "24h" => Some(TimeRange::Hours24),
+        "7d" => Some(TimeRange::Days7),
+        "30d" => Some(TimeRange::Days30),
+        _ => None,
+    });
+
+    let filter = LogFilter {
+        session_id,
+        level: log_level,
+        category: log_category,
+        time_range: log_time_range,
+        search_query,
+        limit,
+        offset,
+    };
+
+    manager.get_logs(filter).await
+        .map_err(|e| format!("Failed to get logs: {}", e))
+}
+
+/// Export logs to file
+#[tauri::command]
+pub async fn export_logs(
+    session_id: Option<String>,
+    level: Option<String>,
+    category: Option<String>,
+    time_range: Option<String>,
+    search_query: Option<String>,
+    format: String,
+    output_dir: Option<String>,
+) -> Result<String, String> {
+    let manager = get_log_manager().await?;
+    let manager = manager.read().await;
+
+    let export_format = format.parse::<ExportFormat>()
+        .map_err(|e| format!("Invalid export format: {}", e))?;
+
+    let log_level = level.and_then(|l| match l.to_lowercase().as_str() {
+        "info" => Some(LogLevel::Info),
+        "warning" => Some(LogLevel::Warning),
+        "error" => Some(LogLevel::Error),
+        "debug" => Some(LogLevel::Debug),
+        _ => None,
+    });
+
+    let log_category = category.and_then(|c| match c.to_lowercase().as_str() {
+        "network" => Some(LogCategory::Network),
+        "protocol" => Some(LogCategory::Protocol),
+        "system" => Some(LogCategory::System),
+        "console" => Some(LogCategory::Console),
+        "message" => Some(LogCategory::Message),
+        _ => None,
+    });
+
+    let log_time_range = time_range.and_then(|tr| match tr.to_lowercase().as_str() {
+        "all" => Some(TimeRange::All),
+        "today" => Some(TimeRange::Today),
+        "24h" => Some(TimeRange::Hours24),
+        "7d" => Some(TimeRange::Days7),
+        "30d" => Some(TimeRange::Days30),
+        _ => None,
+    });
+
+    let filter = LogFilter {
+        session_id,
+        level: log_level,
+        category: log_category,
+        time_range: log_time_range,
+        search_query,
+        limit: None, // Export all matching logs
+        offset: None,
+    };
+
+    let output_path = output_dir.map(|p| std::path::PathBuf::from(p));
+
+    let exported_file = manager.export_logs(filter, export_format, output_path).await
+        .map_err(|e| format!("Failed to export logs: {}", e))?;
+
+    Ok(exported_file.to_string_lossy().to_string())
+}
+
+/// Clear all logs
+#[tauri::command]
+pub async fn clear_logs() -> Result<(), String> {
+    let manager = get_log_manager().await?;
+    let manager = manager.read().await;
+
+    manager.clear_logs().await
+        .map_err(|e| format!("Failed to clear logs: {}", e))
+}
+
+/// Get log statistics
+#[tauri::command]
+pub async fn get_log_stats() -> Result<LogStats, String> {
+    let manager = get_log_manager().await?;
+    let manager = manager.read().await;
+
+    manager.get_stats().await
+        .map_err(|e| format!("Failed to get log stats: {}", e))
+}
+
+/// Log a network event (helper function for internal use)
+#[tauri::command]
+pub async fn log_network_event(
+    session_id: String,
+    session_name: Option<String>,
+    event_type: String,
+    client_id: Option<String>,
+    protocol: Option<String>,
+    data_size: Option<i64>,
+) -> Result<(), String> {
+    let manager = get_log_manager().await?;
+    let manager = manager.read().await;
+
+    manager.log_network_event(
+        session_id,
+        session_name,
+        &event_type,
+        client_id,
+        protocol,
+        data_size,
+    ).await
+    .map_err(|e| format!("Failed to log network event: {}", e))
+}

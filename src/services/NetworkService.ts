@@ -4,7 +4,7 @@ import { Message, ConnectionStatus, NetworkConnection, WebSocketErrorType, MQTTQ
 import { useAppStore } from '@/stores/AppStore';
 import { statusBarService } from './StatusBarService';
 import { protocolParsingService } from './ProtocolParsingService';
-import { logService } from './LogService';
+import { backendLogService } from './BackendLogService';
 
 export interface NetworkEvent {
   sessionId: string;
@@ -125,18 +125,16 @@ class NetworkService {
         if (clientId) {
           // This is a client connection to a server, not the server itself connecting
           console.log(`NetworkService: Client ${clientId} connected to server session ${sessionId}`);
-          logService.logNetworkEvent(sessionId, sessionName, 'connected', {
+          backendLogService.logNetworkEvent(sessionId, sessionName, 'connected', {
             clientId,
             protocol: session?.config.protocol,
-            connectionType: 'server'
           });
           // Handle client connection events separately if needed
         } else {
           // This is the session itself connecting
           store.updateSessionStatus(sessionId, 'connected');
-          logService.logNetworkEvent(sessionId, sessionName, 'connected', {
+          backendLogService.logNetworkEvent(sessionId, sessionName, 'connected', {
             protocol: session?.config.protocol,
-            connectionType: session?.config.connectionType
           });
         }
         break;
@@ -144,18 +142,16 @@ class NetworkService {
         if (clientId) {
           // This is a client disconnecting from a server, not the server itself disconnecting
           console.log(`NetworkService: Client ${clientId} disconnected from server session ${sessionId}`);
-          logService.logNetworkEvent(sessionId, sessionName, 'disconnected', {
+          backendLogService.logNetworkEvent(sessionId, sessionName, 'disconnected', {
             clientId,
             protocol: session?.config.protocol,
-            connectionType: 'server'
           });
           // Don't trigger auto-reconnect for client disconnections
         } else {
           // This is the session itself disconnecting
           store.updateSessionStatus(sessionId, 'disconnected');
-          logService.logNetworkEvent(sessionId, sessionName, 'disconnected', {
+          backendLogService.logNetworkEvent(sessionId, sessionName, 'disconnected', {
             protocol: session?.config.protocol,
-            connectionType: session?.config.connectionType
           });
           this.handleAutoReconnect(sessionId);
         }
@@ -193,12 +189,10 @@ class NetworkService {
 
     // Log the message event
     const eventType = direction === 'in' ? 'message_received' : 'message_sent';
-    logService.logNetworkEvent(sessionId, sessionName, eventType, {
-      size: data.length,
+    backendLogService.logNetworkEvent(sessionId, sessionName, eventType, {
       clientId,
       protocol: session?.config.protocol,
-      connectionType: session?.config.connectionType,
-      raw: this.uint8ArrayToString(data).substring(0, 100) // 前100个字符用于预览
+      dataSize: data.length,
     });
 
     const message: Message = {
