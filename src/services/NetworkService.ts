@@ -4,6 +4,7 @@ import { Message, ConnectionStatus, NetworkConnection, WebSocketErrorType, MQTTQ
 import { useAppStore } from '@/stores/AppStore';
 import { statusBarService } from './StatusBarService';
 import { protocolParsingService } from './ProtocolParsingService';
+import { logService } from './LogService';
 
 export interface NetworkEvent {
   sessionId: string;
@@ -116,26 +117,32 @@ class NetworkService {
   private handleNetworkEvent(event: NetworkEvent) {
     const { sessionId, type, data, error, clientId } = event;
     const store = useAppStore.getState();
+    const session = store.getSession(sessionId);
+    const sessionName = session?.config.name || sessionId;
 
     switch (type) {
       case 'connected':
         if (clientId) {
           // This is a client connection to a server, not the server itself connecting
           console.log(`NetworkService: Client ${clientId} connected to server session ${sessionId}`);
+          logService.logNetworkEvent(sessionId, sessionName, 'connected', { clientId });
           // Handle client connection events separately if needed
         } else {
           // This is the session itself connecting
           store.updateSessionStatus(sessionId, 'connected');
+          logService.logNetworkEvent(sessionId, sessionName, 'connected');
         }
         break;
       case 'disconnected':
         if (clientId) {
           // This is a client disconnecting from a server, not the server itself disconnecting
           console.log(`NetworkService: Client ${clientId} disconnected from server session ${sessionId}`);
+          logService.logNetworkEvent(sessionId, sessionName, 'disconnected', { clientId });
           // Don't trigger auto-reconnect for client disconnections
         } else {
           // This is the session itself disconnecting
           store.updateSessionStatus(sessionId, 'disconnected');
+          logService.logNetworkEvent(sessionId, sessionName, 'disconnected');
           this.handleAutoReconnect(sessionId);
         }
         break;
@@ -143,9 +150,11 @@ class NetworkService {
         if (clientId) {
           // This is a client error, not a session error
           console.log(`NetworkService: Client ${clientId} error in session ${sessionId}:`, error);
+          logService.logNetworkEvent(sessionId, sessionName, 'connection_error', { clientId, error });
         } else {
           // This is a session error
           store.updateSessionStatus(sessionId, 'error', error);
+          logService.logNetworkEvent(sessionId, sessionName, 'connection_error', { error });
         }
         break;
       case 'message':
@@ -164,11 +173,23 @@ class NetworkService {
   private handleIncomingMessage(sessionId: string, data: Uint8Array, direction: 'in' | 'out', clientId?: string) {
     console.log('📝 NetworkService - handleIncomingMessage called:', { sessionId, dataLength: data.length, direction, clientId });
 
+    const store = useAppStore.getState();
+    const session = store.getSession(sessionId);
+    const sessionName = session?.config.name || sessionId;
+
+    // Log the message event
+    const eventType = direction === 'in' ? 'message_received' : 'message_sent';
+    logService.logNetworkEvent(sessionId, sessionName, eventType, {
+      size: data.length,
+      clientId,
+      protocol: session?.config.protocol
+    });
+
     const message: Message = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date(),
       direction,
-      protocol: useAppStore.getState().getSession(sessionId)?.config.protocol || 'TCP',
+      protocol: session?.config.protocol || 'TCP',
       size: data.length,
       data,
       status: 'success',
@@ -180,14 +201,12 @@ class NetworkService {
 
     console.log('💬 NetworkService - Created message:', { id: message.id, direction, size: message.size, clientId });
 
-    const store = useAppStore.getState();
     store.addMessage(sessionId, message);
 
     console.log('✅ NetworkService - Message added to store for session:', sessionId);
 
     // Record protocol parsing attempt for incoming messages
     if (direction === 'in') {
-      const session = store.getSession(sessionId);
       if (session) {
         // For now, we'll consider all incoming messages as successful parsing attempts
         // In a real implementation, this would be based on actual protocol parsing results
