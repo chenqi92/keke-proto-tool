@@ -875,7 +875,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                           key={client.id}
                           className={cn(
                             "p-3 rounded-lg border cursor-pointer transition-colors",
-                            selectedClientForFilter === client.id
+                            selectedClientForFilter === `${client.remoteAddress}:${client.remotePort}`
                               ? "border-primary bg-primary/10"
                               : selectedClient === client.id && !broadcastMode
                               ? "border-green-500 bg-green-50/50 dark:bg-green-950/20"
@@ -883,7 +883,9 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
                           )}
                           onClick={() => {
                             // 双重功能：选择发送目标和过滤消息
-                            setSelectedClientForFilter(client.id);
+                            // 使用地址:端口格式作为过滤标识符，与消息过滤逻辑保持一致
+                            const clientKey = `${client.remoteAddress}:${client.remotePort}`;
+                            setSelectedClientForFilter(clientKey);
                             setSelectedClient(client.id);
                             setBroadcastMode(false);
                           }}

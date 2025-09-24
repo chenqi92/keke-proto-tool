@@ -286,48 +286,64 @@ export const UDPClientDetailContent: React.FC<UDPClientDetailContentProps> = ({
             </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+          <div className="flex-1 overflow-y-auto">
             {clientMessages.length === 0 ? (
-              <div className="text-center text-muted-foreground text-sm py-8">
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                 该客户端暂无消息记录
               </div>
             ) : (
-              clientMessages.map((message, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "p-3 rounded-lg border text-sm",
-                    message.direction === 'in'
-                      ? "bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800"
-                      : "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800"
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className={cn(
-                        "px-2 py-1 rounded text-xs font-medium",
-                        message.direction === 'in'
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                          : "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                      )}>
-                        {message.direction === 'in' ? '接收' : '发送'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {message.size} 字节
-                      </span>
+              <div className="space-y-1 p-2">
+                {/* 倒序排序，最新消息在上 */}
+                {[...clientMessages].reverse().map((message, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "px-3 py-1 text-xs border-l-2 hover:bg-muted/50 transition-colors",
+                      message.direction === 'in'
+                        ? "border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+                        : "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
+                    )}
+                  >
+                    <div className="flex items-center justify-between py-1">
+                      <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
+                          <div className={cn(
+                            "w-1.5 h-1.5 rounded-full",
+                            message.direction === 'in' ? "bg-blue-500" : "bg-green-500"
+                          )} />
+                          <span className={cn(
+                            "text-xs font-medium",
+                            message.direction === 'in' ? "text-blue-700 dark:text-blue-300" : "text-green-700 dark:text-green-300"
+                          )}>
+                            {message.direction === 'in' ? '接收' : '发送'}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {message.size}B
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(message.timestamp).toLocaleTimeString()}
+                        </span>
+                        {/* UDP协议标识 */}
+                        <span className="text-xs px-1 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                          UDP
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="font-mono text-xs break-all">
+                          {formatMessageData(message)}
+                        </div>
+                        {receiveFormat !== 'hex' && (
+                          <div className="text-xs text-muted-foreground">
+                            <span className="text-xs font-medium">原始数据: </span>
+                            <span className="font-mono">{getRawDataHex(message)}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(message.timestamp).toLocaleTimeString()}
-                    </span>
                   </div>
-                  <div className="font-mono text-sm bg-muted/50 p-2 rounded border">
-                    {formatMessageData(message)}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    原始数据: {getRawDataHex(message)}
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         </div>
