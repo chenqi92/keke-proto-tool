@@ -212,17 +212,49 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
     }
 
     return messages.filter(message => {
+      // 首先尝试通过地址匹配
       if (message.direction === 'in' && message.sourceAddress) {
         const clientKey = `${message.sourceAddress.host}:${message.sourceAddress.port}`;
-        return clientKey === selectedClientForFilter;
+        if (clientKey === selectedClientForFilter) {
+          return true;
+        }
       }
       if (message.direction === 'out' && message.targetAddress) {
         const clientKey = `${message.targetAddress.host}:${message.targetAddress.port}`;
-        return clientKey === selectedClientForFilter;
+        if (clientKey === selectedClientForFilter) {
+          return true;
+        }
       }
+
+      // 然后尝试通过客户端ID匹配（查找对应的客户端连接）
+      const matchingClient = clientConnections.find(client =>
+        `${client.remoteAddress}:${client.remotePort}` === selectedClientForFilter
+      );
+
+      if (matchingClient) {
+        // 检查消息是否与该客户端相关
+        if (message.sourceClientId === matchingClient.id || message.targetClientId === matchingClient.id) {
+          return true;
+        }
+
+        // 额外检查：如果消息没有clientId但有地址信息，也进行匹配
+        if (message.direction === 'in' && message.sourceAddress) {
+          const msgClientKey = `${message.sourceAddress.host}:${message.sourceAddress.port}`;
+          if (msgClientKey === selectedClientForFilter) {
+            return true;
+          }
+        }
+        if (message.direction === 'out' && message.targetAddress) {
+          const msgClientKey = `${message.targetAddress.host}:${message.targetAddress.port}`;
+          if (msgClientKey === selectedClientForFilter) {
+            return true;
+          }
+        }
+      }
+
       return false;
     });
-  }, [messages, isServerMode, selectedClientForFilter]);
+  }, [messages, isServerMode, selectedClientForFilter, clientConnections]);
 
   // UDP连接状态检查（UDP是无连接的，这里主要是socket绑定状态）
   const isConnected = connectionStatus === 'connected';

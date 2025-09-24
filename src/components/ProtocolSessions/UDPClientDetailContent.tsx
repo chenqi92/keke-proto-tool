@@ -260,8 +260,8 @@ export const UDPClientDetailContent: React.FC<UDPClientDetailContentProps> = ({
       {/* 主内容区域 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 消息流面板 */}
-        <div className="flex-1 flex flex-col">
-          <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50">
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="h-10 border-b border-border flex items-center justify-between px-3 bg-muted/50 flex-shrink-0">
             <h3 className="text-sm font-medium">客户端消息流 ({clientMessages.length})</h3>
             <div className="flex items-center space-x-2">
               <span className="text-xs text-muted-foreground">显示格式:</span>
@@ -285,14 +285,14 @@ export const UDPClientDetailContent: React.FC<UDPClientDetailContentProps> = ({
               </button>
             </div>
           </div>
-          
-          <div className="flex-1 overflow-y-auto">
+
+          <div className="flex-1 overflow-y-auto min-h-0 max-h-full">
             {clientMessages.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                 该客户端暂无消息记录
               </div>
             ) : (
-              <div className="space-y-1 p-2">
+              <div className="space-y-1 p-2 h-full overflow-y-auto">
                 {/* 倒序排序，最新消息在上 */}
                 {[...clientMessages].reverse().map((message, index) => (
                   <div
