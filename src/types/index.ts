@@ -112,7 +112,7 @@ export interface ExportOptions {
 export type DataFormat = 'ascii' | 'binary' | 'octal' | 'decimal' | 'hex' | 'base64' | 'json' | 'utf8';
 export type ProtocolType = 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
 export type ConnectionType = 'client' | 'server';
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
 // WebSocket特有类型
 export type WebSocketFrameType = 'text' | 'binary' | 'ping' | 'pong' | 'close' | 'continuation';

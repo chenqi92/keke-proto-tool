@@ -22,6 +22,11 @@ const statusConfig = {
     icon: Activity,
     className: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800',
   },
+  reconnecting: {
+    label: '重连中',
+    icon: Activity,
+    className: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800',
+  },
   disconnected: {
     label: '已断开',
     icon: AlertCircle,

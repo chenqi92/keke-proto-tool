@@ -1,14 +1,16 @@
 use async_trait::async_trait;
 use crate::network::{Connection, ServerConnection};
-use crate::types::{NetworkResult, NetworkError, NetworkEvent};
+use crate::types::{NetworkResult, NetworkError, NetworkEvent, ConnectionStatus, SessionConfig};
 use crate::utils::{parse_socket_addr, validate_port, is_common_port};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::RwLock;
 use tauri::{AppHandle, Emitter};
+use tokio::time::{sleep, Duration};
 
 /// TCP Client implementation
 #[derive(Debug)]
@@ -19,9 +21,12 @@ pub struct TcpClient {
     timeout: Option<u64>,
     write_half: Option<Arc<RwLock<WriteHalf<TcpStream>>>>,
     read_task: Option<tokio::task::JoinHandle<()>>, // 后台读取任务句柄
-    connected: bool,
+    connected: Arc<AtomicBool>, // 使用原子布尔值以便在读取任务中更新
     validate_internal_server: bool, // 是否验证内部服务端
     app_handle: Option<AppHandle>,
+    config: Option<SessionConfig>, // 会话配置，用于自动重连
+    reconnect_task: Option<tokio::task::JoinHandle<()>>, // 重连任务句柄
+    should_reconnect: Arc<AtomicBool>, // 是否应该重连
 }
 
 impl TcpClient {
@@ -43,6 +48,32 @@ impl TcpClient {
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
 
+        // 解析SessionConfig
+        let session_config = SessionConfig {
+            protocol: "tcp".to_string(),
+            connection_type: "client".to_string(),
+            host: host.clone(),
+            port,
+            timeout,
+            keep_alive: config.get("keepAlive").and_then(|v| v.as_bool()),
+            retry_attempts: config.get("retryAttempts").and_then(|v| v.as_u64()).map(|v| v as u32),
+            retry_delay: config.get("retryDelay").and_then(|v| v.as_u64()),
+            websocket_subprotocol: None,
+            websocket_extensions: None,
+            websocket_ping_interval: None,
+            websocket_max_message_size: None,
+            websocket_compression_enabled: None,
+            mqtt_topic: None,
+            mqtt_client_id: None,
+            mqtt_username: None,
+            mqtt_password: None,
+            mqtt_clean_session: None,
+            mqtt_keep_alive: None,
+            mqtt_will: None,
+            sse_event_types: None,
+            sse_retry_interval: None,
+        };
+
         Ok(Self {
             session_id,
             host,
@@ -50,46 +81,178 @@ impl TcpClient {
             timeout,
             write_half: None,
             read_task: None,
-            connected: false,
+            connected: Arc::new(AtomicBool::new(false)),
             validate_internal_server,
             app_handle,
+            config: Some(session_config),
+            reconnect_task: None,
+            should_reconnect: Arc::new(AtomicBool::new(false)),
         })
     }
 
     async fn start_receiving_with_read_half(&mut self, read_half: ReadHalf<TcpStream>) -> NetworkResult<tokio::task::JoinHandle<()>> {
         let session_id = self.session_id.clone();
         let app_handle = self.app_handle.clone();
+        let connected = self.connected.clone(); // 克隆原子布尔值的引用
+        let should_reconnect = self.should_reconnect.clone();
+        let config = self.config.clone();
         let mut read_stream = read_half;
 
         // Spawn background task to read from stream
         let task_handle = tokio::spawn(async move {
             let mut buffer = [0u8; 8192];
+            println!("TCPClient: Session {} - Read task started, entering read loop", session_id);
 
+            // Add a small delay to ensure the task is fully started
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            println!("TCPClient: Session {} - Read task initialization complete", session_id);
+
+            // Ensure the task doesn't exit immediately
+            let mut loop_count = 0;
             loop {
-                match read_stream.read(&mut buffer).await {
-                    Ok(0) => {
-                        // Connection closed by server
-                        eprintln!("TCPClient: Session {} - Connection closed by server", session_id);
+                loop_count += 1;
+                println!("TCPClient: Session {} - Waiting for data from server... (loop {})", session_id, loop_count);
 
-                        // Emit connection-status event to notify frontend of disconnection
-                        if let Some(app_handle) = &app_handle {
-                            let payload = serde_json::json!({
-                                "sessionId": session_id,
-                                "status": "disconnected",
-                                "error": "Connection closed by server"
+                // Add timeout to read operation to prevent indefinite blocking
+                let read_result = tokio::time::timeout(
+                    tokio::time::Duration::from_secs(30),
+                    read_stream.read(&mut buffer)
+                ).await;
+
+                match read_result {
+                    Ok(read_result) => {
+                        match read_result {
+                            Ok(0) => {
+                                // Connection closed by server
+                                println!("TCPClient: Session {} - Connection closed by server", session_id);
+
+                                // Update connection status to false
+                                connected.store(false, Ordering::SeqCst);
+                                println!("TCPClient: Session {} - Updated connected status to false", session_id);
+
+                        // Check if auto-reconnect is enabled
+                        let should_auto_reconnect = if let Some(ref config) = config {
+                            config.retry_attempts.unwrap_or(0) > 0
+                        } else {
+                            false
+                        };
+
+                        if should_auto_reconnect {
+                            println!("TCPClient: Session {} - Auto-reconnect enabled, starting reconnect process", session_id);
+                            should_reconnect.store(true, Ordering::SeqCst);
+
+                            // 启动重连任务
+                            let reconnect_session_id = session_id.clone();
+                            let reconnect_app_handle = app_handle.clone();
+                            let reconnect_should_reconnect = should_reconnect.clone();
+                            let reconnect_connected = connected.clone();
+                            let reconnect_config = config.clone();
+
+                            tokio::spawn(async move {
+                                if let Some(config) = reconnect_config {
+                                    let max_attempts = config.retry_attempts.unwrap_or(3);
+                                    let base_delay = config.retry_delay.unwrap_or(1000);
+
+                                    for attempt in 1..=max_attempts {
+                                        if !reconnect_should_reconnect.load(Ordering::SeqCst) {
+                                            println!("TCPClient: Session {} - Reconnect cancelled", reconnect_session_id);
+                                            break;
+                                        }
+
+                                        println!("TCPClient: Session {} - Reconnect attempt {} of {}", reconnect_session_id, attempt, max_attempts);
+
+                                        // 发送重连状态
+                                        if let Some(app_handle) = &reconnect_app_handle {
+                                            let payload = serde_json::json!({
+                                                "sessionId": reconnect_session_id,
+                                                "status": "reconnecting",
+                                                "attempt": attempt
+                                            });
+
+                                            if let Err(e) = app_handle.emit("connection-status", payload) {
+                                                eprintln!("TCPClient: Failed to emit reconnecting status: {}", e);
+                                            }
+                                        }
+
+                                        // 尝试重连
+                                        match Self::attempt_reconnect(&reconnect_session_id, &config.host, config.port, config.timeout).await {
+                                            Ok(_) => {
+                                                eprintln!("TCPClient: Session {} - Reconnect successful on attempt {}", reconnect_session_id, attempt);
+                                                reconnect_connected.store(true, Ordering::SeqCst);
+                                                reconnect_should_reconnect.store(false, Ordering::SeqCst);
+
+                                                // 发送连接成功状态
+                                                if let Some(app_handle) = &reconnect_app_handle {
+                                                    let payload = serde_json::json!({
+                                                        "sessionId": reconnect_session_id,
+                                                        "status": "connected"
+                                                    });
+
+                                                    if let Err(e) = app_handle.emit("connection-status", payload) {
+                                                        eprintln!("TCPClient: Failed to emit connected status after reconnect: {}", e);
+                                                    } else {
+                                                        eprintln!("TCPClient: Successfully reconnected and emitted connected status");
+                                                    }
+                                                }
+                                                return;
+                                            }
+                                            Err(e) => {
+                                                eprintln!("TCPClient: Session {} - Reconnect attempt {} failed: {}", reconnect_session_id, attempt, e);
+                                            }
+                                        }
+
+                                        // 等待后重试
+                                        if attempt < max_attempts {
+                                            let delay = base_delay * 2_u64.pow(attempt - 1);
+                                            let max_delay = 30000;
+                                            let actual_delay = std::cmp::min(delay, max_delay);
+
+                                            eprintln!("TCPClient: Session {} - Waiting {}ms before next reconnect attempt", reconnect_session_id, actual_delay);
+                                            sleep(Duration::from_millis(actual_delay)).await;
+                                        }
+                                    }
+
+                                    // 所有重连尝试都失败了
+                                    eprintln!("TCPClient: Session {} - All reconnect attempts failed", reconnect_session_id);
+                                    reconnect_should_reconnect.store(false, Ordering::SeqCst);
+
+                                    // 发送最终的断开连接状态
+                                    if let Some(app_handle) = &reconnect_app_handle {
+                                        let payload = serde_json::json!({
+                                            "sessionId": reconnect_session_id,
+                                            "status": "disconnected",
+                                            "error": format!("Failed to reconnect after {} attempts", max_attempts)
+                                        });
+
+                                        if let Err(e) = app_handle.emit("connection-status", payload) {
+                                            eprintln!("TCPClient: Failed to emit final disconnected status: {}", e);
+                                        } else {
+                                            eprintln!("TCPClient: Emitted final disconnected status after failed reconnects");
+                                        }
+                                    }
+                                }
                             });
+                        } else {
+                            // Emit disconnected status
+                            if let Some(app_handle) = &app_handle {
+                                let payload = serde_json::json!({
+                                    "sessionId": session_id,
+                                    "status": "disconnected",
+                                    "error": "Connection closed by server"
+                                });
 
-                            if let Err(e) = app_handle.emit("connection-status", payload) {
-                                eprintln!("TCPClient: Failed to emit connection-status event for server disconnect: {}", e);
-                            } else {
-                                eprintln!("TCPClient: Successfully emitted connection-status event for server disconnect");
+                                if let Err(e) = app_handle.emit("connection-status", payload) {
+                                    eprintln!("TCPClient: Failed to emit connection-status event for server disconnect: {}", e);
+                                } else {
+                                    eprintln!("TCPClient: Successfully emitted connection-status event for server disconnect");
+                                }
                             }
-                        }
-                        break;
-                    }
-                    Ok(n) => {
-                        // Data received from server
-                        eprintln!("TCPClient: Session {} - Received {} bytes from server", session_id, n);
+                                }
+                                break;
+                            }
+                            Ok(n) => {
+                                // Data received from server
+                                eprintln!("TCPClient: Session {} - Received {} bytes from server", session_id, n);
 
                         // Emit message-received event for server-to-client data transmission
                         if let Some(app_handle) = &app_handle {
@@ -105,10 +268,14 @@ impl TcpClient {
                                 eprintln!("TCPClient: Successfully emitted message-received event for {} bytes received from server", n);
                             }
                         }
-                    }
-                    Err(e) => {
-                        // Error occurred
-                        eprintln!("TCPClient: Session {} - Error reading from server: {}", session_id, e);
+                            }
+                            Err(e) => {
+                                // Error occurred
+                                println!("TCPClient: Session {} - Error reading from server: {}", session_id, e);
+
+                                // Update connection status to false
+                                connected.store(false, Ordering::SeqCst);
+                        eprintln!("TCPClient: Session {} - Updated connected status to false due to read error", session_id);
 
                         // Emit connection-status event to notify frontend of connection error
                         if let Some(app_handle) = &app_handle {
@@ -124,13 +291,42 @@ impl TcpClient {
                                 eprintln!("TCPClient: Successfully emitted connection-status event for read error");
                             }
                         }
-                        break;
+                                break;
+                            }
+                        }
+                    }
+                    Err(_timeout) => {
+                        // Read timeout - this is normal, continue the loop
+                        println!("TCPClient: Session {} - Read timeout, continuing...", session_id);
+                        continue;
                     }
                 }
             }
+
+            println!("TCPClient: Session {} - Read task exiting", session_id);
         });
 
         Ok(task_handle)
+    }
+
+
+
+    async fn attempt_reconnect(session_id: &str, host: &str, port: u16, timeout: Option<u64>) -> NetworkResult<TcpStream> {
+        let addr = format!("{}:{}", host, port);
+
+        if let Some(timeout_ms) = timeout {
+            eprintln!("TCPClient: Session {} - Attempting reconnect with {}ms timeout to {}", session_id, timeout_ms, addr);
+            tokio::time::timeout(
+                Duration::from_millis(timeout_ms),
+                TcpStream::connect(&addr)
+            ).await
+            .map_err(|_| NetworkError::ConnectionFailed(format!("Reconnect timeout after {}ms", timeout_ms)))?
+            .map_err(|e| NetworkError::ConnectionFailed(format!("Reconnect failed: {}", e)))
+        } else {
+            eprintln!("TCPClient: Session {} - Attempting reconnect without timeout to {}", session_id, addr);
+            TcpStream::connect(&addr).await
+                .map_err(|e| NetworkError::ConnectionFailed(format!("Reconnect failed: {}", e)))
+        }
     }
 }
 
@@ -154,12 +350,10 @@ impl Connection for TcpClient {
             eprintln!("TCPClient: Internal server validation is enabled for {}:{}", self.host, self.port);
         }
 
+        // 构建地址
         let addr = parse_socket_addr(&self.host, self.port)
-            .map_err(|e| {
-                let error_msg = format!("Invalid address {}:{} - {}", self.host, self.port, e);
-                eprintln!("TCPClient: {}", error_msg);
-                NetworkError::ConnectionFailed(error_msg)
-            })?;
+            .map_err(|e| NetworkError::ConnectionFailed(format!("Invalid address {}:{} - {}", self.host, self.port, e)))?;
+        eprintln!("TCPClient: Session {} - Parsed address: {}", self.session_id, addr);
 
         let stream = if let Some(timeout_ms) = self.timeout {
             eprintln!("TCPClient: Session {} - Connecting with {}ms timeout to {}:{}",
@@ -198,7 +392,7 @@ impl Connection for TcpClient {
         // Split the stream into read and write halves to avoid conflicts
         let (read_half, write_half) = tokio::io::split(stream);
         self.write_half = Some(Arc::new(RwLock::new(write_half)));
-        self.connected = true;
+        self.connected.store(true, Ordering::SeqCst);
 
         // Start receiving data from server immediately after connection
         eprintln!("TCPClient: Session {} - Starting to receive data from server", self.session_id);
@@ -210,6 +404,13 @@ impl Connection for TcpClient {
     }
 
     async fn disconnect(&mut self) -> NetworkResult<()> {
+        // 停止自动重连
+        self.should_reconnect.store(false, Ordering::SeqCst);
+        if let Some(reconnect_task) = self.reconnect_task.take() {
+            eprintln!("TCPClient: Session {} - Aborting reconnect task", self.session_id);
+            reconnect_task.abort();
+        }
+
         // 首先中止后台读取任务
         if let Some(read_task) = self.read_task.take() {
             eprintln!("TCPClient: Session {} - Aborting background read task", self.session_id);
@@ -221,7 +422,7 @@ impl Connection for TcpClient {
             drop(write_half); // Close the write half
         }
 
-        self.connected = false;
+        self.connected.store(false, Ordering::SeqCst);
 
         eprintln!("TCPClient: Session {} - Manually disconnected (both read and write halves closed)", self.session_id);
 
@@ -278,11 +479,11 @@ impl Connection for TcpClient {
     }
 
     fn is_connected(&self) -> bool {
-        self.connected
+        self.connected.load(Ordering::SeqCst)
     }
 
     fn status(&self) -> String {
-        if self.connected {
+        if self.connected.load(Ordering::SeqCst) {
             format!("Connected to {}:{}", self.host, self.port)
         } else {
             "Disconnected".to_string()
@@ -290,7 +491,7 @@ impl Connection for TcpClient {
     }
 
     fn get_actual_port(&self) -> Option<u16> {
-        if self.connected {
+        if self.connected.load(Ordering::SeqCst) {
             Some(self.port)
         } else {
             None
@@ -320,6 +521,7 @@ pub struct TcpServer {
     client_tasks: Arc<RwLock<HashMap<String, tokio::task::JoinHandle<()>>>>,
     connected: bool,
     app_handle: Arc<RwLock<Option<AppHandle>>>,
+    event_sender: Option<mpsc::Sender<NetworkEvent>>,
 }
 
 impl TcpServer {
@@ -342,6 +544,7 @@ impl TcpServer {
             client_tasks: Arc::new(RwLock::new(HashMap::new())),
             connected: false,
             app_handle: Arc::new(RwLock::new(None)),
+            event_sender: None,
         })
     }
 
@@ -503,6 +706,7 @@ impl TcpServer {
         let clients = self.clients.clone();
         let client_tasks = self.client_tasks.clone();
         let app_handle = self.app_handle.clone();
+        let event_sender = self.event_sender.clone();
 
         eprintln!("TCPServer: Starting background task to accept connections");
         eprintln!("TCPServer: Current clients count before spawning task: {}", clients.read().await.len());
@@ -598,6 +802,7 @@ impl TcpServer {
                         let client_id_clone = client_id.clone();
                         let session_id_clone = session_id.clone();
                         let app_handle_clone = app_handle.clone();
+                        let event_sender_clone = event_sender.clone();
 
                         let client_task = tokio::spawn(async move {
                             eprintln!("TCPServer: Starting client handler for {}", client_id_clone);
@@ -620,6 +825,28 @@ impl TcpServer {
                                             eprintln!("TCPServer: [CLIENT HANDLER] Successfully removed client {}", client_id_clone);
 
                                             // Only emit disconnect event if we actually removed the client
+                                            let client_disconnected_event = NetworkEvent {
+                                                session_id: session_id_clone.clone(),
+                                                event_type: "client_disconnected".to_string(),
+                                                data: Some(serde_json::to_vec(&serde_json::json!({
+                                                    "clientId": client_id_clone
+                                                })).unwrap_or_default()),
+                                                error: None,
+                                                client_id: Some(client_id_clone.clone()),
+                                                mqtt_topic: None,
+                                                mqtt_qos: None,
+                                                mqtt_retain: None,
+                                                sse_event: None,
+                                            };
+
+                                            // Send through event channel if available
+                                            if let Some(sender) = &event_sender_clone {
+                                                if let Err(e) = sender.send(client_disconnected_event.clone()).await {
+                                                    eprintln!("TCPServer: Failed to send client-disconnected event through channel: {}", e);
+                                                }
+                                            }
+
+                                            // Also emit through app handle for backward compatibility
                                             if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
                                                 let payload = serde_json::json!({
                                                     "sessionId": session_id_clone,
@@ -643,6 +870,26 @@ impl TcpServer {
                                         eprintln!("TCPServer: Received {} bytes from client {}", n, client_id_clone);
 
                                         // Emit message-received event
+                                        let message_received_event = NetworkEvent {
+                                            session_id: session_id_clone.clone(),
+                                            event_type: "data_received".to_string(),
+                                            data: Some(buffer[..n].to_vec()),
+                                            error: None,
+                                            client_id: Some(client_id_clone.clone()),
+                                            mqtt_topic: None,
+                                            mqtt_qos: None,
+                                            mqtt_retain: None,
+                                            sse_event: None,
+                                        };
+
+                                        // Send through event channel if available
+                                        if let Some(sender) = &event_sender_clone {
+                                            if let Err(e) = sender.send(message_received_event.clone()).await {
+                                                eprintln!("TCPServer: Failed to send data-received event through channel: {}", e);
+                                            }
+                                        }
+
+                                        // Also emit through app handle for backward compatibility
                                         if let Some(app_handle_ref) = app_handle_clone.read().await.as_ref() {
                                             let payload = serde_json::json!({
                                                 "sessionId": session_id_clone,
@@ -703,26 +950,47 @@ impl TcpServer {
                         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
                         // NOW emit client-connected event after everything is set up
-                        if let Some(app_handle_ref) = app_handle.read().await.as_ref() {
-                            eprintln!("TCPServer: App handle available, emitting client-connected event for {}", client_id);
-                            let parts: Vec<&str> = client_id.split(':').collect();
-                            let payload = if parts.len() == 2 {
+                        let parts: Vec<&str> = client_id.split(':').collect();
+                        let client_connected_event = NetworkEvent {
+                            session_id: session_id.clone(),
+                            event_type: "client_connected".to_string(),
+                            data: Some(serde_json::to_vec(&if parts.len() == 2 {
                                 serde_json::json!({
-                                    "sessionId": session_id,
                                     "clientId": client_id,
                                     "remoteAddress": parts[0],
                                     "remotePort": parts[1].parse::<u16>().unwrap_or(0)
                                 })
                             } else {
                                 serde_json::json!({
-                                    "sessionId": session_id,
                                     "clientId": client_id,
                                     "remoteAddress": "unknown",
                                     "remotePort": 0
                                 })
-                            };
+                            }).unwrap_or_default()),
+                            error: None,
+                            client_id: Some(client_id.clone()),
+                            mqtt_topic: None,
+                            mqtt_qos: None,
+                            mqtt_retain: None,
+                            sse_event: None,
+                        };
 
-                            eprintln!("TCPServer: Emitting client-connected event with payload: {}", payload);
+                        // Send through event channel if available
+                        if let Some(sender) = &event_sender {
+                            if let Err(e) = sender.send(client_connected_event.clone()).await {
+                                eprintln!("TCPServer: Failed to send client-connected event through channel: {}", e);
+                            }
+                        }
+
+                        // Also emit through app handle for backward compatibility
+                        if let Some(app_handle_ref) = app_handle.read().await.as_ref() {
+                            let payload = serde_json::json!({
+                                "sessionId": session_id,
+                                "clientId": client_id,
+                                "remoteAddress": if parts.len() == 2 { parts[0] } else { "unknown" },
+                                "remotePort": if parts.len() == 2 { parts[1].parse::<u16>().unwrap_or(0) } else { 0 }
+                            });
+
                             if let Err(e) = app_handle_ref.emit("client-connected", payload) {
                                 eprintln!("TCPServer: Failed to emit client-connected event: {}", e);
                             } else {
@@ -814,9 +1082,28 @@ impl Connection for TcpServer {
             // Update the port to the one we actually bound to
             self.port = actual_port;
 
-            // TODO: Emit port update event to frontend
-            // This would require access to the app handle, which we don't have here
-            // The port update should be handled at a higher level (in session manager)
+            // Emit port update event to frontend
+            if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                let port_update_event = NetworkEvent {
+                    session_id: self.session_id.clone(),
+                    event_type: "port_updated".to_string(),
+                    data: Some(serde_json::to_vec(&serde_json::json!({
+                        "original_port": self.port,
+                        "actual_port": actual_port,
+                        "message": format!("Port {} was in use, server started on port {}", self.port, actual_port)
+                    })).unwrap_or_default()),
+                    error: None,
+                    client_id: None,
+                    mqtt_topic: None,
+                    mqtt_qos: None,
+                    mqtt_retain: None,
+                    sse_event: None,
+                };
+
+                if let Err(e) = app_handle.emit("network-event", &port_update_event) {
+                    eprintln!("TCPServer: Failed to emit port update event: {}", e);
+                }
+            }
         } else {
             eprintln!("TCPServer: Successfully bound to requested port {}", self.port);
         }
@@ -863,16 +1150,15 @@ impl Connection for TcpServer {
     }
 
     async fn start_receiving(&mut self) -> NetworkResult<mpsc::Receiver<NetworkEvent>> {
-        let (_tx, rx) = mpsc::channel(1000);
+        let (tx, rx) = mpsc::channel(1000);
 
-        // Note: The listener has already been moved to the background task in start_accepting_connections()
-        // This method now just returns a receiver for events that would be generated by the background task
-        // For now, we'll return an empty receiver since the connection handling is done in start_accepting_connections()
+        // Store the event sender for use in background tasks
+        self.event_sender = Some(tx.clone());
 
-        eprintln!("TCPServer: start_receiving called - connection handling already started in background");
+        eprintln!("TCPServer: start_receiving called - event system integrated with background connection handler");
 
-        // TODO: In a future refactor, we should integrate the event system with the background connection handler
-        // For now, just return the receiver
+        // The background connection handler will now use this event sender to emit events
+        // Events will include: client_connected, client_disconnected, data_received, etc.
 
         Ok(rx)
     }

@@ -467,6 +467,8 @@ class NetworkService {
           port: config.port,
           timeout: config.timeout,
           keepAlive: config.keepAlive,
+          retryAttempts: config.retryAttempts,
+          retryDelay: config.retryDelay,
           websocketSubprotocol: config.websocketSubprotocol,
           websocketExtensions: config.websocketExtensions,
           websocketPingInterval: config.websocketPingInterval,

@@ -455,6 +455,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
           {/* 状态图标 */}
           {connectionStatus === 'connected' && <Wifi className="w-4 h-4 text-green-500" />}
           {connectionStatus === 'connecting' && <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" />}
+          {connectionStatus === 'reconnecting' && <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />}
           {connectionStatus === 'disconnected' && <WifiOff className="w-4 h-4 text-gray-500" />}
           {connectionStatus === 'error' && <AlertCircle className="w-4 h-4 text-red-500" />}
 
@@ -516,7 +517,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
             className={cn(
               "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors ml-4",
               "disabled:opacity-50 disabled:cursor-not-allowed",
-              isConnected
+              (isConnected || connectionStatus === 'reconnecting')
                 ? "bg-red-500 hover:bg-red-600 text-white"
                 : "bg-green-500 hover:bg-green-600 text-white"
             )}
@@ -526,6 +527,11 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
               <>
                 <Loader2 className="w-3 h-3 animate-spin" />
                 <span>{isServerMode ? (isConnected ? '停止中...' : '启动中...') : (isConnected ? '断开中...' : '连接中...')}</span>
+              </>
+            ) : connectionStatus === 'reconnecting' ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>重连中...</span>
               </>
             ) : isConnected ? (
               <>
