@@ -1,5 +1,5 @@
 import { EventEmitter } from '@/utils/EventEmitter';
-import { safeTauriInvoke } from '@/utils/tauri';
+import { invoke } from '@tauri-apps/api/core';
 
 // 与后端LogEntry结构匹配的接口
 export interface BackendLogEntry {
@@ -146,7 +146,7 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
     }
   ): Promise<void> {
     try {
-      await safeTauriInvoke<void>('add_log_entry', {
+      await invoke<void>('add_log_entry', {
         level,
         source,
         message,
@@ -179,7 +179,7 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
     offset?: number;
   }): Promise<LogEntry[]> {
     try {
-      const backendLogs: BackendLogEntry[] | null = await safeTauriInvoke<BackendLogEntry[]>('get_logs', {
+      const backendLogs: BackendLogEntry[] = await invoke<BackendLogEntry[]>('get_logs', {
         sessionId: filters?.sessionId,
         level: filters?.level,
         category: filters?.category,
@@ -217,7 +217,7 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
     customFilename?: string
   ): Promise<string> {
     try {
-      const exportPath: string | null = await safeTauriInvoke<string>('export_logs', {
+      const exportPath: string = await invoke<string>('export_logs', {
         sessionId: filters.sessionId,
         level: filters.level,
         category: filters.category,
@@ -252,7 +252,7 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
    */
   async clearLogs(): Promise<void> {
     try {
-      await safeTauriInvoke<void>('clear_logs');
+      await invoke<void>('clear_logs');
       this.lastLogCount = 0;
       this.emit('logs-cleared', undefined);
     } catch (error) {
@@ -266,7 +266,7 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
    */
   async getLogStats(): Promise<{ total: number; byLevel: Record<string, number> }> {
     try {
-      const stats = await safeTauriInvoke<{ total: number; byLevel: Record<string, number> }>('get_log_stats');
+      const stats = await invoke<{ total: number; byLevel: Record<string, number> }>('get_log_stats');
       if (!stats) {
         console.warn('Failed to get log stats from backend');
         return { total: 0, byLevel: {} };
@@ -293,7 +293,7 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
     }
   ): Promise<void> {
     try {
-      await safeTauriInvoke<void>('log_network_event', {
+      await invoke<void>('log_network_event', {
         sessionId,
         sessionName,
         eventType,
