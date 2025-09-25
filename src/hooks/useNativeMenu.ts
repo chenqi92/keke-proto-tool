@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
 import { useTheme } from '@/hooks/useTheme';
 
 interface UseNativeMenuProps {
@@ -11,9 +10,43 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates }: UseNativeMenuProp
   const { setTheme, setColorTheme } = useTheme();
 
   useEffect(() => {
-    const unlisten = listen<string>('menu-action', (event) => {
-      const action = event.payload;
-      console.log('Native menu action:', action);
+    // 安全的事件监听器设置
+    const setupEventListener = async () => {
+      try {
+        // 尝试使用 Tauri v2 API
+        if (typeof window !== 'undefined' && (window as any).__TAURI__?.event) {
+          const { listen } = (window as any).__TAURI__.event;
+          return await listen('menu-action', (event: any) => {
+            const action = event.payload;
+            console.log('Native menu action:', action);
+            handleMenuAction(action);
+          });
+        }
+
+        // 后备方案：尝试动态导入
+        try {
+          const modulePath = '@tauri-apps/api/' + 'event';
+          const eventApi = await import(/* @vite-ignore */ modulePath);
+          if (eventApi?.listen) {
+            return await eventApi.listen('menu-action', (event: any) => {
+              const action = event.payload;
+              console.log('Native menu action:', action);
+              handleMenuAction(action);
+            });
+          }
+        } catch (importError) {
+          console.warn('Failed to import @tauri-apps/api/event:', importError);
+        }
+
+        console.warn('Tauri event API not available');
+        return null;
+      } catch (error) {
+        console.error('Failed to setup event listener:', error);
+        return null;
+      }
+    };
+
+    const handleMenuAction = (action: string) => {
       
       switch (action) {
         // 文件菜单
@@ -294,10 +327,18 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates }: UseNativeMenuProp
           console.log('Unknown menu action:', action);
           break;
       }
+    };
+
+    let unlisten: (() => void) | null = null;
+
+    setupEventListener().then((unlistenFn) => {
+      unlisten = unlistenFn;
     });
 
     return () => {
-      unlisten.then(f => f());
+      if (unlisten) {
+        unlisten();
+      }
     };
   }, [onOpenModal, onCheckUpdates, setTheme, setColorTheme]);
 };

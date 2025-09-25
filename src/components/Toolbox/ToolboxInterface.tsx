@@ -105,7 +105,7 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
             icon: metadata.icon || '🔧',
             priority: metadata.priority || 0,
             tags: metadata.tags || [],
-            isLoaded: metadata.isLoaded || false,
+            isLoaded: true, // 暂时设置为 true，避免显示灰色状态
             isFavorite: false // Lazy tools default to not favorite
           });
         }

@@ -124,8 +124,8 @@ function App() {
         // Initialize tools first
         await initializeTools()
 
-        // Initialize lazy loading
-        await initializeLazyLoading()
+        // Skip lazy loading for now to avoid conflicts
+        // await initializeLazyLoading()
 
         // Initialize toolbox service
         await toolboxService.initialize()

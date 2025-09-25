@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/utils';
 import { Download, FileText, X, FolderOpen, File } from 'lucide-react';
-import { showSaveDialog, showDirectoryDialog, isTauriEnvironment } from '../../utils/tauri';
+import { showSaveDialog, showDirectoryDialog } from '../../utils/tauri';
 
 export interface ExportOptions {
   format: 'json' | 'csv' | 'md';
@@ -31,6 +31,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [customFilename, setCustomFilename] = useState<string>('');
   const [useCustomLocation, setUseCustomLocation] = useState<boolean>(false);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
+
+  // 生成默认文件名的函数
+  const generateDefaultFilename = (format: 'json' | 'csv' | 'md') => {
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+    return `logs_${timestamp}.${format}`;
+  };
+
+  // 当格式改变时更新文件名（只有在没有自定义文件名时）
+  React.useEffect(() => {
+    if (!customFilename.trim() || customFilename.includes('logs_')) {
+      setCustomFilename(generateDefaultFilename(selectedFormat));
+    }
+  }, [selectedFormat]);
 
   // Focus management and keyboard handling
   useEffect(() => {
@@ -63,37 +76,29 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleSelectPath = async () => {
     try {
+      console.log('handleSelectPath called');
+
       const selected = await showDirectoryDialog({
         title: '选择导出文件夹',
         defaultPath: undefined
       });
 
+      console.log('Directory dialog result:', selected);
+
       if (selected) {
         setCustomPath(selected);
-        // 如果还没有设置文件名，设置默认文件名
-        if (!customFilename) {
-          const defaultFilename = `logs_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.${selectedFormat}`;
-          setCustomFilename(defaultFilename);
-        }
         setUseCustomLocation(true);
-      } else if (!isTauriEnvironment()) {
-        // Fallback: 在非Tauri环境中使用浏览器文件输入
-        console.warn('Tauri API not available, using browser fallback');
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = `.${selectedFormat}`;
-        input.onchange = (e) => {
-          const file = (e.target as HTMLInputElement).files?.[0];
-          if (file) {
-            setCustomFilename(file.name);
-            setUseCustomLocation(true);
-          }
-        };
-        input.click();
+        console.log('Directory selected:', selected);
+      } else {
+        console.warn('No directory selected or dialog was cancelled');
       }
 
     } catch (error) {
       console.error('Failed to select export path:', error);
+
+      // 错误处理：设置为使用自定义位置但路径为空
+      setCustomPath('');
+      setUseCustomLocation(true);
     }
   };
 
@@ -240,6 +245,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         type="button"
                         onClick={handleSelectPath}
                         className="px-3 py-2 text-sm bg-secondary hover:bg-secondary/80 border border-border rounded-md transition-colors"
+                        title="选择文件夹"
                       >
                         <FolderOpen className="w-4 h-4" />
                       </button>

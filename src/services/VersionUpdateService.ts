@@ -10,7 +10,8 @@ import {
   ParsedVersion,
   parseVersion
 } from '@/utils/version';
-import { invoke } from '@tauri-apps/api/core';
+// 使用我们的安全 Tauri 调用函数
+import { safeTauriInvoke } from '@/utils/tauri';
 
 export interface GitHubRelease {
   tag_name: string;
@@ -150,46 +151,49 @@ export class VersionUpdateService {
 
     try {
       // Check if we're running in Tauri environment
-      if (typeof window !== 'undefined' && window.__TAURI__) {
-        const release = await invoke<GitHubRelease>('check_for_updates', {
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        const release = await safeTauriInvoke<GitHubRelease>('check_for_updates', {
           repositoryOwner: this.config.repositoryOwner,
           repositoryName: this.config.repositoryName,
           includePrerelease: this.config.includePrerelease,
         });
 
-        this.setCachedData(cacheKey, release);
-        return release;
-      } else {
-        // Fallback for web environment - use direct fetch
-        const url = this.config.includePrerelease
-          ? `https://api.github.com/repos/${this.config.repositoryOwner}/${this.config.repositoryName}/releases`
-          : `https://api.github.com/repos/${this.config.repositoryOwner}/${this.config.repositoryName}/releases/latest`;
-
-        const response = await fetch(url, {
-          headers: {
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'ProtoTool-UpdateChecker',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`GitHub API error: ${response.status}`);
+        if (release) {
+          this.setCachedData(cacheKey, release);
+          return release;
         }
-
-        const data = await response.json();
-
-        // Handle both single release and array of releases
-        const release = this.config.includePrerelease && Array.isArray(data)
-          ? data.find(r => !r.draft && (this.config.includePrerelease || !r.prerelease))
-          : data;
-
-        if (!release) {
-          throw new Error('No suitable release found');
-        }
-
-        this.setCachedData(cacheKey, release);
-        return release;
+        // 如果 Tauri 调用失败，继续使用 fetch 后备方案
       }
+
+      // Fallback - use direct fetch
+      const url = this.config.includePrerelease
+        ? `https://api.github.com/repos/${this.config.repositoryOwner}/${this.config.repositoryName}/releases`
+        : `https://api.github.com/repos/${this.config.repositoryOwner}/${this.config.repositoryName}/releases/latest`;
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'ProtoTool-UpdateChecker',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Handle both single release and array of releases
+      const release = this.config.includePrerelease && Array.isArray(data)
+        ? data.find(r => !r.draft && (this.config.includePrerelease || !r.prerelease))
+        : data;
+
+      if (!release) {
+        throw new Error('No suitable release found');
+      }
+
+      this.setCachedData(cacheKey, release);
+      return release;
     } catch (error) {
       console.error('Failed to fetch latest release:', error);
       throw error;

@@ -1,12 +1,7 @@
 /**
  * Tauri API 工具函数
- * 提供安全的Tauri API调用，在非Tauri环境中提供fallback
+ * 提供安全的Tauri API调用，专注于桌面端环境
  */
-
-// 检查是否在Tauri环境中
-export const isTauriEnvironment = (): boolean => {
-  return typeof window !== 'undefined' && !!(window as any).__TAURI__;
-};
 
 // 安全的文件保存对话框
 export const showSaveDialog = async (options: {
@@ -17,23 +12,28 @@ export const showSaveDialog = async (options: {
     extensions: string[];
   }>;
 }): Promise<string | null> => {
-  if (!isTauriEnvironment()) {
-    console.warn('Tauri environment not detected, save dialog not available');
-    return null;
-  }
-
   try {
-    // 使用字符串拼接避免Vite静态分析
-    const dialogModule = '@tauri-apps/api/' + 'dialog';
-    const tauriDialog = await import(/* @vite-ignore */ dialogModule).catch(() => null);
-
-    if (!tauriDialog?.save) {
-      console.warn('Tauri dialog API not available');
-      return null;
+    // 尝试使用 Tauri v2 API
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      const { save } = (window as any).__TAURI__.dialog;
+      const result = await save(options);
+      return result || null;
     }
 
-    const result = await tauriDialog.save(options);
-    return result || null;
+    // 后备方案：尝试动态导入
+    try {
+      const modulePath = '@tauri-apps/api/' + 'dialog';
+      const tauriDialog = await import(/* @vite-ignore */ modulePath);
+      if (tauriDialog?.save) {
+        const result = await tauriDialog.save(options);
+        return result || null;
+      }
+    } catch (importError) {
+      console.warn('Failed to import @tauri-apps/api/dialog:', importError);
+    }
+
+    console.warn('Tauri dialog API not available');
+    return null;
   } catch (error) {
     console.error('Failed to show save dialog:', error);
     return null;
@@ -45,28 +45,43 @@ export const showDirectoryDialog = async (options: {
   title?: string;
   defaultPath?: string;
 }): Promise<string | null> => {
-  if (!isTauriEnvironment()) {
-    console.warn('Tauri environment not detected, directory dialog not available');
-    return null;
-  }
+  console.log('showDirectoryDialog called with options:', options);
 
   try {
-    // 使用字符串拼接避免Vite静态分析
-    const dialogModule = '@tauri-apps/api/' + 'dialog';
-    const tauriDialog = await import(/* @vite-ignore */ dialogModule).catch(() => null);
+    console.log('Attempting to access Tauri dialog API...');
 
-    if (!tauriDialog?.open) {
-      console.warn('Tauri dialog API not available');
-      return null;
+    // 尝试使用 Tauri v2 API
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      const { open } = (window as any).__TAURI__.dialog;
+      const result = await open({
+        ...options,
+        directory: true,
+        multiple: false
+      });
+      console.log('Dialog result:', result, 'Type:', typeof result);
+      return typeof result === 'string' ? result : null;
     }
 
-    const result = await tauriDialog.open({
-      ...options,
-      directory: true,
-      multiple: false
-    });
+    // 后备方案：尝试动态导入
+    try {
+      const modulePath = '@tauri-apps/api/' + 'dialog';
+      const tauriDialog = await import(/* @vite-ignore */ modulePath);
+      if (tauriDialog?.open) {
+        console.log('Tauri dialog module imported successfully');
+        const result = await tauriDialog.open({
+          ...options,
+          directory: true,
+          multiple: false
+        });
+        console.log('Dialog result:', result, 'Type:', typeof result);
+        return typeof result === 'string' ? result : null;
+      }
+    } catch (importError) {
+      console.warn('Failed to import @tauri-apps/api/dialog:', importError);
+    }
 
-    return typeof result === 'string' ? result : null;
+    console.warn('Tauri dialog API not available');
+    return null;
   } catch (error) {
     console.error('Failed to show directory dialog:', error);
     return null;
@@ -78,23 +93,27 @@ export const safeTauriInvoke = async <T>(
   command: string,
   args?: Record<string, any>
 ): Promise<T | null> => {
-  if (!isTauriEnvironment()) {
-    console.warn('Tauri environment not detected, invoke not available');
-    return null;
-  }
-
   try {
-    // 使用字符串拼接避免Vite静态分析
-    const tauriModule = '@tauri-apps/api/' + 'core';
-    const tauriApi = await import(/* @vite-ignore */ tauriModule).catch(() => null);
-
-    if (!tauriApi?.invoke) {
-      console.warn('Tauri invoke API not available');
-      return null;
+    // 尝试使用 Tauri v2 API
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      const result = await (window as any).__TAURI__.invoke(command, args);
+      return result as T;
     }
 
-    const result = await (tauriApi.invoke as any)(command, args);
-    return result as T;
+    // 后备方案：尝试动态导入
+    try {
+      const modulePath = '@tauri-apps/api/' + 'core';
+      const tauriCore = await import(/* @vite-ignore */ modulePath);
+      if (tauriCore?.invoke) {
+        const result = await tauriCore.invoke(command, args);
+        return result as T;
+      }
+    } catch (importError) {
+      console.warn('Failed to import @tauri-apps/api/core:', importError);
+    }
+
+    console.warn('Tauri core API not available');
+    return null;
   } catch (error) {
     console.error(`Failed to invoke Tauri command ${command}:`, error);
     throw error; // 重新抛出错误，让调用者处理
@@ -112,7 +131,7 @@ export const checkTauriApiAvailability = async (): Promise<{
   };
 }> => {
   const result = {
-    available: isTauriEnvironment(),
+    available: true, // 假设在桌面环境中总是可用
     apis: {
       dialog: false,
       invoke: false,
@@ -121,31 +140,55 @@ export const checkTauriApiAvailability = async (): Promise<{
     },
   };
 
-  if (!result.available) {
-    return result;
-  }
-
   try {
-    // 使用字符串拼接避免Vite静态分析
-    const dialogModule = '@tauri-apps/api/' + 'dialog';
-    const coreModule = '@tauri-apps/api/' + 'core';
-    const fsModule = '@tauri-apps/api/' + 'fs';
-    const pathModule = '@tauri-apps/api/' + 'path';
+    // 首先检查全局 Tauri 对象
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      result.apis.dialog = !!(window as any).__TAURI__.dialog;
+      result.apis.invoke = !!(window as any).__TAURI__.invoke;
+      result.apis.fs = !!(window as any).__TAURI__.fs;
+      result.apis.path = !!(window as any).__TAURI__.path;
+      result.available = true;
+      return result;
+    }
 
-    // 检查各个API的可用性
-    const [dialogApi, tauriApi, fsApi, pathApi] = await Promise.allSettled([
-      import(/* @vite-ignore */ dialogModule).catch(() => null),
-      import(/* @vite-ignore */ coreModule).catch(() => null),
-      import(/* @vite-ignore */ fsModule).catch(() => null),
-      import(/* @vite-ignore */ pathModule).catch(() => null),
-    ]);
+    // 后备方案：检查各个API的可用性
+    try {
+      const dialogPath = '@tauri-apps/api/' + 'dialog';
+      const dialogApi = await import(/* @vite-ignore */ dialogPath).catch(() => null);
+      result.apis.dialog = !!dialogApi;
+    } catch {
+      result.apis.dialog = false;
+    }
 
-    result.apis.dialog = dialogApi.status === 'fulfilled' && !!dialogApi.value;
-    result.apis.invoke = tauriApi.status === 'fulfilled' && !!tauriApi.value;
-    result.apis.fs = fsApi.status === 'fulfilled' && !!fsApi.value;
-    result.apis.path = pathApi.status === 'fulfilled' && !!pathApi.value;
+    try {
+      const corePath = '@tauri-apps/api/' + 'core';
+      const tauriApi = await import(/* @vite-ignore */ corePath).catch(() => null);
+      result.apis.invoke = !!tauriApi;
+    } catch {
+      result.apis.invoke = false;
+    }
+
+    try {
+      const fsPath = '@tauri-apps/api/' + 'fs';
+      const fsApi = await import(/* @vite-ignore */ fsPath).catch(() => null);
+      result.apis.fs = !!fsApi;
+    } catch {
+      result.apis.fs = false;
+    }
+
+    try {
+      const pathPath = '@tauri-apps/api/' + 'path';
+      const pathApi = await import(/* @vite-ignore */ pathPath).catch(() => null);
+      result.apis.path = !!pathApi;
+    } catch {
+      result.apis.path = false;
+    }
+
+    // 如果所有API都不可用，则认为不在Tauri环境中
+    result.available = Object.values(result.apis).some(available => available);
   } catch (error) {
     console.error('Error checking Tauri API availability:', error);
+    result.available = false;
   }
 
   return result;
@@ -153,19 +196,24 @@ export const checkTauriApiAvailability = async (): Promise<{
 
 // 获取应用数据目录
 export const getAppDataDir = async (): Promise<string | null> => {
-  if (!isTauriEnvironment()) {
-    return null;
-  }
-
   try {
-    const pathModule = '@tauri-apps/api/' + 'path';
-    const pathApi = await import(/* @vite-ignore */ pathModule).catch(() => null);
-
-    if (!pathApi?.appDataDir) {
-      return null;
+    // 尝试使用 Tauri v2 API
+    if (typeof window !== 'undefined' && (window as any).__TAURI__?.path) {
+      return await (window as any).__TAURI__.path.appDataDir();
     }
 
-    return await pathApi.appDataDir();
+    // 后备方案：尝试动态导入
+    try {
+      const modulePath = '@tauri-apps/api/' + 'path';
+      const pathApi = await import(/* @vite-ignore */ modulePath);
+      if (pathApi?.appDataDir) {
+        return await pathApi.appDataDir();
+      }
+    } catch (importError) {
+      console.warn('Failed to import @tauri-apps/api/path:', importError);
+    }
+
+    return null;
   } catch (error) {
     console.error('Failed to get app data directory:', error);
     return null;
@@ -174,19 +222,24 @@ export const getAppDataDir = async (): Promise<string | null> => {
 
 // 获取下载目录
 export const getDownloadDir = async (): Promise<string | null> => {
-  if (!isTauriEnvironment()) {
-    return null;
-  }
-
   try {
-    const pathModule = '@tauri-apps/api/' + 'path';
-    const pathApi = await import(/* @vite-ignore */ pathModule).catch(() => null);
-
-    if (!pathApi?.downloadDir) {
-      return null;
+    // 尝试使用 Tauri v2 API
+    if (typeof window !== 'undefined' && (window as any).__TAURI__?.path) {
+      return await (window as any).__TAURI__.path.downloadDir();
     }
 
-    return await pathApi.downloadDir();
+    // 后备方案：尝试动态导入
+    try {
+      const modulePath = '@tauri-apps/api/' + 'path';
+      const pathApi = await import(/* @vite-ignore */ modulePath);
+      if (pathApi?.downloadDir) {
+        return await pathApi.downloadDir();
+      }
+    } catch (importError) {
+      console.warn('Failed to import @tauri-apps/api/path:', importError);
+    }
+
+    return null;
   } catch (error) {
     console.error('Failed to get download directory:', error);
     return null;
