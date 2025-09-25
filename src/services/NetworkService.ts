@@ -187,12 +187,37 @@ class NetworkService {
     const session = store.getSession(sessionId);
     const sessionName = session?.config.name || sessionId;
 
-    // Log the message event
+    // Log the message event to backend
     const eventType = direction === 'in' ? 'message_received' : 'message_sent';
     backendLogService.logNetworkEvent(sessionId, sessionName, eventType, {
       clientId,
       protocol: session?.config.protocol,
       dataSize: data.length,
+    }).catch(error => {
+      console.error('Failed to log network event:', error);
+    });
+
+    // Also add a detailed log entry
+    backendLogService.addLog(
+      'info',
+      'NetworkService',
+      `${direction === 'in' ? 'Received' : 'Sent'} ${data.length} bytes`,
+      sessionId,
+      sessionName,
+      {
+        category: 'message',
+        direction,
+        clientId,
+        protocol: session?.config.protocol,
+        dataSize: data.length,
+        connectionType: session?.config.connectionType === 'server' ? 'server' : 'client',
+        details: {
+          raw: Array.from(data.slice(0, 100)), // First 100 bytes for debugging
+          timestamp: new Date().toISOString()
+        }
+      }
+    ).catch(error => {
+      console.error('Failed to add detailed log entry:', error);
     });
 
     const message: Message = {

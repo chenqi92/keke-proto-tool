@@ -30,6 +30,7 @@ import { useAppStore } from '@/stores/AppStore'
 
 // Services
 import { statusBarService } from '@/services/StatusBarService'
+import { backendLogService } from '@/services/BackendLogService'
 
 // Hooks
 import { useTheme } from '@/hooks/useTheme'
@@ -100,6 +101,23 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        // Initialize backend logging service first
+        await backendLogService.addLog(
+          'info',
+          'Application',
+          'ProtoTool application starting up',
+          undefined,
+          undefined,
+          {
+            category: 'system',
+            details: {
+              version: '0.0.12',
+              timestamp: new Date().toISOString(),
+              platform: navigator.platform
+            }
+          }
+        ).catch(err => console.error('Failed to log application startup:', err));
+
         // Start performance monitoring
         performanceMonitor.start()
 

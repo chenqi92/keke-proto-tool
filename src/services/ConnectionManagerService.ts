@@ -1,4 +1,5 @@
 import { SessionConfig, SessionState, ConnectionStatus } from '@/types';
+import { backendLogService } from './BackendLogService';
 
 export interface ConnectionManagerOptions {
   sessionId: string;
@@ -40,10 +41,44 @@ export class ConnectionManagerService {
 
     this.shouldStop = false;
     this.currentRetryAttempt = 0;
-    
+
+    // Log connection attempt
+    await backendLogService.addLog(
+      'info',
+      'ConnectionManager',
+      `Starting connection for ${this.config.protocol} ${this.config.connectionType}`,
+      this.sessionId,
+      this.config.name,
+      {
+        category: 'network',
+        protocol: this.config.protocol,
+        connectionType: this.config.connectionType,
+        details: {
+          host: this.config.host,
+          port: this.config.port,
+          autoReconnect: this.config.autoReconnect
+        }
+      }
+    ).catch(err => console.error('Failed to log connection attempt:', err));
+
     try {
       await this.attemptConnection();
     } catch (error) {
+      // Log connection failure
+      await backendLogService.addLog(
+        'error',
+        'ConnectionManager',
+        `Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        this.sessionId,
+        this.config.name,
+        {
+          category: 'network',
+          protocol: this.config.protocol,
+          connectionType: this.config.connectionType,
+          details: { error: error instanceof Error ? error.message : 'Unknown error' }
+        }
+      ).catch(err => console.error('Failed to log connection failure:', err));
+
       if (this.config.autoReconnect && this.config.connectionType === 'client') {
         await this.startReconnectProcess();
       } else {
@@ -112,6 +147,26 @@ export class ConnectionManagerService {
           this.onStatusChange('connected');
           this.currentRetryAttempt = 0;
           this.isReconnecting = false;
+
+          // Log successful connection
+          backendLogService.addLog(
+            'info',
+            'ConnectionManager',
+            `Successfully connected to ${this.config.host}:${this.config.port}`,
+            this.sessionId,
+            this.config.name,
+            {
+              category: 'network',
+              protocol: this.config.protocol,
+              connectionType: this.config.connectionType,
+              details: {
+                host: this.config.host,
+                port: this.config.port,
+                connectionTime: Date.now()
+              }
+            }
+          ).catch(err => console.error('Failed to log successful connection:', err));
+
           resolve();
         } else {
           reject(new Error('Connection failed'));
