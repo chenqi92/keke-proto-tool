@@ -63,21 +63,53 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
 
       const registeredTools = toolRegistry.getAll();
       console.log('Registered tools count:', registeredTools.length);
-      console.log('Registered tools:', registeredTools.map(r => ({ id: r.tool.id, name: r.tool.name })));
+
+      // Filter out null tools and log them separately
+      const validTools = registeredTools.filter(r => r.tool !== null);
+      const lazyTools = registeredTools.filter(r => r.tool === null);
+
+      console.log('Valid tools:', validTools.map(r => ({ id: r.tool.id, name: r.tool.name })));
+      console.log('Lazy tools:', lazyTools.map(r => ({ id: (r as any).name, metadata: r })));
 
       const favorites = getFavoriteTools();
 
-      const toolInfos: ToolInfo[] = registeredTools.map(registration => ({
-        id: registration.tool.id,
-        name: registration.tool.name,
-        description: registration.tool.description,
-        category: registration.tool.category,
-        icon: registration.tool.icon,
-        priority: registration.tool.priority || 0,
-        tags: registration.tool.tags || [],
-        isLoaded: true, // All registered tools are considered loaded
-        isFavorite: favorites.includes(registration.tool.id)
-      }));
+      const toolInfos: ToolInfo[] = [];
+
+      // Process valid tools (with actual tool objects)
+      validTools.forEach(registration => {
+        toolInfos.push({
+          id: registration.tool.id,
+          name: registration.tool.name,
+          description: registration.tool.description,
+          category: registration.tool.category,
+          icon: registration.tool.icon,
+          priority: registration.tool.priority || 0,
+          tags: registration.tool.tags || [],
+          isLoaded: true,
+          isFavorite: favorites.includes(registration.tool.id)
+        });
+      });
+
+      // Process lazy tools (with metadata only)
+      lazyTools.forEach((registration) => {
+        const metadata = registration as any;
+        if (metadata.name && metadata.description) {
+          // Use the preserved tool ID from the registration
+          const toolId = metadata.id || metadata.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+
+          toolInfos.push({
+            id: toolId,
+            name: metadata.name,
+            description: metadata.description,
+            category: metadata.category || 'utility',
+            icon: metadata.icon || '🔧',
+            priority: metadata.priority || 0,
+            tags: metadata.tags || [],
+            isLoaded: metadata.isLoaded || false,
+            isFavorite: false // Lazy tools default to not favorite
+          });
+        }
+      });
 
       console.log('Tool infos created:', toolInfos.length);
       setTools(toolInfos);
@@ -451,24 +483,14 @@ export const ToolboxInterface: React.FC<ToolboxInterfaceProps> = ({
           ) : (
             <div className="space-y-1">
               {filteredTools.map(tool => (
-                <button
-                  key={tool.id}
-                  onClick={() => handleToolSelect(tool.id)}
-                  className={cn(
-                    "w-full p-3 text-left rounded-lg border transition-all",
-                    selectedTool === tool.id
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:border-accent-foreground hover:bg-accent"
-                  )}
-                >
-                  <div className="flex items-center space-x-3">
-                    <tool.icon className="w-5 h-5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{tool.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">{tool.description}</div>
-                    </div>
-                  </div>
-                </button>
+                <ToolCard
+                  key={tool.id || `tool-${tool.name}`}
+                  tool={tool}
+                  viewMode="compact"
+                  selected={selectedTool === tool.id}
+                  onSelect={handleToolSelect}
+                  onToggleFavorite={handleToggleFavorite}
+                />
               ))}
             </div>
           )}

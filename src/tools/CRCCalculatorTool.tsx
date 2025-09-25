@@ -620,4 +620,6 @@ const CRCCalculatorUI: React.FC<{ tool: CRCCalculatorTool; context: ToolContext 
   );
 };
 
+// Export the tool class
+export { CRCCalculatorTool };
 export default CRCCalculatorTool;

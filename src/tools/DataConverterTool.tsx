@@ -530,4 +530,6 @@ const DataConverterUI: React.FC<{ tool: DataConverterTool; context: ToolContext 
   );
 };
 
+// Export the tool class
+export { DataConverterTool };
 export default DataConverterTool;

@@ -627,7 +627,31 @@ class NetworkService {
       return false;
     } catch (error) {
       console.error('Send message failed:', error);
-      
+
+      // Log send failure
+      const session = useAppStore.getState().getSession(sessionId);
+      const sessionName = session?.config.name || sessionId;
+
+      backendLogService.addLog(
+        'error',
+        'NetworkService',
+        `Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        sessionId,
+        sessionName,
+        {
+          category: 'message',
+          direction: 'out',
+          protocol: session?.config.protocol,
+          dataSize: data.length,
+          connectionType: session?.config.connectionType === 'server' ? 'server' : 'client',
+          details: {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            dataPreview: Array.from(data.slice(0, 50)),
+            timestamp: new Date().toISOString()
+          }
+        }
+      ).catch(logError => console.error('Failed to log send failure:', logError));
+
       // Add failed message to store
       const message: Message = {
         id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

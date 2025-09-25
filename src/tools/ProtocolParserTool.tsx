@@ -600,4 +600,6 @@ const ProtocolParserUI: React.FC<{ tool: ProtocolParserTool; context: ToolContex
   );
 };
 
+// Export the tool class
+export { ProtocolParserTool };
 export default ProtocolParserTool;

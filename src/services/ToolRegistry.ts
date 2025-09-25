@@ -59,6 +59,7 @@ export class ToolRegistry implements IToolRegistry {
       usageCount: 0,
       favorite: false,
       lastUsed: undefined,
+      id: toolId, // Preserve the tool ID
       ...metadata
     };
 

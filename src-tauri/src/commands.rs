@@ -701,6 +701,16 @@ pub async fn get_logs(
     let manager = get_log_manager().await?;
     let manager = manager.read().await;
 
+    // 添加调试信息 - 在消费变量之前
+    println!("get_logs called with filters:");
+    println!("  session_id: {:?}", session_id);
+    println!("  level: {:?}", level);
+    println!("  category: {:?}", category);
+    println!("  time_range: {:?}", time_range);
+    println!("  search_query: {:?}", search_query);
+    println!("  limit: {:?}", limit);
+    println!("  offset: {:?}", offset);
+
     let log_level = level.and_then(|l| match l.to_lowercase().as_str() {
         "info" => Some(LogLevel::Info),
         "warning" => Some(LogLevel::Warning),
@@ -711,12 +721,13 @@ pub async fn get_logs(
 
     let log_category = category.and_then(|c| match c.to_lowercase().as_str() {
         "network" => Some(LogCategory::Network),
-        "protocol" => Some(LogCategory::Protocol),
         "system" => Some(LogCategory::System),
-        "console" => Some(LogCategory::Console),
         "message" => Some(LogCategory::Message),
         _ => None,
     });
+
+    println!("  parsed level: {:?}", log_level);
+    println!("  parsed category: {:?}", log_category);
 
     let log_time_range = time_range.and_then(|tr| match tr.to_lowercase().as_str() {
         "all" => Some(TimeRange::All),
@@ -737,8 +748,20 @@ pub async fn get_logs(
         offset,
     };
 
-    manager.get_logs(filter).await
-        .map_err(|e| format!("Failed to get logs: {}", e))
+    let result = manager.get_logs(filter).await
+        .map_err(|e| format!("Failed to get logs: {}", e))?;
+
+    // 添加调试信息
+    println!("get_logs returning {} entries", result.len());
+    if !result.is_empty() {
+        println!("Sample log entries:");
+        for (i, entry) in result.iter().take(3).enumerate() {
+            println!("  Entry {}: level={:?}, category={:?}, message={}",
+                i + 1, entry.level, entry.category, entry.message);
+        }
+    }
+
+    Ok(result)
 }
 
 /// Export logs to file

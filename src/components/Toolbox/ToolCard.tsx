@@ -30,7 +30,53 @@ export const ToolCard: React.FC<ToolCardProps> = ({
   onSelect,
   onToggleFavorite
 }) => {
-  const Icon = tool.icon;
+  // Handle icon safely - it might be a Promise function, React component, or string
+  const [IconComponent, setIconComponent] = React.useState<React.ComponentType<{ className?: string }> | null>(null);
+
+  React.useEffect(() => {
+    const loadIcon = async () => {
+      if (typeof tool.icon === 'function') {
+        // Check if it's a React component
+        if (tool.icon.prototype?.isReactComponent) {
+          setIconComponent(() => tool.icon);
+        } else {
+          // It's likely a Promise function like () => import('lucide-react').then(m => m.Zap)
+          try {
+            const iconResult = await tool.icon();
+            if (typeof iconResult === 'function') {
+              setIconComponent(() => iconResult);
+            } else {
+              // Fallback
+              setIconComponent(() => ({ className }: { className?: string }) => (
+                <div className={className} style={{ width: '1em', height: '1em', backgroundColor: 'currentColor', borderRadius: '2px' }} />
+              ));
+            }
+          } catch (error) {
+            console.warn('Failed to load icon:', error);
+            setIconComponent(() => ({ className }: { className?: string }) => (
+              <div className={className} style={{ width: '1em', height: '1em', backgroundColor: 'currentColor', borderRadius: '2px' }} />
+            ));
+          }
+        }
+      } else if (typeof tool.icon === 'string') {
+        // If it's a string (emoji), render as text
+        setIconComponent(() => ({ className }: { className?: string }) => (
+          <span className={className} style={{ fontSize: '1em' }}>{tool.icon}</span>
+        ));
+      } else {
+        // Default fallback
+        setIconComponent(() => ({ className }: { className?: string }) => (
+          <div className={className} style={{ width: '1em', height: '1em', backgroundColor: 'currentColor', borderRadius: '2px' }} />
+        ));
+      }
+    };
+
+    loadIcon();
+  }, [tool.icon]);
+
+  const Icon = IconComponent || (({ className }: { className?: string }) => (
+    <div className={className} style={{ width: '1em', height: '1em', backgroundColor: 'currentColor', borderRadius: '2px' }} />
+  ));
 
   // Compact view for sidebar
   if (viewMode === 'compact') {

@@ -40,6 +40,39 @@ export const showSaveDialog = async (options: {
   }
 };
 
+// 安全的文件夹选择对话框
+export const showDirectoryDialog = async (options: {
+  title?: string;
+  defaultPath?: string;
+}): Promise<string | null> => {
+  if (!isTauriEnvironment()) {
+    console.warn('Tauri environment not detected, directory dialog not available');
+    return null;
+  }
+
+  try {
+    // 使用字符串拼接避免Vite静态分析
+    const dialogModule = '@tauri-apps/api/' + 'dialog';
+    const tauriDialog = await import(/* @vite-ignore */ dialogModule).catch(() => null);
+
+    if (!tauriDialog?.open) {
+      console.warn('Tauri dialog API not available');
+      return null;
+    }
+
+    const result = await tauriDialog.open({
+      ...options,
+      directory: true,
+      multiple: false
+    });
+
+    return typeof result === 'string' ? result : null;
+  } catch (error) {
+    console.error('Failed to show directory dialog:', error);
+    return null;
+  }
+};
+
 // 安全的Tauri invoke调用
 export const safeTauriInvoke = async <T>(
   command: string,

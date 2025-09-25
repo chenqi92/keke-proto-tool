@@ -67,12 +67,8 @@ const getCategoryIcon = (log: LogEntry) => {
                 return <ArrowUp className="w-4 h-4 text-orange-500"/>;
             }
             return <MessageSquare className="w-4 h-4 text-purple-500"/>;
-        case 'protocol':
-            return <Settings className="w-4 h-4 text-indigo-500"/>;
         case 'system':
             return <Monitor className="w-4 h-4 text-gray-500"/>;
-        case 'console':
-            return <FileText className="w-4 h-4 text-gray-400"/>;
         default:
             return getLevelIcon(log.level);
     }
@@ -92,12 +88,8 @@ const getCategoryColor = (log: LogEntry) => {
                 return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
             }
             return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-        case 'protocol':
-            return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
         case 'system':
             return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-        case 'console':
-            return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200';
         default:
             return getLevelColor(log.level);
     }
@@ -109,20 +101,16 @@ const getCategoryLabel = (log: LogEntry) => {
 
     switch (category) {
         case 'network':
-            return '网络';
+            return '网络连接';
         case 'message':
             if (direction === 'in') {
-                return '接收';
+                return '接收消息';
             } else if (direction === 'out') {
-                return '发送';
+                return '发送消息';
             }
-            return '消息';
-        case 'protocol':
-            return '协议';
+            return '消息传输';
         case 'system':
-            return '系统';
-        case 'console':
-            return '控制台';
+            return '系统事件';
         default:
             return log.level.toUpperCase();
     }
@@ -192,13 +180,11 @@ export const LogsPage: React.FC = () => {
         };
     }, []);
 
-    const levels = ['info', 'warning', 'error', 'debug'];
+    const levels = ['info', 'warning', 'error'];
     const categories = [
-        { value: 'network', label: '网络' },
-        { value: 'message', label: '消息' },
-        { value: 'protocol', label: '协议' },
-        { value: 'system', label: '系统' },
-        { value: 'console', label: '控制台' }
+        { value: 'network', label: '网络连接' },
+        { value: 'message', label: '消息传输' },
+        { value: 'system', label: '系统事件' }
     ];
     const timeRanges = [
         {value: 'all', label: '全部时间'},
@@ -215,13 +201,19 @@ export const LogsPage: React.FC = () => {
     useEffect(() => {
         const filterLogs = async () => {
             try {
-                const filtered = await backendLogService.getFilteredLogs({
+                const filterParams = {
                     sessionId: sessionFilter || undefined,
                     level: selectedLevel as any,
                     category: selectedCategory as any,
                     timeRange: selectedTimeRange as any,
                     searchQuery: searchQuery || undefined
-                });
+                };
+
+                console.log('LogsPage filtering with params:', filterParams);
+
+                const filtered = await backendLogService.getFilteredLogs(filterParams);
+                console.log('LogsPage received filtered logs count:', filtered.length);
+
                 setFilteredLogs(filtered);
             } catch (error) {
                 console.error('Failed to filter logs:', error);

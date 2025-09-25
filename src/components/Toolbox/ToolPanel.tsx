@@ -36,7 +36,8 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   onClose,
   mode = 'modal'
 }) => {
-  const tool = toolRegistry.getById(toolId)?.tool;
+  const [tool, setTool] = useState<BaseTool | null>(null);
+  const [isLoadingTool, setIsLoadingTool] = useState(false);
 
   // Always call hooks at the top level
   const [inputData, setInputData] = useState('');
@@ -47,7 +48,34 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [toolState, setToolState] = useState<Record<string, any>>({});
 
-  // Always call hooks at the top level
+  // Load tool on mount or when toolId changes
+  useEffect(() => {
+    const loadTool = async () => {
+      if (!toolId) return;
+
+      setIsLoadingTool(true);
+      try {
+        // First try to get the tool from registry
+        let toolInstance = toolRegistry.getById(toolId)?.tool;
+
+        // If not found, try to load it lazily
+        if (!toolInstance) {
+          const { toolLazyLoader } = await import('@/services/ToolLazyLoader');
+          toolInstance = await toolLazyLoader.loadTool(toolId);
+        }
+
+        setTool(toolInstance);
+      } catch (error) {
+        console.error(`Failed to load tool ${toolId}:`, error);
+        setTool(null);
+      } finally {
+        setIsLoadingTool(false);
+      }
+    };
+
+    loadTool();
+  }, [toolId]);
+
   // Load tool state on mount
   useEffect(() => {
     if (!tool) return;
@@ -75,10 +103,20 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
     toolboxService.saveToolState(tool.id, state, sessionId);
   }, [tool?.id, sessionId, inputData, inputFormat, outputFormat, toolState]);
 
+  if (isLoadingTool) {
+    return (
+      <div className="p-4 text-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+        <p className="text-muted-foreground">正在加载工具...</p>
+      </div>
+    );
+  }
+
   if (!tool) {
     return (
       <div className="p-4 text-center">
-        <p className="text-muted-foreground">工具未找到</p>
+        <p className="text-muted-foreground">工具未找到: {toolId}</p>
+        <p className="text-xs text-muted-foreground mt-1">请检查工具是否已正确注册</p>
       </div>
     );
   }

@@ -617,4 +617,6 @@ const TimestampConverterUI: React.FC<{ tool: TimestampConverterTool; context: To
   );
 };
 
+// Export the tool class
+export { TimestampConverterTool };
 export default TimestampConverterTool;

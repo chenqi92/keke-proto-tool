@@ -179,6 +179,9 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
     offset?: number;
   }): Promise<LogEntry[]> {
     try {
+      // 添加调试信息
+      console.log('BackendLogService.getLogs called with filters:', filters);
+
       const backendLogs: BackendLogEntry[] = await invoke<BackendLogEntry[]>('get_logs', {
         sessionId: filters?.sessionId,
         level: filters?.level,
@@ -189,12 +192,17 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
         offset: filters?.offset || 0,
       });
 
+      console.log('Backend returned logs count:', backendLogs?.length || 0);
+
       if (!backendLogs) {
         console.warn('Failed to get logs from backend');
         return [];
       }
 
-      return backendLogs.map(log => this.convertBackendLogEntry(log));
+      const convertedLogs = backendLogs.map(log => this.convertBackendLogEntry(log));
+      console.log('Converted logs count:', convertedLogs.length);
+
+      return convertedLogs;
     } catch (error) {
       console.error('Failed to get logs:', error);
       throw error;

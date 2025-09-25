@@ -21,6 +21,7 @@ export class ConnectionManagerService {
   private currentRetryAttempt = 0;
   private isReconnecting = false;
   private shouldStop = false;
+  private maxRetries = 3;
 
   constructor(options: ConnectionManagerOptions) {
     this.sessionId = options.sessionId;
@@ -75,11 +76,35 @@ export class ConnectionManagerService {
           category: 'network',
           protocol: this.config.protocol,
           connectionType: this.config.connectionType,
-          details: { error: error instanceof Error ? error.message : 'Unknown error' }
+          details: {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            host: this.config.host,
+            port: this.config.port,
+            retryAttempt: this.currentRetryAttempt
+          }
         }
       ).catch(err => console.error('Failed to log connection failure:', err));
 
       if (this.config.autoReconnect && this.config.connectionType === 'client') {
+        // Log reconnection attempt
+        await backendLogService.addLog(
+          'warning',
+          'ConnectionManager',
+          `Starting auto-reconnection process (attempt ${this.currentRetryAttempt + 1})`,
+          this.sessionId,
+          this.config.name,
+          {
+            category: 'network',
+            protocol: this.config.protocol,
+            connectionType: this.config.connectionType,
+            details: {
+              autoReconnect: true,
+              currentAttempt: this.currentRetryAttempt + 1,
+              maxRetries: this.maxRetries
+            }
+          }
+        ).catch(err => console.error('Failed to log reconnection attempt:', err));
+
         await this.startReconnectProcess();
       } else {
         this.onError(error instanceof Error ? error.message : 'Connection failed');

@@ -45,8 +45,20 @@ export const ProtocolTag: React.FC<ProtocolTagProps> = ({
   showIcon = true,
   size = 'sm'
 }) => {
-  const normalizedProtocol = protocol.toUpperCase() as ProtocolType;
-  const config = protocolConfig[normalizedProtocol];
+  // Handle different protocol name variations
+  const normalizeProtocol = (proto: string): ProtocolType | null => {
+    const upper = proto.toUpperCase();
+    // Handle common variations
+    if (upper === 'WEBSOCKET' || upper === 'WS') return 'WebSocket';
+    if (upper === 'TCP') return 'TCP';
+    if (upper === 'UDP') return 'UDP';
+    if (upper === 'MQTT') return 'MQTT';
+    if (upper === 'SSE' || upper === 'SERVER-SENT EVENTS') return 'SSE';
+    return null;
+  };
+
+  const normalizedProtocol = normalizeProtocol(protocol);
+  const config = normalizedProtocol ? protocolConfig[normalizedProtocol] : null;
 
   if (!config) {
     console.warn('ProtocolTag: Unknown protocol:', protocol);

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/utils';
 import { Download, FileText, X, FolderOpen, File } from 'lucide-react';
-import { showSaveDialog, isTauriEnvironment } from '../../utils/tauri';
+import { showSaveDialog, showDirectoryDialog, isTauriEnvironment } from '../../utils/tauri';
 
 export interface ExportOptions {
   format: 'json' | 'csv' | 'md';
@@ -63,26 +63,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleSelectPath = async () => {
     try {
-      const defaultFilename = customFilename || `logs_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.${selectedFormat}`;
-
-      const selected = await showSaveDialog({
-        title: '选择导出位置',
-        defaultPath: defaultFilename,
-        filters: [
-          {
-            name: '导出文件',
-            extensions: [selectedFormat]
-          }
-        ]
+      const selected = await showDirectoryDialog({
+        title: '选择导出文件夹',
+        defaultPath: undefined
       });
 
       if (selected) {
-        const pathParts = selected.split(/[/\\]/);
-        const filename = pathParts.pop() || '';
-        const directory = pathParts.join('/');
-
-        setCustomPath(directory);
-        setCustomFilename(filename);
+        setCustomPath(selected);
+        // 如果还没有设置文件名，设置默认文件名
+        if (!customFilename) {
+          const defaultFilename = `logs_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.${selectedFormat}`;
+          setCustomFilename(defaultFilename);
+        }
         setUseCustomLocation(true);
       } else if (!isTauriEnvironment()) {
         // Fallback: 在非Tauri环境中使用浏览器文件输入

@@ -425,4 +425,6 @@ const MessageGeneratorUI: React.FC<{ tool: MessageGeneratorTool; context: ToolCo
   );
 };
 
+// Export the tool class
+export { MessageGeneratorTool };
 export default MessageGeneratorTool;

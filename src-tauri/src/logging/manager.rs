@@ -125,24 +125,35 @@ impl LogManager {
             WHERE 1=1
         "#);
 
-        let mut conditions = Vec::new();
-        let mut bind_values: Vec<Box<dyn sqlx::Encode<'_, sqlx::Sqlite> + Send + Sync>> = Vec::new();
-
-        // Add filters
+        // Add filters with direct string interpolation (safe since we control the input)
         if let Some(session_id) = &filter.session_id {
-            conditions.push("(session_id = ? OR session_name LIKE ?)");
-            bind_values.push(Box::new(session_id.clone()));
-            bind_values.push(Box::new(format!("%{}%", session_id)));
+            // Escape single quotes in session_id to prevent SQL injection
+            let escaped_session_id = session_id.replace("'", "''");
+            query.push_str(&format!(" AND (session_id = '{}' OR session_name LIKE '%{}%')",
+                                   escaped_session_id, escaped_session_id));
         }
 
         if let Some(level) = &filter.level {
-            conditions.push("level = ?");
-            bind_values.push(Box::new(level.clone()));
+            // 将枚举转换为字符串进行数据库查询 - 使用sqlx rename格式
+            let level_str = match level {
+                LogLevel::Info => "info",
+                LogLevel::Warning => "warning",
+                LogLevel::Error => "error",
+                LogLevel::Debug => "debug",
+            };
+            query.push_str(&format!(" AND level = '{}'", level_str));
         }
 
         if let Some(category) = &filter.category {
-            conditions.push("category = ?");
-            bind_values.push(Box::new(category.clone()));
+            // 将枚举转换为字符串进行数据库查询 - 使用sqlx rename的实际存储值
+            let category_str = match category {
+                LogCategory::Network => "network",
+                LogCategory::System => "system",
+                LogCategory::Message => "message",
+                // 移除已删除的类别，如果遇到不支持的类别返回空结果
+                _ => return Ok(Vec::new()),
+            };
+            query.push_str(&format!(" AND category = '{}'", category_str));
         }
 
         if let Some(time_range) = &filter.time_range {
@@ -158,23 +169,15 @@ impl LogManager {
             };
 
             if let Some(cutoff) = cutoff_time {
-                conditions.push("timestamp >= ?");
-                bind_values.push(Box::new(cutoff));
+                query.push_str(&format!(" AND timestamp >= '{}'", cutoff.format("%Y-%m-%d %H:%M:%S")));
             }
         }
 
         if let Some(search_query) = &filter.search_query {
-            conditions.push("(message LIKE ? OR source LIKE ? OR session_name LIKE ?)");
-            let search_pattern = format!("%{}%", search_query);
-            bind_values.push(Box::new(search_pattern.clone()));
-            bind_values.push(Box::new(search_pattern.clone()));
-            bind_values.push(Box::new(search_pattern));
-        }
-
-        // Add conditions to query
-        for condition in conditions {
-            query.push_str(" AND ");
-            query.push_str(condition);
+            // Escape single quotes in search query to prevent SQL injection
+            let escaped_query = search_query.replace("'", "''");
+            query.push_str(&format!(" AND (message LIKE '%{}%' OR source LIKE '%{}%' OR session_name LIKE '%{}%')",
+                                   escaped_query, escaped_query, escaped_query));
         }
 
         // Add ordering and pagination
@@ -188,7 +191,9 @@ impl LogManager {
             query.push_str(&format!(" OFFSET {}", offset));
         }
 
-        // Execute query - simplified version for now
+        // Execute query with direct string interpolation
+        println!("Executing query: {}", query);
+
         let rows = sqlx::query(&query)
             .fetch_all(&self.pool)
             .await

@@ -825,29 +825,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           <div className="max-h-96 min-h-32 overflow-y-auto table-scroll-container">
             <table className="w-full">
               <thead className="table-header-sticky">
-                <tr className="h-12"> {/* Fixed header height */}
-                  <th className="text-left px-4 py-2 font-medium text-sm min-w-0">
-                    <span className="truncate block">会话</span>
-                  </th>
-                  <th className="text-left px-2 py-2 font-medium text-sm w-20 min-w-20">
-                    <span className="truncate block">协议</span>
-                  </th>
-                  <th className="text-left px-2 py-2 font-medium text-sm w-24 min-w-24">
-                    <span className="truncate block">状态</span>
-                  </th>
-                  <th className="text-left px-2 py-2 font-medium text-sm w-20 min-w-0 hidden sm:table-cell">
-                    <span className="truncate block">最后活动</span>
-                  </th>
-                  <th className="text-left px-2 py-2 font-medium text-sm w-16 min-w-0 hidden md:table-cell">
-                    <span className="truncate block">消息数</span>
-                  </th>
-                  <th className="text-left px-2 py-2 font-medium text-sm w-16 min-w-0 hidden lg:table-cell">
-                    <span className="truncate block">传输量</span>
-                  </th>
-                  <th className="text-left px-2 py-2 font-medium text-sm w-16 min-w-0">
-                    <span className="truncate block">操作</span>
-                  </th>
-                </tr>
+                <tr className="h-12">{/* Fixed header height */}<th className="text-left px-4 py-2 font-medium text-sm min-w-0"><span className="truncate block">会话</span></th><th className="text-left px-2 py-2 font-medium text-sm w-20 min-w-20"><span className="truncate block">协议</span></th><th className="text-left px-2 py-2 font-medium text-sm w-24 min-w-24"><span className="truncate block">状态</span></th><th className="text-left px-2 py-2 font-medium text-sm w-20 min-w-0 hidden sm:table-cell"><span className="truncate block">最后活动</span></th><th className="text-left px-2 py-2 font-medium text-sm w-16 min-w-0 hidden md:table-cell"><span className="truncate block">消息数</span></th><th className="text-left px-2 py-2 font-medium text-sm w-16 min-w-0 hidden lg:table-cell"><span className="truncate block">传输量</span></th><th className="text-left px-2 py-2 font-medium text-sm w-16 min-w-0"><span className="truncate block">操作</span></th></tr>
               </thead>
               <tbody>
                 {filteredSessions.map((session) => (
