@@ -10,14 +10,14 @@ export function formatBytes(bytes: number, decimals: number = 1): string {
 
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 /**
  * Format bytes per second to human readable string
  */
 export function formatBytesPerSecond(bytesPerSecond: number, decimals: number = 1): string {
-  return formatBytes(bytesPerSecond, decimals) + '/s';
+  return `${formatBytes(bytesPerSecond, decimals)}/s`;
 }
 
 /**

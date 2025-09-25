@@ -1,7 +1,7 @@
 import React, {useState, useEffect} from 'react';
 import {cn} from '@/utils';
 import { backendLogService, LogEntry } from '@/services/BackendLogService';
-import { ConfirmationModal, MessageModal, ExportModal } from '@/components/Common';
+import { ConfirmationModal, MessageModal, ExportModal, ExportOptions } from '@/components/Common';
 import {
     Search,
     Download,
@@ -246,7 +246,7 @@ export const LogsPage: React.FC = () => {
     };
 
     // 导出日志
-    const handleExportLogs = async (format: 'json' | 'csv') => {
+    const handleExportLogs = async (options: ExportOptions) => {
         const currentFilters = {
             sessionId: sessionFilter || undefined,
             level: selectedLevel as any,
@@ -257,7 +257,12 @@ export const LogsPage: React.FC = () => {
 
         setIsExporting(true);
         try {
-            const exportPath = await backendLogService.exportLogs(currentFilters, format);
+            const exportPath = await backendLogService.exportLogs(
+                currentFilters,
+                options.format,
+                options.customPath,
+                options.customFilename
+            );
             setShowExportModal(false);
             setShowMessage({
                 type: 'success',
@@ -489,12 +494,14 @@ export const LogsPage: React.FC = () => {
                         <div className="p-4 border-b border-border shrink-0">
                             <h3 className="font-semibold">日志详情</h3>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                            <style jsx>{`
-                                div::-webkit-scrollbar {
-                                    display: none;
-                                }
-                            `}</style>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 log-details-container" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                            <style dangerouslySetInnerHTML={{
+                                __html: `
+                                    .log-details-container::-webkit-scrollbar {
+                                        display: none;
+                                    }
+                                `
+                            }} />
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">时间</label>
                                 <p className="font-mono text-sm mt-1">

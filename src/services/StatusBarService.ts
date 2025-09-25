@@ -178,7 +178,7 @@ class StatusBarService {
    */
   private calculateConnectionStats(sessions: SessionState[]): { active: number; total: number } {
     let active = 0;
-    let total = sessions.length;
+    const total = sessions.length;
 
     // Debug logging
     console.log('[StatusBarService] Calculating connection stats:', {

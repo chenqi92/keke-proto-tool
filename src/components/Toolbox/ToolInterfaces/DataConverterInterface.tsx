@@ -48,7 +48,7 @@ export const DataConverterInterface: React.FC<DataConverterInterfaceProps> = ({
       setResult(converted);
       onExecute({ inputData, inputFormat, outputFormat, result: converted });
     } catch (error) {
-      setResult('转换错误: ' + (error as Error).message);
+      setResult(`转换错误: ${(error as Error).message}`);
     }
   };
 

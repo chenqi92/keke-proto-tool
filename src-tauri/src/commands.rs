@@ -751,6 +751,7 @@ pub async fn export_logs(
     search_query: Option<String>,
     format: String,
     output_dir: Option<String>,
+    custom_filename: Option<String>,
 ) -> Result<String, String> {
     let manager = get_log_manager().await?;
     let manager = manager.read().await;
@@ -796,7 +797,7 @@ pub async fn export_logs(
 
     let output_path = output_dir.map(|p| std::path::PathBuf::from(p));
 
-    let exported_file = manager.export_logs(filter, export_format, output_path).await
+    let exported_file = manager.export_logs(filter, export_format, output_path, custom_filename).await
         .map_err(|e| format!("Failed to export logs: {}", e))?;
 
     Ok(exported_file.to_string_lossy().to_string())

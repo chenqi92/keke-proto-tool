@@ -371,7 +371,7 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
     const updatedConfig = {
       ...config,
       host: editHost.trim(),
-      port: port
+      port
     };
 
     updateSession(sessionId, {

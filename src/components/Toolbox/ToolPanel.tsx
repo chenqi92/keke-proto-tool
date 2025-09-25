@@ -38,13 +38,7 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
 }) => {
   const tool = toolRegistry.getById(toolId)?.tool;
 
-  if (!tool) {
-    return (
-      <div className="p-4 text-center">
-        <p className="text-muted-foreground">工具未找到</p>
-      </div>
-    );
-  }
+  // Always call hooks at the top level
   const [inputData, setInputData] = useState('');
   const [inputFormat, setInputFormat] = useState<DataFormat>('ascii');
   const [outputFormat, setOutputFormat] = useState<DataFormat>('ascii');
@@ -53,10 +47,11 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [toolState, setToolState] = useState<Record<string, any>>({});
 
-  const Icon = tool.icon;
-
+  // Always call hooks at the top level
   // Load tool state on mount
   useEffect(() => {
+    if (!tool) return;
+
     const savedState = toolboxService.loadToolState(tool.id, sessionId);
     if (savedState) {
       setToolState(savedState);
@@ -65,10 +60,12 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
       if (savedState.inputFormat) setInputFormat(savedState.inputFormat);
       if (savedState.outputFormat) setOutputFormat(savedState.outputFormat);
     }
-  }, [tool.id, sessionId]);
+  }, [tool?.id, sessionId]);
 
   // Save tool state when it changes
   useEffect(() => {
+    if (!tool) return;
+
     const state = {
       inputData,
       inputFormat,
@@ -76,7 +73,17 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
       ...toolState
     };
     toolboxService.saveToolState(tool.id, state, sessionId);
-  }, [tool.id, sessionId, inputData, inputFormat, outputFormat, toolState]);
+  }, [tool?.id, sessionId, inputData, inputFormat, outputFormat, toolState]);
+
+  if (!tool) {
+    return (
+      <div className="p-4 text-center">
+        <p className="text-muted-foreground">工具未找到</p>
+      </div>
+    );
+  }
+
+  const Icon = tool.icon;
 
   const handleExecute = async () => {
     if (isExecuting) return;

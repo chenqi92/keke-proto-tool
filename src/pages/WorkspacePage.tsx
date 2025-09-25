@@ -424,7 +424,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         // 触发自定义事件来切换到日志页面并设置过滤
         const event = new CustomEvent('navigate-to-logs', {
           detail: {
-            sessionId: sessionId,
+            sessionId,
             sessionName: session.config.name
           }
         });

@@ -160,11 +160,11 @@ class NetworkService {
         if (clientId) {
           // This is a client error, not a session error
           console.log(`NetworkService: Client ${clientId} error in session ${sessionId}:`, error);
-          logService.logNetworkEvent(sessionId, sessionName, 'connection_error', { clientId, error });
+          backendLogService.logNetworkEvent(sessionId, sessionName, 'connection_error', { clientId, error });
         } else {
           // This is a session error
           store.updateSessionStatus(sessionId, 'error', error);
-          logService.logNetworkEvent(sessionId, sessionName, 'connection_error', { error });
+          backendLogService.logNetworkEvent(sessionId, sessionName, 'connection_error', { error });
         }
         break;
       case 'message':
@@ -709,7 +709,7 @@ class NetworkService {
       console.error('Send to client failed:', error);
 
       // Add failed message to store
-      const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const message: Message = {
         id: messageId,
         timestamp: new Date(),
@@ -755,7 +755,7 @@ class NetworkService {
 
   // Helper method to add failed message to store
   private addFailedMessage(sessionId: string, data: Uint8Array, error: string) {
-    const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const message: Message = {
       id: messageId,
       timestamp: new Date(),
@@ -796,7 +796,7 @@ class NetworkService {
       console.error('Send UDP message failed:', error);
 
       // Add failed message to store
-      const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const message: Message = {
         id: messageId,
         timestamp: new Date(),

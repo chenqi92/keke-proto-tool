@@ -209,8 +209,8 @@ export class ToolboxService {
       connectionStatus: 'disconnected',
 
       // Event handling
-      on: (event: string, handler: Function) => toolEventBus.on(event, handler as any),
-      off: (event: string, handler: Function) => toolEventBus.off(event, handler as any),
+      on: (event: string, handler: (...args: any[]) => any) => toolEventBus.on(event, handler as any),
+      off: (event: string, handler: (...args: any[]) => any) => toolEventBus.off(event, handler as any),
       emit: (event: string, data: any) => toolEventBus.emit(event, data),
       
       // UI utilities

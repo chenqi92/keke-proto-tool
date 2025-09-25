@@ -36,6 +36,9 @@ export default [
             globals: {
                 ...globals.browser,
                 ...globals.es2020,
+                process: 'readonly',
+                NodeJS: 'readonly',
+                EventListener: 'readonly',
             },
         },
         plugins: {
@@ -160,6 +163,6 @@ export default [
 
     // Ignore patterns
     {
-        ignores: ['dist/**', 'src-tauri/**', 'eslint.config.js', 'node_modules/**'],
+        ignores: ['dist/**', 'src-tauri/**', 'eslint.config.js', 'node_modules/**', 'website/**'],
     },
 ];

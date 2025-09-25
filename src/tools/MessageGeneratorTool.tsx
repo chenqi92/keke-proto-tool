@@ -285,7 +285,7 @@ const MessageGeneratorUI: React.FC<{ tool: MessageGeneratorTool; context: ToolCo
         context.showNotification('报文生成成功', 'success');
       }
     } catch (error) {
-      context.showNotification('生成失败: ' + (error instanceof Error ? error.message : '未知错误'), 'error');
+      context.showNotification(`生成失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
     } finally {
       setIsGenerating(false);
     }

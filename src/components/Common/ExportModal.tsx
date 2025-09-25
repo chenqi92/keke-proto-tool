@@ -1,11 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/utils';
-import { Download, FileText, X } from 'lucide-react';
+import { Download, FileText, X, FolderOpen, File } from 'lucide-react';
+import { showSaveDialog, isTauriEnvironment } from '../../utils/tauri';
+
+export interface ExportOptions {
+  format: 'json' | 'csv' | 'md';
+  customPath?: string;
+  customFilename?: string;
+}
 
 interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onExport: (format: 'json' | 'csv') => void;
+  onExport: (options: ExportOptions) => void;
   title?: string;
   isLoading?: boolean;
   className?: string;
@@ -19,7 +26,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   isLoading = false,
   className
 }) => {
-  const [selectedFormat, setSelectedFormat] = useState<'json' | 'csv'>('json');
+  const [selectedFormat, setSelectedFormat] = useState<'json' | 'csv' | 'md'>('json');
+  const [customPath, setCustomPath] = useState<string>('');
+  const [customFilename, setCustomFilename] = useState<string>('');
+  const [useCustomLocation, setUseCustomLocation] = useState<boolean>(false);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
 
   // Focus management and keyboard handling
@@ -51,8 +61,57 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleSelectPath = async () => {
+    try {
+      const defaultFilename = customFilename || `logs_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.${selectedFormat}`;
+
+      const selected = await showSaveDialog({
+        title: '选择导出位置',
+        defaultPath: defaultFilename,
+        filters: [
+          {
+            name: '导出文件',
+            extensions: [selectedFormat]
+          }
+        ]
+      });
+
+      if (selected) {
+        const pathParts = selected.split(/[/\\]/);
+        const filename = pathParts.pop() || '';
+        const directory = pathParts.join('/');
+
+        setCustomPath(directory);
+        setCustomFilename(filename);
+        setUseCustomLocation(true);
+      } else if (!isTauriEnvironment()) {
+        // Fallback: 在非Tauri环境中使用浏览器文件输入
+        console.warn('Tauri API not available, using browser fallback');
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = `.${selectedFormat}`;
+        input.onchange = (e) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (file) {
+            setCustomFilename(file.name);
+            setUseCustomLocation(true);
+          }
+        };
+        input.click();
+      }
+
+    } catch (error) {
+      console.error('Failed to select export path:', error);
+    }
+  };
+
   const handleExport = () => {
-    onExport(selectedFormat);
+    const options: ExportOptions = {
+      format: selectedFormat,
+      customPath: useCustomLocation ? customPath : undefined,
+      customFilename: useCustomLocation ? customFilename : undefined
+    };
+    onExport(options);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -73,6 +132,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       label: 'CSV 格式',
       description: '表格数据，适合 Excel 查看',
       icon: <FileText className="w-4 h-4" />
+    },
+    {
+      value: 'md' as const,
+      label: 'Markdown 格式',
+      description: '文档格式，适合阅读和分享',
+      icon: <File className="w-4 h-4" />
     }
   ];
 
@@ -133,7 +198,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     name="format"
                     value={option.value}
                     checked={selectedFormat === option.value}
-                    onChange={(e) => setSelectedFormat(e.target.value as 'json' | 'csv')}
+                    onChange={(e) => setSelectedFormat(e.target.value as 'json' | 'csv' | 'md')}
                     className="mt-0.5"
                   />
                   <div className="flex-1">
@@ -147,6 +212,62 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   </div>
                 </label>
               ))}
+            </div>
+
+            {/* Custom Location Section */}
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="useCustomLocation"
+                  checked={useCustomLocation}
+                  onChange={(e) => setUseCustomLocation(e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="useCustomLocation" className="text-sm font-medium">
+                  自定义导出位置
+                </label>
+              </div>
+
+              {useCustomLocation && (
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">
+                      导出路径
+                    </label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={customPath}
+                        onChange={(e) => setCustomPath(e.target.value)}
+                        placeholder="选择导出文件夹..."
+                        className="flex-1 px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        readOnly
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSelectPath}
+                        className="px-3 py-2 text-sm bg-secondary hover:bg-secondary/80 border border-border rounded-md transition-colors"
+                      >
+                        <FolderOpen className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">
+                      文件名
+                    </label>
+                    <input
+                      type="text"
+                      value={customFilename}
+                      onChange={(e) => setCustomFilename(e.target.value)}
+                      placeholder={`logs_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.${selectedFormat}`}
+                      className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

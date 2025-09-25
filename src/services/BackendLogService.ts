@@ -1,5 +1,5 @@
-import { invoke } from '@tauri-apps/api/core';
 import { EventEmitter } from '@/utils/EventEmitter';
+import { safeTauriInvoke } from '@/utils/tauri';
 
 // 与后端LogEntry结构匹配的接口
 export interface BackendLogEntry {
@@ -146,8 +146,8 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
     }
   ): Promise<void> {
     try {
-      await invoke('add_log_entry', {
-        level: level,
+      await safeTauriInvoke<void>('add_log_entry', {
+        level,
         source,
         message,
         sessionId,
@@ -179,7 +179,7 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
     offset?: number;
   }): Promise<LogEntry[]> {
     try {
-      const backendLogs: BackendLogEntry[] = await invoke('get_logs', {
+      const backendLogs: BackendLogEntry[] | null = await safeTauriInvoke<BackendLogEntry[]>('get_logs', {
         sessionId: filters?.sessionId,
         level: filters?.level,
         category: filters?.category,
@@ -188,6 +188,11 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
         limit: filters?.limit || 1000,
         offset: filters?.offset || 0,
       });
+
+      if (!backendLogs) {
+        console.warn('Failed to get logs from backend');
+        return [];
+      }
 
       return backendLogs.map(log => this.convertBackendLogEntry(log));
     } catch (error) {
@@ -207,11 +212,12 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
       timeRange?: 'all' | 'today' | '24h' | '7d' | '30d';
       searchQuery?: string;
     },
-    format: 'json' | 'csv' = 'json',
-    outputDir?: string
+    format: 'json' | 'csv' | 'md' = 'json',
+    outputDir?: string,
+    customFilename?: string
   ): Promise<string> {
     try {
-      const exportPath: string = await invoke('export_logs', {
+      const exportPath: string | null = await safeTauriInvoke<string>('export_logs', {
         sessionId: filters.sessionId,
         level: filters.level,
         category: filters.category,
@@ -219,14 +225,19 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
         searchQuery: filters.searchQuery,
         format,
         outputDir,
+        customFilename,
       });
+
+      if (!exportPath) {
+        throw new Error('Failed to export logs: No path returned from backend');
+      }
 
       // 获取导出的日志数量
       const logs = await this.getLogs(filters);
-      this.emit('logs-exported', { 
-        count: logs.length, 
-        format, 
-        path: exportPath 
+      this.emit('logs-exported', {
+        count: logs.length,
+        format,
+        path: exportPath
       });
 
       return exportPath;
@@ -241,9 +252,9 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
    */
   async clearLogs(): Promise<void> {
     try {
-      await invoke('clear_logs');
+      await safeTauriInvoke<void>('clear_logs');
       this.lastLogCount = 0;
-      this.emit('logs-cleared');
+      this.emit('logs-cleared', undefined);
     } catch (error) {
       console.error('Failed to clear logs:', error);
       throw error;
@@ -255,7 +266,11 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
    */
   async getLogStats(): Promise<{ total: number; byLevel: Record<string, number> }> {
     try {
-      const stats = await invoke('get_log_stats');
+      const stats = await safeTauriInvoke<{ total: number; byLevel: Record<string, number> }>('get_log_stats');
+      if (!stats) {
+        console.warn('Failed to get log stats from backend');
+        return { total: 0, byLevel: {} };
+      }
       return stats as { total: number; byLevel: Record<string, number> };
     } catch (error) {
       console.error('Failed to get log stats:', error);
@@ -274,10 +289,11 @@ class BackendLogService extends EventEmitter<BackendLogServiceEvents> {
       clientId?: string;
       protocol?: string;
       dataSize?: number;
+      error?: string;
     }
   ): Promise<void> {
     try {
-      await invoke('log_network_event', {
+      await safeTauriInvoke<void>('log_network_event', {
         sessionId,
         sessionName,
         eventType,

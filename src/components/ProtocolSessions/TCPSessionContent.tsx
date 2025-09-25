@@ -364,7 +364,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
     const updatedConfig = {
       ...config,
       host: editHost.trim(),
-      port: port
+      port
     };
 
     // 如果是服务端模式且端口发生了变化，清理所有现有的客户端连接

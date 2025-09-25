@@ -170,7 +170,7 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
     const updatedConfig = {
       ...config,
       host: editHost.trim(),
-      port: port
+      port
     };
 
     updateSession(sessionId, {

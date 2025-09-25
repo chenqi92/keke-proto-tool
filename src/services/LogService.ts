@@ -253,7 +253,7 @@ class LogService extends EventEmitter<LogServiceEvents> {
     if (filters.sessionId) {
       filteredLogs = filteredLogs.filter(log => 
         log.sessionId === filters.sessionId ||
-        log.sessionName?.toLowerCase().includes(filters.sessionId.toLowerCase())
+        log.sessionName?.toLowerCase().includes(filters.sessionId?.toLowerCase() || '')
       );
     }
 
@@ -310,7 +310,7 @@ class LogService extends EventEmitter<LogServiceEvents> {
    */
   clearLogs(): void {
     this.logs = [];
-    this.emit('logs-cleared');
+    this.emit('logs-cleared', undefined);
   }
 
   /**

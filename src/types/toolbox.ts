@@ -73,9 +73,9 @@ export interface ToolContext {
   stateService?: any;   // StateService
   
   // Event handling
-  on(event: string, handler: Function): void;
+  on(event: string, handler: (...args: any[]) => any): void;
   emit(event: string, data: any): void;
-  off(event: string, handler: Function): void;
+  off(event: string, handler: (...args: any[]) => any): void;
   
   // UI utilities
   showNotification(message: string, type?: 'info' | 'success' | 'warning' | 'error'): void;
@@ -239,10 +239,10 @@ export interface SessionBridge {
 
 // Event Bus Interface
 export interface EventBus {
-  on(event: string, handler: Function): void;
-  off(event: string, handler: Function): void;
+  on(event: string, handler: (...args: any[]) => any): void;
+  off(event: string, handler: (...args: any[]) => any): void;
   emit(event: string, data: any): void;
-  once(event: string, handler: Function): void;
+  once(event: string, handler: (...args: any[]) => any): void;
 }
 
 // Tool UI Props

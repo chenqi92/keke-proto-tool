@@ -161,7 +161,7 @@ export async function testTcpClientFix(): Promise<{
         success: false,
         message: 'Server session should be able to have client connections',
         details: { 
-          serverSession: serverSession,
+          serverSession,
           testType: 'server_child_nodes'
         }
       };

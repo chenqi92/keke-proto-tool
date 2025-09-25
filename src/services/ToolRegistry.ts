@@ -10,7 +10,7 @@ import {
 
 export class ToolRegistry implements IToolRegistry {
   private tools = new Map<string, ToolRegistration>();
-  private eventListeners = new Map<ToolEvent, Function[]>();
+  private eventListeners = new Map<ToolEvent, ((...args: any[]) => any)[]>();
 
   constructor() {
     // Load persisted tool configurations from localStorage
@@ -181,14 +181,14 @@ export class ToolRegistry implements IToolRegistry {
   }
 
   // Event handling
-  on(event: ToolEvent, handler: Function): void {
+  on(event: ToolEvent, handler: (...args: any[]) => any): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }
     this.eventListeners.get(event)!.push(handler);
   }
 
-  off(event: ToolEvent, handler: Function): void {
+  off(event: ToolEvent, handler: (...args: any[]) => any): void {
     const handlers = this.eventListeners.get(event);
     if (handlers) {
       const index = handlers.indexOf(handler);

@@ -38,7 +38,7 @@ class ToolIntegrationManager {
     suggestionThreshold: 0.3
   };
 
-  private integrationHandlers = new Map<string, Function>();
+  private integrationHandlers = new Map<string, (...args: any[]) => any>();
   private contextMenuCache = new Map<string, ContextMenuItem[]>();
 
   constructor() {
@@ -158,7 +158,7 @@ class ToolIntegrationManager {
   /**
    * Register integration handler for specific scenarios
    */
-  registerIntegrationHandler(scenario: string, handler: Function): void {
+  registerIntegrationHandler(scenario: string, handler: (...args: any[]) => any): void {
     this.integrationHandlers.set(scenario, handler);
   }
 

@@ -48,12 +48,13 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
     isActive: false
   });
 
-  // Only show for client sessions
-  if (config.connectionType !== 'client') {
-    return null;
-  }
-
+  // Always call hooks at the top level
   useEffect(() => {
+    // Only initialize for client sessions
+    if (config.connectionType !== 'client') {
+      return;
+    }
+
     // Initialize connection manager
     const connectionManager = connectionManagerRegistry.createManager({
       sessionId,
@@ -88,6 +89,11 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
       autoSendRegistry.destroyService(sessionId);
     };
   }, [sessionId, config, onSendMessage]);
+
+  // Only show for client sessions
+  if (config.connectionType !== 'client') {
+    return null;
+  }
 
   const handleAutoReconnectToggle = (enabled: boolean) => {
     onConfigUpdate({ autoReconnect: enabled });

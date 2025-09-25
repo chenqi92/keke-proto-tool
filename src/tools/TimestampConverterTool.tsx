@@ -396,7 +396,7 @@ const TimestampConverterUI: React.FC<{ tool: TimestampConverterTool; context: To
         setConversionResult(result.metadata?.conversionResult);
       }
     } catch (error) {
-      context.showNotification('转换失败: ' + (error instanceof Error ? error.message : '未知错误'), 'error');
+      context.showNotification(`转换失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
       setConversionResult(null);
     } finally {
       setIsConverting(false);

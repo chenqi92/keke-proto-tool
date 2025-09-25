@@ -452,7 +452,7 @@ const ProtocolParserUI: React.FC<{ tool: ProtocolParserTool; context: ToolContex
         context.showNotification('解析完成', 'success');
       }
     } catch (error) {
-      context.showNotification('解析失败: ' + (error instanceof Error ? error.message : '未知错误'), 'error');
+      context.showNotification(`解析失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
     } finally {
       setIsParsing(false);
     }
