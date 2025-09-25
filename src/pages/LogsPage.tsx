@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from 'react';
 import {cn} from '@/utils';
 import { backendLogService, LogEntry } from '@/services/BackendLogService';
+import { ConfirmationModal, MessageModal, ExportModal } from '@/components/Common';
 import {
     Search,
     Download,
@@ -136,7 +137,17 @@ export const LogsPage: React.FC = () => {
     const [sessionFilter, setSessionFilter] = useState<string | null>(null);
     const [sessionName, setSessionName] = useState<string>('');
     const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [exportFormat, setExportFormat] = useState<'json' | 'csv'>('json');
+
+    // Modal states
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [showMessage, setShowMessage] = useState<{
+        type: 'success' | 'error' | 'info' | 'warning';
+        title: string;
+        message: string;
+    } | null>(null);
+    const [isExporting, setIsExporting] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
 
     // 初始化日志数据
     useEffect(() => {
@@ -235,7 +246,7 @@ export const LogsPage: React.FC = () => {
     };
 
     // 导出日志
-    const handleExportLogs = async () => {
+    const handleExportLogs = async (format: 'json' | 'csv') => {
         const currentFilters = {
             sessionId: sessionFilter || undefined,
             level: selectedLevel as any,
@@ -244,25 +255,49 @@ export const LogsPage: React.FC = () => {
             searchQuery: searchQuery || undefined
         };
 
+        setIsExporting(true);
         try {
-            const exportPath = await backendLogService.exportLogs(currentFilters, exportFormat);
-            alert(`日志已导出到: ${exportPath}`);
+            const exportPath = await backendLogService.exportLogs(currentFilters, format);
+            setShowExportModal(false);
+            setShowMessage({
+                type: 'success',
+                title: '导出成功',
+                message: `日志已导出到: ${exportPath}`
+            });
         } catch (error) {
             console.error('Export failed:', error);
-            alert('导出失败: ' + error);
+            setShowExportModal(false);
+            setShowMessage({
+                type: 'error',
+                title: '导出失败',
+                message: String(error)
+            });
+        } finally {
+            setIsExporting(false);
         }
     };
 
     // 清理日志
     const handleClearLogs = async () => {
-        if (confirm('确定要清理所有日志吗？此操作不可撤销。')) {
-            try {
-                await backendLogService.clearLogs();
-                alert('日志已清理完成');
-            } catch (error) {
-                console.error('Clear logs failed:', error);
-                alert('清理失败: ' + error);
-            }
+        setIsClearing(true);
+        try {
+            await backendLogService.clearLogs();
+            setShowClearConfirm(false);
+            setShowMessage({
+                type: 'success',
+                title: '清理完成',
+                message: '所有日志已清理完成'
+            });
+        } catch (error) {
+            console.error('Clear logs failed:', error);
+            setShowClearConfirm(false);
+            setShowMessage({
+                type: 'error',
+                title: '清理失败',
+                message: String(error)
+            });
+        } finally {
+            setIsClearing(false);
         }
     };
 
@@ -289,25 +324,15 @@ export const LogsPage: React.FC = () => {
                         )}
                     </div>
                     <div className="flex items-center space-x-2">
-                        <div className="flex items-center space-x-1">
-                            <select
-                                value={exportFormat}
-                                onChange={(e) => setExportFormat(e.target.value as 'json' | 'csv')}
-                                className="px-2 py-1.5 border border-border rounded-l-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                            >
-                                <option value="json">JSON</option>
-                                <option value="csv">CSV</option>
-                            </select>
-                            <button
-                                onClick={handleExportLogs}
-                                className="flex items-center space-x-2 px-2.5 py-1.5 border border-border border-l-0 rounded-r-md hover:bg-accent text-sm">
-                                <Download className="w-4 h-4"/>
-                                <span>导出</span>
-                            </button>
-                        </div>
                         <button
-                            onClick={handleClearLogs}
-                            className="flex items-center space-x-2 px-2.5 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
+                            onClick={() => setShowExportModal(true)}
+                            className="flex items-center space-x-2 px-3 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
+                            <Download className="w-4 h-4"/>
+                            <span>导出</span>
+                        </button>
+                        <button
+                            onClick={() => setShowClearConfirm(true)}
+                            className="flex items-center space-x-2 px-3 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
                             <Trash2 className="w-4 h-4"/>
                             <span>清理</span>
                         </button>
@@ -374,7 +399,7 @@ export const LogsPage: React.FC = () => {
             {/* Content */}
             <div className="flex-1 flex overflow-hidden">
                 {/* Log List */}
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 overflow-auto pb-12">
                     {filteredLogs.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-muted-foreground">
                             <div className="text-center">
@@ -460,11 +485,16 @@ export const LogsPage: React.FC = () => {
 
                 {/* Log Details */}
                 {selectedLog && (
-                    <div className="w-96 border-l border-border bg-card">
-                        <div className="p-4 border-b border-border">
+                    <div className="w-96 border-l border-border bg-card flex flex-col">
+                        <div className="p-4 border-b border-border shrink-0">
                             <h3 className="font-semibold">日志详情</h3>
                         </div>
-                        <div className="p-4 space-y-4">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                            <style jsx>{`
+                                div::-webkit-scrollbar {
+                                    display: none;
+                                }
+                            `}</style>
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">时间</label>
                                 <p className="font-mono text-sm mt-1">
@@ -554,7 +584,7 @@ export const LogsPage: React.FC = () => {
             </div>
 
             {/* Status Bar */}
-            <div className="border-t border-border p-2 bg-muted/30">
+            <div className="border-t border-border p-2 bg-muted/30 shrink-0">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>显示 {filteredLogs.length} / {logs.length} 条日志</span>
                     <div className="flex items-center space-x-4">
@@ -564,6 +594,35 @@ export const LogsPage: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Modals */}
+            <ExportModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                onExport={handleExportLogs}
+                isLoading={isExporting}
+            />
+
+            <ConfirmationModal
+                isOpen={showClearConfirm}
+                onClose={() => setShowClearConfirm(false)}
+                onConfirm={handleClearLogs}
+                title="清理日志"
+                message="确定要清理所有日志吗？此操作不可撤销。"
+                type="warning"
+                confirmText="确认清理"
+                isLoading={isClearing}
+            />
+
+            {showMessage && (
+                <MessageModal
+                    isOpen={true}
+                    onClose={() => setShowMessage(null)}
+                    title={showMessage.title}
+                    message={showMessage.message}
+                    type={showMessage.type}
+                />
+            )}
         </div>
     );
 };

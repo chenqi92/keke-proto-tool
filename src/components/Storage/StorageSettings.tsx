@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/utils';
+import { ConfirmationModal } from '@/components/Common/ConfirmationModal';
 import {
   Settings,
   Plus,
@@ -95,6 +96,7 @@ export const StorageSettings: React.FC = () => {
     actions: [{ type: 'store', target: '', parameters: {} }]
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   const handleToggleRule = (ruleId: string) => {
     setRules(prev => prev.map(rule =>
@@ -121,8 +123,13 @@ export const StorageSettings: React.FC = () => {
   };
 
   const handleDeleteRule = (ruleId: string) => {
-    if (window.confirm('确定要删除这个存储规则吗？')) {
-      setRules(prev => prev.filter(rule => rule.id !== ruleId));
+    setShowDeleteConfirm(ruleId);
+  };
+
+  const confirmDeleteRule = () => {
+    if (showDeleteConfirm) {
+      setRules(prev => prev.filter(rule => rule.id !== showDeleteConfirm));
+      setShowDeleteConfirm(null);
     }
   };
 
@@ -698,6 +705,17 @@ export const StorageSettings: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm !== null}
+        onClose={() => setShowDeleteConfirm(null)}
+        onConfirm={confirmDeleteRule}
+        title="删除存储规则"
+        message="确定要删除这个存储规则吗？此操作不可撤销。"
+        type="warning"
+        confirmText="确认删除"
+      />
     </div>
   );
 };

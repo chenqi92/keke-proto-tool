@@ -103,7 +103,7 @@ ProtoTool 由 **programApe** 开发和维护。
         } catch (fallbackError) {
           console.error('Fallback link opening also failed:', fallbackError);
           // 显示用户友好的错误消息
-          alert(`无法打开链接: ${href}\n请手动复制链接到浏览器中打开。`);
+          console.error(`无法打开链接: ${href}`);
         }
       }
     }

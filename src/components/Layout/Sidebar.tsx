@@ -699,6 +699,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
       const session = sessionsMap[sessionId];
       if (session) {
         const details = `连接详情:\n协议: ${session.config.protocol}\n地址: ${session.config.host}:${session.config.port}\n状态: ${session.status}\n连接类型: ${session.config.connectionType}`;
+        // TODO: 替换为更好的弹框组件
         alert(details);
       }
     },

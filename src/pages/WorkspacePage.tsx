@@ -190,14 +190,30 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const sessions = useMemo<SessionSummary[]>(() => {
     let filteredSessions = allSessions;
 
+    // Debug logging
+    console.log('[WorkspacePage] Processing sessions:', {
+      viewType,
+      protocol,
+      connectionType,
+      totalSessions: allSessions.length,
+      sessionDetails: allSessions.map(s => ({
+        id: s.config.id,
+        name: s.config.name,
+        protocol: s.config.protocol,
+        type: s.config.connectionType,
+        status: s.status
+      }))
+    });
+
     // Filter based on view type
     if (viewType === 'protocol-type-overview' && protocol && connectionType) {
       filteredSessions = allSessions.filter(session =>
         session.config.protocol === protocol && session.config.connectionType === connectionType
       );
+      console.log('[WorkspacePage] Applied protocol filter, remaining sessions:', filteredSessions.length);
     }
 
-    return filteredSessions.map(session => ({
+    const result = filteredSessions.map(session => ({
       id: session.config.id,
       name: session.config.name,
       protocol: session.config.protocol,
@@ -207,6 +223,9 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       messageCount: session.statistics.messagesReceived + session.statistics.messagesSent,
       bytesTransferred: session.statistics.bytesReceived + session.statistics.bytesSent
     }));
+
+    console.log('[WorkspacePage] Final sessions for display:', result.length);
+    return result;
   }, [allSessions, viewType, protocol, connectionType]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -458,7 +477,30 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     const matchesSearch = session.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          session.protocol.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || session.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const result = matchesSearch && matchesStatus;
+
+    // Debug logging for filtering
+    if (!result) {
+      console.log('[WorkspacePage] Session filtered out:', {
+        sessionName: session.name,
+        searchQuery,
+        matchesSearch,
+        statusFilter,
+        sessionStatus: session.status,
+        matchesStatus
+      });
+    }
+
+    return result;
+  });
+
+  // Debug final filtered results
+  console.log('[WorkspacePage] Final filtered sessions:', {
+    totalSessions: sessions.length,
+    filteredCount: filteredSessions.length,
+    searchQuery,
+    statusFilter,
+    filteredSessions: filteredSessions.map(s => ({ name: s.name, status: s.status }))
   });
 
   return (

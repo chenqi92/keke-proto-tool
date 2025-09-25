@@ -329,7 +329,7 @@ class LogService extends EventEmitter<LogServiceEvents> {
     const filteredLogs = this.getFilteredLogs(filters);
 
     if (filteredLogs.length === 0) {
-      alert('没有符合条件的日志可以导出');
+      console.warn('没有符合条件的日志可以导出');
       return;
     }
 
