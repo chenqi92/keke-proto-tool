@@ -98,9 +98,16 @@ class NetworkService {
         this.handleClientConnected(sessionId, clientId, remoteAddress, remotePort, connectedAt);
       });
 
-      await listen<{ sessionId: string; clientId: string }>('client-disconnected', (event) => {
-        const { sessionId, clientId } = event.payload;
-        this.handleClientDisconnected(sessionId, clientId);
+      await listen<{ sessionId: string; clientId: string; manualDisconnect?: boolean; serverShutdown?: boolean }>('client-disconnected', async (event) => {
+        const { sessionId, clientId, manualDisconnect, serverShutdown } = event.payload;
+        console.log('🔧 NetworkService - client-disconnected event received:', JSON.stringify({
+          sessionId,
+          clientId,
+          manualDisconnect,
+          serverShutdown,
+          fullPayload: event.payload
+        }, null, 2));
+        await this.handleClientDisconnected(sessionId, clientId, manualDisconnect, serverShutdown);
       });
 
       // Listen for configuration updates (e.g., port changes)
@@ -324,8 +331,15 @@ class NetworkService {
     }
   }
 
-  private handleClientDisconnected(sessionId: string, clientId: string) {
-    console.log('🔧 NetworkService - handleClientDisconnected called:', { sessionId, clientId });
+  private async handleClientDisconnected(sessionId: string, clientId: string, manualDisconnect?: boolean, serverShutdown?: boolean) {
+    console.log('🔧 NetworkService - handleClientDisconnected called:', JSON.stringify({
+      sessionId,
+      clientId,
+      manualDisconnect: manualDisconnect,
+      serverShutdown: serverShutdown,
+      manualDisconnectType: typeof manualDisconnect,
+      serverShutdownType: typeof serverShutdown
+    }, null, 2));
 
     // Remove client connection from the server session
     useAppStore.getState().removeClientConnection(sessionId, clientId);
@@ -351,23 +365,149 @@ class NetworkService {
       const serverHost = serverSession.config.host;
       const serverPort = serverSession.config.port;
 
-      // Look for TCP client sessions that are connected to this server
-      Object.values(allSessions).forEach(session => {
-        if (session.config.protocol === 'TCP' &&
-            session.config.connectionType === 'client' &&
-            session.config.host === serverHost &&
-            session.config.port === serverPort &&
-            session.status === 'connected') {
+      console.log(`🔧 NetworkService - Server session ${sessionId} (${serverHost}:${serverPort}) disconnected client ${clientId}`);
 
-          console.log(`🔧 NetworkService - Found TCP client session ${session.config.id} connected to server ${serverHost}:${serverPort}, updating status to disconnected`);
-
-          // Update the TCP client session status to disconnected
-          store.updateSession(session.config.id, {
-            status: 'disconnected',
-            error: 'Disconnected by server'
-          });
+      // Helper function to normalize host addresses for comparison
+      const normalizeHost = (host: string): string[] => {
+        const normalized = [];
+        if (host === '0.0.0.0' || host === '::') {
+          // Server listening on all interfaces
+          normalized.push('localhost', '127.0.0.1', '::1', '0.0.0.0', host);
+        } else if (host === 'localhost') {
+          normalized.push('localhost', '127.0.0.1', '::1');
+        } else if (host === '127.0.0.1') {
+          normalized.push('localhost', '127.0.0.1');
+        } else if (host === '::1') {
+          normalized.push('localhost', '::1', '127.0.0.1');
+        } else {
+          normalized.push(host);
         }
-      });
+        return normalized;
+      };
+
+      const serverHostVariants = normalizeHost(serverHost);
+      console.log(`🔧 NetworkService - Server host variants for matching:`, serverHostVariants);
+
+      // Look for TCP client sessions that are connected to this server
+      let foundClientSession = false;
+      for (const session1 of Object.values(allSessions)) {
+        if (session1.config.protocol === 'TCP' &&
+            session1.config.connectionType === 'client' &&
+            session1.config.port === serverPort &&
+            session1.status === 'connected') {
+
+          const clientHost = session1.config.host;
+          const clientHostVariants = normalizeHost(clientHost);
+
+          // Check if any server host variant matches any client host variant
+          const hostMatches = serverHostVariants.some(serverVariant =>
+            clientHostVariants.includes(serverVariant)
+          );
+
+          console.log(`🔧 NetworkService - Checking client session ${session1.config.id} (${clientHost}:${session1.config.port}), host matches: ${hostMatches}`);
+
+          if (hostMatches) {
+            foundClientSession = true;
+            console.log(`🔧 NetworkService - Found matching TCP client session ${session1.config.id} connected to server ${serverHost}:${serverPort}, triggering disconnection response`);
+
+            // Instead of directly updating to disconnected, we should trigger the client's own disconnection detection
+            // This will allow the client to handle reconnection logic properly
+            console.log(`🔧 NetworkService - Notifying TCP client session ${session1.config.id} about server disconnection`);
+
+            // Directly update the session status to trigger reconnection logic
+            // This simulates the client detecting the disconnection
+            const currentSession = store.getSession(session1.config.id);
+            if (currentSession) {
+              console.log(`🔧 NetworkService - Updating TCP client session ${session1.config.id} status from ${currentSession.status} to disconnected due to server disconnection`);
+
+              // Update session status to disconnected, which should trigger reconnection if enabled
+              store.updateSession(session1.config.id, {
+                status: 'disconnected',
+                error: 'Disconnected by server'
+              });
+
+              // Also emit a connection-status event to ensure all listeners are notified
+              console.log(`🔧 NetworkService - Emitting connection-status event for client session ${session1.config.id}`);
+
+              // Trigger the same logic as if the backend sent a connection-status event
+              const store2 = useAppStore.getState();
+              const updatedSession = store2.getSession(session1.config.id);
+              if (updatedSession) {
+                console.log(`✅ NetworkService: Updating status for session ${session1.config.id} from ${updatedSession.status} to disconnected (server initiated)`);
+                console.log(`📊 NetworkService: Session ${session1.config.id} details:`, {
+                  id: updatedSession.config.id,
+                  name: updatedSession.config.name,
+                  protocol: updatedSession.config.protocol,
+                  connectionType: updatedSession.config.connectionType,
+                  host: updatedSession.config.host,
+                  port: updatedSession.config.port,
+                  status: updatedSession.status
+                });
+
+                // Handle different disconnect scenarios regardless of frontend autoReconnect setting
+                // because backend TCP client has its own reconnection logic
+                if (manualDisconnect || serverShutdown) {
+                  // Server manually disconnected this client OR server is shutting down - pause backend auto-reconnect
+                  const reason = manualDisconnect ? 'manually disconnected' : 'server shutdown';
+                  console.log(`⚠️ NetworkService - TCP client session ${session1.config.id} was ${reason} by server. Pausing backend auto-reconnect.`);
+
+                  // Send a command to the backend to pause auto-reconnect for this session
+                  try {
+                    await invoke('pause_auto_reconnect', { sessionId: session1.config.id });
+                    console.log(`✅ NetworkService - Paused backend auto-reconnect for session ${session1.config.id}`);
+
+                    // Update frontend state to reflect auto-reconnect pause AND status in one call
+                    const errorMessage = manualDisconnect
+                      ? 'Manually disconnected by server. Click connect to reconnect.'
+                      : 'Server shutdown detected. Click connect to reconnect.';
+
+                    store2.updateSession(session1.config.id, {
+                      autoReconnectPaused: true,
+                      autoReconnectPausedReason: serverShutdown ? 'server_disconnect' : 'manual_disconnect',
+                      status: 'disconnected',
+                      error: errorMessage
+                    });
+                    console.log('✅ NetworkService - Updated frontend auto-reconnect pause state and status for session', session1.config.id);
+                  } catch (error) {
+                    console.error(`❌ NetworkService - Failed to pause backend auto-reconnect for session ${session1.config.id}:`, error);
+
+                    // Even if backend pause fails, still update frontend status
+                    const errorMessage = manualDisconnect
+                      ? 'Manually disconnected by server. Click connect to reconnect.'
+                      : 'Server shutdown detected. Click connect to reconnect.';
+
+                    store2.updateSession(session1.config.id, {
+                      status: 'disconnected',
+                      error: errorMessage
+                    });
+                  }
+                } else {
+                  // Normal disconnection - handle based on frontend autoReconnect setting
+                  if (updatedSession.config.autoReconnect) {
+                    console.log(`🔄 NetworkService - TCP client session ${session1.config.id} has frontend auto-reconnect enabled, allowing reconnection`);
+
+                    // Update status to reconnecting to indicate reconnection attempt
+                    store2.updateSession(session1.config.id, {
+                      status: 'reconnecting',
+                      error: 'Attempting to reconnect after server disconnection'
+                    });
+                  } else {
+                    console.log(`❌ NetworkService - TCP client session ${session1.config.id} has frontend auto-reconnect disabled, staying disconnected`);
+                    store2.updateSession(session1.config.id, {
+                      status: 'disconnected',
+                      error: 'Disconnected by server. Auto-reconnect is disabled.'
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (!foundClientSession) {
+        console.log(`🔧 NetworkService - No matching TCP client sessions found for server ${serverHost}:${serverPort}`);
+      }
     }
   }
 

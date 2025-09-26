@@ -161,6 +161,56 @@ impl SessionManager {
         }
     }
 
+    /// Pause auto-reconnect for a TCP client session
+    pub async fn pause_auto_reconnect(&self, session_id: &str) -> NetworkResult<bool> {
+        eprintln!("SessionManager: Attempting to pause auto-reconnect for session {}", session_id);
+
+        match self.sessions.get_mut(session_id) {
+            Some(mut session) => {
+                eprintln!("SessionManager: Found session {}, pausing auto-reconnect", session_id);
+                match session.pause_auto_reconnect().await {
+                    Ok(_) => {
+                        eprintln!("SessionManager: Auto-reconnect paused successfully for session {}", session_id);
+                        Ok(true)
+                    }
+                    Err(e) => {
+                        eprintln!("SessionManager: Failed to pause auto-reconnect for session {}: {}", session_id, e);
+                        Err(e)
+                    }
+                }
+            }
+            None => {
+                eprintln!("SessionManager: Session {} not found for auto-reconnect pause", session_id);
+                Err(NetworkError::SessionNotFound(session_id.to_string()))
+            }
+        }
+    }
+
+    /// Resume auto-reconnect for a TCP client session
+    pub async fn resume_auto_reconnect(&self, session_id: &str) -> NetworkResult<bool> {
+        eprintln!("SessionManager: Attempting to resume auto-reconnect for session {}", session_id);
+
+        match self.sessions.get_mut(session_id) {
+            Some(mut session) => {
+                eprintln!("SessionManager: Found session {}, resuming auto-reconnect", session_id);
+                match session.resume_auto_reconnect().await {
+                    Ok(_) => {
+                        eprintln!("SessionManager: Auto-reconnect resumed successfully for session {}", session_id);
+                        Ok(true)
+                    }
+                    Err(e) => {
+                        eprintln!("SessionManager: Failed to resume auto-reconnect for session {}: {}", session_id, e);
+                        Err(e)
+                    }
+                }
+            }
+            None => {
+                eprintln!("SessionManager: Session {} not found for auto-reconnect resume", session_id);
+                Err(NetworkError::SessionNotFound(session_id.to_string()))
+            }
+        }
+    }
+
     /// Disconnect a specific client from a server session
     pub async fn disconnect_client(&self, session_id: &str, client_id: &str) -> NetworkResult<bool> {
         eprintln!("SessionManager: Attempting to disconnect client {} from session {}", client_id, session_id);

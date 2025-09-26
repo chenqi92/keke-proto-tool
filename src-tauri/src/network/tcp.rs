@@ -27,6 +27,7 @@ pub struct TcpClient {
     config: Option<SessionConfig>, // 会话配置，用于自动重连
     reconnect_task: Option<tokio::task::JoinHandle<()>>, // 重连任务句柄
     should_reconnect: Arc<AtomicBool>, // 是否应该重连
+    auto_reconnect_paused: Arc<AtomicBool>, // 是否暂停自动重连
 }
 
 impl TcpClient {
@@ -87,6 +88,7 @@ impl TcpClient {
             config: Some(session_config),
             reconnect_task: None,
             should_reconnect: Arc::new(AtomicBool::new(false)),
+            auto_reconnect_paused: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -95,6 +97,7 @@ impl TcpClient {
         let app_handle = self.app_handle.clone();
         let connected = self.connected.clone(); // 克隆原子布尔值的引用
         let should_reconnect = self.should_reconnect.clone();
+        let auto_reconnect_paused = self.auto_reconnect_paused.clone();
         let config = self.config.clone();
         let mut read_stream = read_half;
 
@@ -138,39 +141,58 @@ impl TcpClient {
                         };
 
                         if should_auto_reconnect {
-                            println!("TCPClient: Session {} - Auto-reconnect enabled, starting reconnect process", session_id);
-                            should_reconnect.store(true, Ordering::SeqCst);
+                            // Check if auto-reconnect is paused
+                            if auto_reconnect_paused.load(Ordering::SeqCst) {
+                                println!("TCPClient: Session {} - Auto-reconnect is paused, skipping reconnect", session_id);
+                            } else {
+                                println!("TCPClient: Session {} - Auto-reconnect enabled, starting reconnect process", session_id);
+                                should_reconnect.store(true, Ordering::SeqCst);
 
-                            // 启动重连任务
-                            let reconnect_session_id = session_id.clone();
-                            let reconnect_app_handle = app_handle.clone();
-                            let reconnect_should_reconnect = should_reconnect.clone();
-                            let reconnect_connected = connected.clone();
-                            let reconnect_config = config.clone();
+                                // 启动重连任务
+                                let reconnect_session_id = session_id.clone();
+                                let reconnect_app_handle = app_handle.clone();
+                                let reconnect_should_reconnect = should_reconnect.clone();
+                                let reconnect_connected = connected.clone();
+                                let reconnect_config = config.clone();
+                                let reconnect_auto_reconnect_paused = auto_reconnect_paused.clone();
 
-                            tokio::spawn(async move {
+                                tokio::spawn(async move {
                                 if let Some(config) = reconnect_config {
                                     let max_attempts = config.retry_attempts.unwrap_or(3);
                                     let base_delay = config.retry_delay.unwrap_or(1000);
 
+                                    // 在开始重连前先等待一小段时间，让用户能看到"重连中"状态
+                                    let initial_delay = std::cmp::max(base_delay / 2, 500); // 至少500ms延迟
+                                    eprintln!("TCPClient: Session {} - Waiting {}ms before starting reconnect attempts", reconnect_session_id, initial_delay);
+                                    sleep(Duration::from_millis(initial_delay)).await;
+
                                     for attempt in 1..=max_attempts {
                                         if !reconnect_should_reconnect.load(Ordering::SeqCst) {
-                                            println!("TCPClient: Session {} - Reconnect cancelled", reconnect_session_id);
+                                            eprintln!("TCPClient: Session {} - Reconnect cancelled by user", reconnect_session_id);
                                             break;
                                         }
 
-                                        println!("TCPClient: Session {} - Reconnect attempt {} of {}", reconnect_session_id, attempt, max_attempts);
+                                        // Check if auto-reconnect is paused
+                                        if reconnect_auto_reconnect_paused.load(Ordering::SeqCst) {
+                                            eprintln!("TCPClient: Session {} - Auto-reconnect is paused, stopping reconnect attempts", reconnect_session_id);
+                                            break;
+                                        }
+
+                                        eprintln!("TCPClient: Session {} - Reconnect attempt {} of {}", reconnect_session_id, attempt, max_attempts);
 
                                         // 发送重连状态
                                         if let Some(app_handle) = &reconnect_app_handle {
                                             let payload = serde_json::json!({
                                                 "sessionId": reconnect_session_id,
                                                 "status": "reconnecting",
-                                                "attempt": attempt
+                                                "attempt": attempt,
+                                                "maxAttempts": max_attempts
                                             });
 
                                             if let Err(e) = app_handle.emit("connection-status", payload) {
                                                 eprintln!("TCPClient: Failed to emit reconnecting status: {}", e);
+                                            } else {
+                                                eprintln!("TCPClient: Emitted reconnecting status for attempt {} of {}", attempt, max_attempts);
                                             }
                                         }
 
@@ -232,6 +254,7 @@ impl TcpClient {
                                     }
                                 }
                             });
+                            }
                         } else {
                             // Emit disconnected status
                             if let Some(app_handle) = &app_handle {
@@ -247,9 +270,9 @@ impl TcpClient {
                                     eprintln!("TCPClient: Successfully emitted connection-status event for server disconnect");
                                 }
                             }
-                                }
-                                break;
-                            }
+                        }
+                        break;
+                    }
                             Ok(n) => {
                                 // Data received from server
                                 eprintln!("TCPClient: Session {} - Received {} bytes from server", session_id, n);
@@ -327,6 +350,18 @@ impl TcpClient {
             TcpStream::connect(&addr).await
                 .map_err(|e| NetworkError::ConnectionFailed(format!("Reconnect failed: {}", e)))
         }
+    }
+
+    /// Pause auto-reconnect for this TCP client
+    pub fn pause_auto_reconnect(&self) {
+        self.auto_reconnect_paused.store(true, Ordering::SeqCst);
+        eprintln!("TCPClient: Auto-reconnect paused for session {}", self.session_id);
+    }
+
+    /// Resume auto-reconnect for this TCP client
+    pub fn resume_auto_reconnect(&self) {
+        self.auto_reconnect_paused.store(false, Ordering::SeqCst);
+        eprintln!("TCPClient: Auto-reconnect resumed for session {}", self.session_id);
     }
 }
 
@@ -507,6 +542,20 @@ impl Connection for TcpClient {
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    /// Pause auto-reconnect for this TCP client
+    fn pause_auto_reconnect(&self) -> NetworkResult<()> {
+        self.auto_reconnect_paused.store(true, Ordering::SeqCst);
+        eprintln!("TCPClient: Auto-reconnect paused for session {}", self.session_id);
+        Ok(())
+    }
+
+    /// Resume auto-reconnect for this TCP client
+    fn resume_auto_reconnect(&self) -> NetworkResult<()> {
+        self.auto_reconnect_paused.store(false, Ordering::SeqCst);
+        eprintln!("TCPClient: Auto-reconnect resumed for session {}", self.session_id);
+        Ok(())
     }
 }
 
@@ -1121,9 +1170,65 @@ impl Connection for TcpServer {
     async fn disconnect(&mut self) -> NetworkResult<()> {
         // Note: The listener has been moved to the background task in start_accepting_connections()
         // We can't directly stop the background task, but we can mark as disconnected
-        // and clear client connections
+        // and close all client connections properly
 
-        // Close all client connections
+        // First, get all client IDs to disconnect them properly
+        let client_ids: Vec<String> = {
+            let clients = self.clients.read().await;
+            clients.keys().cloned().collect()
+        };
+
+        // Disconnect each client properly to ensure they detect the disconnection
+        for client_id in client_ids {
+            eprintln!("TCPServer: [SERVER_DISCONNECT] Disconnecting client {} due to server shutdown", client_id);
+
+            // Remove and close the write half
+            let write_half_removed = {
+                let mut clients = self.clients.write().await;
+                clients.remove(&client_id)
+            };
+
+            // Cancel the client task
+            let task_removed = {
+                let mut client_tasks = self.client_tasks.write().await;
+                client_tasks.remove(&client_id)
+            };
+
+            // Close the write half gracefully
+            if let Some(write_half_arc) = write_half_removed {
+                if let Ok(write_half_rwlock) = Arc::try_unwrap(write_half_arc) {
+                    let mut write_half = write_half_rwlock.into_inner();
+                    if let Err(e) = write_half.shutdown().await {
+                        eprintln!("TCPServer: [SERVER_DISCONNECT] Failed to shutdown write half for client {}: {}", client_id, e);
+                    } else {
+                        eprintln!("TCPServer: [SERVER_DISCONNECT] Gracefully shutdown write half for client {}", client_id);
+                    }
+                }
+            }
+
+            // Abort the client task
+            if let Some(task_handle) = task_removed {
+                task_handle.abort();
+                eprintln!("TCPServer: [SERVER_DISCONNECT] Aborted client task for client {}", client_id);
+            }
+
+            // Emit client-disconnected event without manual disconnect flag (server shutdown)
+            if let Some(app_handle) = self.app_handle.read().await.as_ref() {
+                let payload = serde_json::json!({
+                    "sessionId": self.session_id,
+                    "clientId": client_id,
+                    "serverShutdown": true  // Flag to indicate server is shutting down
+                });
+
+                if let Err(e) = app_handle.emit("client-disconnected", payload) {
+                    eprintln!("TCPServer: Failed to emit client-disconnected event for server shutdown: {}", e);
+                } else {
+                    eprintln!("TCPServer: Successfully emitted client-disconnected event for server shutdown of client {}", client_id);
+                }
+            }
+        }
+
+        // Clear the clients map after all disconnections
         let mut clients = self.clients.write().await;
         clients.clear();
 
@@ -1378,6 +1483,8 @@ impl ServerConnection for TcpServer {
     }
 
     async fn disconnect_client(&mut self, client_id: &str) -> NetworkResult<()> {
+        eprintln!("TCPServer: [DISCONNECT_CLIENT] Starting disconnection process for client {}", client_id);
+
         // First, remove and close the write half
         let write_half_removed = {
             let mut clients = self.clients.write().await;
@@ -1391,9 +1498,21 @@ impl ServerConnection for TcpServer {
         };
 
         if write_half_removed.is_some() || task_removed.is_some() {
-            // Force close the write half
+            // Force close the write half first - this should signal the client immediately
             if let Some(write_half_arc) = write_half_removed {
-                drop(write_half_arc);
+                // Try to get the write half and shutdown the connection gracefully
+                if let Ok(write_half_rwlock) = Arc::try_unwrap(write_half_arc) {
+                    // Get the write half from the RwLock
+                    let mut write_half = write_half_rwlock.into_inner();
+                    // Attempt graceful shutdown first
+                    if let Err(e) = write_half.shutdown().await {
+                        eprintln!("TCPServer: [DISCONNECT_CLIENT] Failed to gracefully shutdown write half for client {}: {}", client_id, e);
+                    } else {
+                        eprintln!("TCPServer: [DISCONNECT_CLIENT] Gracefully shutdown write half for client {}", client_id);
+                    }
+                } else {
+                    eprintln!("TCPServer: [DISCONNECT_CLIENT] Write half for client {} is still shared, dropping reference", client_id);
+                }
                 eprintln!("TCPServer: [DISCONNECT_CLIENT] Closed write half for client {}", client_id);
             }
 
@@ -1405,11 +1524,12 @@ impl ServerConnection for TcpServer {
 
             eprintln!("TCPServer: [DISCONNECT_CLIENT] Successfully disconnected client {}", client_id);
 
-            // Emit client-disconnected event to notify frontend
+            // Emit client-disconnected event with manual disconnect flag to notify frontend
             if let Some(app_handle) = self.app_handle.read().await.as_ref() {
                 let payload = serde_json::json!({
                     "sessionId": self.session_id,
-                    "clientId": client_id
+                    "clientId": client_id,
+                    "manualDisconnect": true  // Flag to indicate this was a manual disconnect
                 });
 
                 if let Err(e) = app_handle.emit("client-disconnected", payload) {

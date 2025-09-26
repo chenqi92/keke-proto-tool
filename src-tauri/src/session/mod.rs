@@ -150,6 +150,22 @@ impl Session {
         Ok(())
     }
 
+    /// Pause auto-reconnect for a TCP client session
+    pub async fn pause_auto_reconnect(&mut self) -> NetworkResult<()> {
+        eprintln!("Session: Attempting to pause auto-reconnect for session {}", self.id);
+        self.connection_manager.pause_auto_reconnect().await?;
+        eprintln!("Session: Auto-reconnect paused successfully for session {}", self.id);
+        Ok(())
+    }
+
+    /// Resume auto-reconnect for a TCP client session
+    pub async fn resume_auto_reconnect(&mut self) -> NetworkResult<()> {
+        eprintln!("Session: Attempting to resume auto-reconnect for session {}", self.id);
+        self.connection_manager.resume_auto_reconnect().await?;
+        eprintln!("Session: Auto-reconnect resumed successfully for session {}", self.id);
+        Ok(())
+    }
+
 
 
     /// Disconnect the session and cleanup resources

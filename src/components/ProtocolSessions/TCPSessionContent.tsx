@@ -4,6 +4,7 @@ import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/co
 import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { invoke } from '@tauri-apps/api/core';
 
 import {ConnectionStatus, Message} from '@/types';
 import {
@@ -17,7 +18,9 @@ import {
   Loader2,
   Edit3,
   X,
-  Trash2
+  Trash2,
+  Pause,
+  RotateCcw
 } from 'lucide-react';
 
 interface TCPSessionContentProps {
@@ -60,6 +63,8 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const messages = session?.messages || [];
   const statistics = session?.statistics;
   const connectionError = session?.error;
+  const autoReconnectPaused = session?.autoReconnectPaused || false;
+  const autoReconnectPausedReason = session?.autoReconnectPausedReason;
 
   // 判断是否为服务端模式（必须在使用前声明）
   const isServerMode = config?.connectionType === 'server';
@@ -241,6 +246,44 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
     } finally {
       console.log(`🔄 TCP Session ${sessionId}: Setting isConnectingLocal to false`);
       setIsConnectingLocal(false);
+    }
+  };
+
+  // 处理停止重连
+  const handleStopReconnect = async () => {
+    if (!config) return;
+
+    console.log(`🛑 TCP Session ${sessionId}: Stopping reconnection attempts`);
+    try {
+      const success = await networkService.disconnect(sessionId);
+      if (success) {
+        console.log(`✅ TCP Session ${sessionId}: Reconnection stopped successfully`);
+      } else {
+        console.error(`Failed to stop reconnection for session ${sessionId}`);
+      }
+    } catch (error) {
+      console.error(`Stop reconnection failed for session ${sessionId}:`, error);
+    }
+  };
+
+  // 处理恢复自动重连
+  const handleResumeAutoReconnect = async () => {
+    if (!config) return;
+
+    console.log(`🔄 TCP Session ${sessionId}: Resuming auto-reconnect`);
+    try {
+      await invoke('resume_auto_reconnect', { sessionId });
+      console.log(`✅ TCP Session ${sessionId}: Auto-reconnect resumed successfully`);
+
+      // Update frontend state
+      const store = useAppStore.getState();
+      store.updateSession(sessionId, {
+        autoReconnectPaused: false,
+        autoReconnectPausedReason: undefined,
+        error: undefined // Clear any previous error messages
+      });
+    } catch (error) {
+      console.error(`Failed to resume auto-reconnect for session ${sessionId}:`, error);
     }
   };
 
@@ -511,40 +554,46 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
             </div>
           )}
 
-          <button
-            onClick={handleConnect}
-            disabled={isConnecting || isConnectingLocal}
-            className={cn(
-              "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors ml-4",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-              (isConnected || connectionStatus === 'reconnecting')
-                ? "bg-red-500 hover:bg-red-600 text-white"
-                : "bg-green-500 hover:bg-green-600 text-white"
-            )}
-            title={`Session: ${sessionId} | Status: ${connectionStatus} | isConnecting: ${isConnecting} | isConnectingLocal: ${isConnectingLocal}`}
-          >
-            {(isConnecting || isConnectingLocal) ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span>{isServerMode ? (isConnected ? '停止中...' : '启动中...') : (isConnected ? '断开中...' : '连接中...')}</span>
-              </>
-            ) : connectionStatus === 'reconnecting' ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span>重连中...</span>
-              </>
-            ) : isConnected ? (
-              <>
-                <Square className="w-3 h-3" />
-                <span>{isServerMode ? '停止' : '断开'}</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3 h-3" />
-                <span>{isServerMode ? '启动' : '连接'}</span>
-              </>
-            )}
-          </button>
+          {connectionStatus === 'reconnecting' && !isServerMode ? (
+            <button
+              onClick={handleStopReconnect}
+              className="flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors ml-4 bg-orange-500 hover:bg-orange-600 text-white"
+              title={`Session: ${sessionId} | Status: ${connectionStatus} | 点击停止重连`}
+            >
+              <Square className="w-3 h-3" />
+              <span>停止重连</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleConnect}
+              disabled={isConnecting || isConnectingLocal}
+              className={cn(
+                "flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors ml-4",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+                isConnected
+                  ? "bg-red-500 hover:bg-red-600 text-white"
+                  : "bg-green-500 hover:bg-green-600 text-white"
+              )}
+              title={`Session: ${sessionId} | Status: ${connectionStatus} | isConnecting: ${isConnecting} | isConnectingLocal: ${isConnectingLocal}`}
+            >
+              {(isConnecting || isConnectingLocal) ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>{isServerMode ? (isConnected ? '停止中...' : '启动中...') : (isConnected ? '断开中...' : '连接中...')}</span>
+                </>
+              ) : isConnected ? (
+                <>
+                  <Square className="w-3 h-3" />
+                  <span>{isServerMode ? '停止' : '断开'}</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3 h-3" />
+                  <span>{isServerMode ? '启动' : '连接'}</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* 统计信息和服务端特定控制 */}
@@ -578,6 +627,42 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
             onRetry={handleConnect}
             retryLabel={isServerMode ? '重新启动' : '重新连接'}
           />
+        </div>
+      )}
+
+      {/* 自动重连暂停状态横幅 - 仅客户端模式显示 */}
+      {!isServerMode && autoReconnectPaused && (
+        <div className="px-4 pt-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <div className="flex items-start">
+              <Pause className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="ml-2 flex-1">
+                <h3 className="text-sm font-medium text-blue-800">自动重连已暂停</h3>
+                <p className="text-sm text-blue-700 mt-1">
+                  {autoReconnectPausedReason === 'server_disconnect' && '服务端主动断开了连接，自动重连已暂停。'}
+                  {autoReconnectPausedReason === 'manual_disconnect' && '手动断开连接，自动重连已暂停。'}
+                  {!autoReconnectPausedReason && '自动重连已暂停。'}
+                  点击下方按钮可以手动连接或恢复自动重连。
+                </p>
+                <div className="flex space-x-2 mt-2">
+                  <button
+                    onClick={handleConnect}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded hover:bg-blue-200 transition-colors"
+                  >
+                    <Play className="w-3 h-3 mr-1" />
+                    立即连接
+                  </button>
+                  <button
+                    onClick={handleResumeAutoReconnect}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded hover:bg-blue-200 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" />
+                    恢复自动重连
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -684,6 +769,26 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                       className="w-12 px-1 py-0.5 text-xs border border-border rounded"
                     />
                     <span className="text-xs text-muted-foreground">次</span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-medium text-muted-foreground">延迟:</span>
+                    <input
+                      type="number"
+                      min="500"
+                      max="10000"
+                      step="500"
+                      value={config.retryDelay || 1000}
+                      onChange={(e) => {
+                        const retryDelay = parseInt(e.target.value) || 1000;
+                        const store = useAppStore.getState();
+                        store.updateSession(sessionId, {
+                          config: { ...config, retryDelay }
+                        });
+                      }}
+                      className="w-16 px-1 py-0.5 text-xs border border-border rounded"
+                    />
+                    <span className="text-xs text-muted-foreground">毫秒</span>
                   </div>
 
                   <div className="flex items-center space-x-2">

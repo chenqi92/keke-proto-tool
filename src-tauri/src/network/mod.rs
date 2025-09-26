@@ -17,19 +17,19 @@ pub mod connection_manager;
 pub trait Connection: Send + Sync + std::fmt::Debug {
     /// Connect to the remote endpoint or start listening (for servers)
     async fn connect(&mut self) -> NetworkResult<()>;
-    
+
     /// Disconnect from the remote endpoint or stop listening
     async fn disconnect(&mut self) -> NetworkResult<()>;
-    
+
     /// Send data through the connection
     async fn send(&mut self, data: &[u8]) -> NetworkResult<usize>;
-    
+
     /// Check if the connection is active
     fn is_connected(&self) -> bool;
-    
+
     /// Get the connection status
     fn status(&self) -> String;
-    
+
     /// Start receiving data (returns a receiver for incoming events)
     async fn start_receiving(&mut self) -> NetworkResult<mpsc::Receiver<NetworkEvent>>;
 
@@ -40,6 +40,16 @@ pub trait Connection: Send + Sync + std::fmt::Debug {
 
     /// Get mutable reference to Any for downcasting
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+
+    /// Pause auto-reconnect for TCP clients (default implementation does nothing)
+    fn pause_auto_reconnect(&self) -> NetworkResult<()> {
+        Ok(()) // Default implementation for non-TCP connections
+    }
+
+    /// Resume auto-reconnect for TCP clients (default implementation does nothing)
+    fn resume_auto_reconnect(&self) -> NetworkResult<()> {
+        Ok(()) // Default implementation for non-TCP connections
+    }
 }
 
 /// Server-specific connection trait for protocols that support server mode

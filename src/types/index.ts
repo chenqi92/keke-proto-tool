@@ -311,6 +311,9 @@ export interface SessionState {
   statistics: SessionStatistics;
   error?: string;
   clientConnections?: Record<string, ClientConnection>; // For server sessions
+  // Auto-reconnect state tracking
+  autoReconnectPaused?: boolean; // Whether auto-reconnect is paused (due to server-initiated disconnect)
+  autoReconnectPausedReason?: 'server_disconnect' | 'manual_disconnect' | 'user_action'; // Reason for pause
   // MQTT特有状态
   mqttSubscriptions?: Record<string, MQTTSubscription>; // MQTT订阅列表
   // SSE特有状态

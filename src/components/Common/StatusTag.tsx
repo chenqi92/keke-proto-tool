@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/utils';
 import { CheckCircle, Activity, AlertCircle, XCircle } from 'lucide-react';
 
-export type StatusType = 'connected' | 'connecting' | 'disconnected' | 'error';
+export type StatusType = 'connected' | 'connecting' | 'reconnecting' | 'disconnected' | 'error';
 
 interface StatusTagProps {
   status: StatusType | string | any; // Allow flexible status input
@@ -57,7 +57,7 @@ export const StatusTag: React.FC<StatusTagProps> = ({
       if (status.connecting !== undefined) return 'connecting';
       if (status.disconnected !== undefined) return 'disconnected';
       if (status.error !== undefined) return 'error';
-      if (status.reconnecting !== undefined) return 'connecting';
+      if (status.reconnecting !== undefined) return 'reconnecting';
       if (status.timedOut !== undefined) return 'error';
 
       // Handle lowercase variants
@@ -66,7 +66,7 @@ export const StatusTag: React.FC<StatusTagProps> = ({
       if (statusStr === 'connecting') return 'connecting';
       if (statusStr === 'disconnected') return 'disconnected';
       if (statusStr === 'error') return 'error';
-      if (statusStr === 'reconnecting') return 'connecting';
+      if (statusStr === 'reconnecting') return 'reconnecting';
       if (statusStr === 'timedout') return 'error';
     }
 
@@ -96,7 +96,7 @@ export const StatusTag: React.FC<StatusTagProps> = ({
         <Icon 
           className={cn(
             size === 'sm' ? 'w-3 h-3' : 'w-4 h-4',
-            normalizedStatus === 'connecting' && 'animate-pulse'
+            (normalizedStatus === 'connecting' || normalizedStatus === 'reconnecting') && 'animate-pulse'
           )} 
         />
       )}

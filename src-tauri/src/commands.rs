@@ -203,6 +203,30 @@ pub async fn disconnect_session(
     }
 }
 
+/// Pause auto-reconnect for a session
+#[tauri::command]
+pub async fn pause_auto_reconnect(
+    session_id: String,
+    session_manager: State<'_, SessionManager>,
+) -> Result<(), String> {
+    match session_manager.pause_auto_reconnect(&session_id).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Resume auto-reconnect for a session
+#[tauri::command]
+pub async fn resume_auto_reconnect(
+    session_id: String,
+    session_manager: State<'_, SessionManager>,
+) -> Result<(), String> {
+    match session_manager.resume_auto_reconnect(&session_id).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Send a message through a session
 #[tauri::command]
 pub async fn send_message(
@@ -267,6 +291,8 @@ pub async fn cancel_connection(
         Err(e) => Err(e.to_string()),
     }
 }
+
+
 
 /// Send UDP message to specific address
 #[tauri::command]

@@ -28,6 +28,8 @@ pub fn run() {
             send_to_client,
             broadcast_message,
             disconnect_client,
+            pause_auto_reconnect,
+            resume_auto_reconnect,
             send_udp_message,
             subscribe_mqtt_topic,
             unsubscribe_mqtt_topic,

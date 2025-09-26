@@ -270,6 +270,40 @@ impl ConnectionManager {
         *self.should_cancel.write().await = true;
     }
 
+    /// Pause auto-reconnect for a TCP client session
+    pub async fn pause_auto_reconnect(&self) -> NetworkResult<()> {
+        eprintln!("ConnectionManager: Attempting to pause auto-reconnect for session {}", self.session_id);
+
+        // Get the connection and call the pause_auto_reconnect method
+        let connection_guard = self.connection.read().await;
+        if let Some(connection) = connection_guard.as_ref() {
+            eprintln!("ConnectionManager: Connection found for session {}, calling pause_auto_reconnect", self.session_id);
+            connection.pause_auto_reconnect()?;
+            eprintln!("ConnectionManager: Auto-reconnect paused successfully for session {}", self.session_id);
+            Ok(())
+        } else {
+            eprintln!("ConnectionManager: No connection found for session {}", self.session_id);
+            Err(NetworkError::SessionNotFound(format!("No connection found for session {}", self.session_id)))
+        }
+    }
+
+    /// Resume auto-reconnect for a TCP client session
+    pub async fn resume_auto_reconnect(&self) -> NetworkResult<()> {
+        eprintln!("ConnectionManager: Attempting to resume auto-reconnect for session {}", self.session_id);
+
+        // Get the connection and call the resume_auto_reconnect method
+        let connection_guard = self.connection.read().await;
+        if let Some(connection) = connection_guard.as_ref() {
+            eprintln!("ConnectionManager: Connection found for session {}, calling resume_auto_reconnect", self.session_id);
+            connection.resume_auto_reconnect()?;
+            eprintln!("ConnectionManager: Auto-reconnect resumed successfully for session {}", self.session_id);
+            Ok(())
+        } else {
+            eprintln!("ConnectionManager: No connection found for session {}", self.session_id);
+            Err(NetworkError::SessionNotFound(format!("No connection found for session {}", self.session_id)))
+        }
+    }
+
     /// Disconnect and cleanup
     pub async fn disconnect(&self) -> NetworkResult<()> {
         // Cancel any ongoing connection attempts
