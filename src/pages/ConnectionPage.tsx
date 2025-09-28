@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useActiveSession } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
+import { ConnectionStatus } from '@/types';
 
 interface Connection {
   id: string;
@@ -28,7 +29,7 @@ interface Connection {
   type: 'tcp-client' | 'tcp-server' | 'udp-client' | 'udp-server';
   host: string;
   port: number;
-  status: 'connected' | 'disconnected' | 'connecting' | 'error';
+  status: ConnectionStatus;
   lastConnected?: Date;
   messageCount: number;
   bytesTransferred: number;
@@ -63,27 +64,32 @@ const connectionTypes = [
   }
 ];
 
-const getStatusIcon = (status: string) => {
+const getStatusIcon = (status: ConnectionStatus) => {
   switch (status) {
     case 'connected':
       return <CheckCircle className="w-4 h-4 text-green-500" />;
     case 'connecting':
+    case 'reconnecting':
       return <Activity className="w-4 h-4 text-yellow-500 animate-pulse" />;
     case 'error':
       return <XCircle className="w-4 h-4 text-red-500" />;
+    case 'disconnected':
     default:
       return <AlertCircle className="w-4 h-4 text-gray-500" />;
   }
 };
 
-const getStatusText = (status: string) => {
+const getStatusText = (status: ConnectionStatus) => {
   switch (status) {
     case 'connected':
       return '已连接';
     case 'connecting':
       return '连接中';
+    case 'reconnecting':
+      return '重连中';
     case 'error':
       return '错误';
+    case 'disconnected':
     default:
       return '未连接';
   }

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useAllSessions, useConnectedSessions, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
-import { SessionConfig } from '@/types';
+import { SessionConfig, ConnectionStatus, ProtocolType } from '@/types';
 import { NewSessionModal } from '@/components/NewSessionModal';
 import { EditConfigModal } from '@/components/EditConfigModal';
 import {
@@ -47,8 +47,8 @@ interface WorkspaceStats {
 interface SessionSummary {
   id: string;
   name: string;
-  protocol: 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
-  status: 'connected' | 'disconnected' | 'connecting' | 'error';
+  protocol: ProtocolType;
+  status: ConnectionStatus;
   lastActivity: Date;
   messageCount: number;
   bytesTransferred: number;
@@ -229,7 +229,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   }, [allSessions, viewType, protocol, connectionType]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'connected' | 'disconnected' | 'connecting'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | ConnectionStatus>('all');
 
   const getProtocolIcon = (protocol: string) => {
     switch (protocol) {
@@ -248,25 +248,30 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: ConnectionStatus) => {
     switch (status) {
       case 'connected':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'connecting':
+      case 'reconnecting':
         return <Activity className="w-4 h-4 text-yellow-500 animate-pulse" />;
+      case 'error':
+        return <AlertCircle className="w-4 h-4 text-red-500" />;
       case 'disconnected':
       default:
         return <AlertCircle className="w-4 h-4 text-gray-400" />;
     }
   };
 
-  const mapStatusToStatusType = (status: string): StatusType => {
+  const mapStatusToStatusType = (status: ConnectionStatus): StatusType => {
     switch (status) {
       case 'connected':
       case 'connecting':
       case 'disconnected':
       case 'error':
         return status as StatusType;
+      case 'reconnecting':
+        return 'connecting'; // Map reconnecting to connecting for StatusTag
       default:
         return 'disconnected';
     }
@@ -809,13 +814,15 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             {/* Status Filter */}
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | ConnectionStatus)}
               className="pl-3 pr-8 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="all">全部状态</option>
               <option value="connected">已连接</option>
               <option value="connecting">连接中</option>
+              <option value="reconnecting">重连中</option>
               <option value="disconnected">已断开</option>
+              <option value="error">错误</option>
             </select>
           </div>
         </div>
