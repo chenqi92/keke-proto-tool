@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils';
 import { ProtocolPlugin } from '@/types/plugins';
+import { Button } from '@/components/ui/button';
 import {
   protocolRepositoryService,
   ProtocolMetadata
