@@ -235,9 +235,9 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
             className="hidden"
             id="import-file"
           />
-          <label htmlFor="import-file">
-            <Button variant="outline" size="sm" asChild>
-              <span className="cursor-pointer flex items-center whitespace-nowrap">
+          <label htmlFor="import-file" className="cursor-pointer">
+            <Button variant="outline" size="sm">
+              <span className="flex items-center whitespace-nowrap">
                 <Upload className="w-4 h-4 mr-1 flex-shrink-0" />
                 <span className="hidden sm:inline">Import</span>
               </span>

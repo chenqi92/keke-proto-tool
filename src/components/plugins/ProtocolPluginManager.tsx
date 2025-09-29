@@ -202,6 +202,10 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProtocol, setSelectedProtocol] = useState<string | null>(null);
   const [selectedPlugin, setSelectedPlugin] = useState<ProtocolPlugin | null>(null);
+  const [configDialog, setConfigDialog] = useState<{
+    isOpen: boolean;
+    plugin: ProtocolPlugin | null;
+  }>({ isOpen: false, plugin: null });
   const [protocols, setProtocols] = useState<ProtocolMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -373,20 +377,23 @@ examples:
     }
   };
 
-  const handleConfigureProtocol = async (plugin: ProtocolPlugin) => {
+  const handleConfigureProtocol = (plugin: ProtocolPlugin) => {
+    setConfigDialog({ isOpen: true, plugin });
+  };
+
+  const handleConfigDialogClose = () => {
+    setConfigDialog({ isOpen: false, plugin: null });
+  };
+
+  const handleToggleProtocolFromDialog = async (plugin: ProtocolPlugin, enabled: boolean) => {
     try {
-      // For now, show a simple configuration dialog
-      const enabled = plugin.status === 'active';
-      const newEnabled = confirm(`Protocol "${plugin.name}" is currently ${enabled ? 'enabled' : 'disabled'}. Would you like to ${enabled ? 'disable' : 'enable'} it?`);
+      await protocolRepositoryService.setProtocolEnabled(plugin.id, enabled);
 
-      if (newEnabled !== enabled) {
-        await protocolRepositoryService.setProtocolEnabled(plugin.id, newEnabled);
+      // Refresh the protocols list
+      await loadProtocols();
 
-        // Refresh the protocols list
-        await loadProtocols();
-
-        setSuccess(`Protocol "${plugin.name}" ${newEnabled ? 'enabled' : 'disabled'} successfully`);
-      }
+      setSuccess(`Protocol "${plugin.name}" ${enabled ? 'enabled' : 'disabled'} successfully`);
+      handleConfigDialogClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to configure protocol');
       console.error('Failed to configure protocol:', err);
@@ -554,11 +561,8 @@ examples:
               {filteredPlugins.map((plugin) => (
                 <div
                   key={plugin.id}
-                  className={cn(
-                    "p-4 border border-border rounded-lg hover:bg-accent transition-colors cursor-auto",
-                    selectedPlugin?.id === plugin.id && "border-primary bg-primary/10"
-                  )}
-                  onClick={() => setSelectedPlugin(plugin)}
+                  className="p-4 border border-border rounded-lg hover:bg-accent transition-colors"
+
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -800,6 +804,59 @@ examples:
                 <p className="text-xs text-muted-foreground mt-1">
                   基于 {selectedPlugin.downloads} 次下载
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Configuration Dialog */}
+        {configDialog.isOpen && configDialog.plugin && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-background border border-border rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">配置协议</h3>
+                <button
+                  onClick={handleConfigDialogClose}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium mb-2">{configDialog.plugin.name}</h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {configDialog.plugin.description}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-accent rounded-md">
+                  <div>
+                    <p className="font-medium">协议状态</p>
+                    <p className="text-sm text-muted-foreground">
+                      当前状态: {configDialog.plugin.status === 'active' ? '已启用' : '已禁用'}
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant={configDialog.plugin.status === 'active' ? 'destructive' : 'default'}
+                      size="sm"
+                      onClick={() => handleToggleProtocolFromDialog(
+                        configDialog.plugin!,
+                        configDialog.plugin!.status !== 'active'
+                      )}
+                    >
+                      {configDialog.plugin.status === 'active' ? '禁用' : '启用'}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4 border-t">
+                  <Button variant="outline" onClick={handleConfigDialogClose}>
+                    取消
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
