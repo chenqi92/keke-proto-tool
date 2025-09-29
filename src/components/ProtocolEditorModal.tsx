@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, Download, Upload, Info, HelpCircle, AlertTriangle, Edit3, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/utils';
+import { MessageModal } from '@/components/Common/MessageModal';
 
 interface ProtocolEditorModalProps {
   isOpen: boolean;
@@ -223,6 +224,11 @@ export const ProtocolEditorModal: React.FC<ProtocolEditorModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const originalContentRef = useRef(DEFAULT_PROTOCOL_TEMPLATE);
 
+  // Dialog states
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [dialogContent, setDialogContent] = useState({ title: '', message: '', type: 'info' as const });
+
   // 检测内容是否被修改
   useEffect(() => {
     setIsModified(content !== originalContentRef.current);
@@ -268,12 +274,17 @@ export const ProtocolEditorModal: React.FC<ProtocolEditorModalProps> = ({
       }, 2000);
     } catch (error) {
       console.error('保存失败:', error);
-      alert('保存失败，请重试');
+      setDialogContent({
+        title: '保存失败',
+        message: '保存协议时发生错误，请重试。',
+        type: 'error'
+      });
+      setShowSaveDialog(true);
     }
   };
 
   // 导出协议
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
       const fullProtocol = `# ${meta.name}
 # ${meta.description}
@@ -289,6 +300,45 @@ meta:
 
 ${content}`;
 
+      // Check if we're in Tauri environment by checking for __TAURI__
+      const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__;
+
+      if (isTauri) {
+        try {
+          // Use string-based dynamic imports to avoid Vite's static analysis
+          const dialogModule = '@tauri-apps/plugin-dialog';
+          const fsModule = '@tauri-apps/api/fs';
+          const tauriDialog = await import(/* @vite-ignore */ dialogModule);
+          const tauriFs = await import(/* @vite-ignore */ fsModule);
+
+          const filePath = await tauriDialog.save({
+            title: '选择导出位置',
+            defaultPath: `${meta.name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}.kpt`,
+            filters: [{
+              name: 'KPT Protocol Files',
+              extensions: ['kpt']
+            }, {
+              name: 'Text Files',
+              extensions: ['txt']
+            }]
+          });
+
+          if (filePath) {
+            await tauriFs.writeTextFile(filePath, fullProtocol);
+            setDialogContent({
+              title: '导出成功',
+              message: `协议文件已成功导出到：\n${filePath}`,
+              type: 'success'
+            });
+            setShowExportDialog(true);
+            return;
+          }
+        } catch (tauriError) {
+          console.log('Tauri dialog failed, falling back to browser download:', tauriError);
+        }
+      }
+
+      // Fallback to browser download (for web or if Tauri fails)
       const blob = new Blob([fullProtocol], { type: 'text/yaml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -299,10 +349,20 @@ ${content}`;
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      alert('协议文件已成功导出！');
+      setDialogContent({
+        title: '导出成功',
+        message: '协议文件已成功下载到默认下载目录。',
+        type: 'success'
+      });
+      setShowExportDialog(true);
     } catch (error) {
       console.error('导出失败:', error);
-      alert('导出失败，请检查协议内容是否正确');
+      setDialogContent({
+        title: '导出失败',
+        message: '导出协议时发生错误，请检查协议内容是否正确。',
+        type: 'error'
+      });
+      setShowExportDialog(true);
     }
   };
 
@@ -550,6 +610,23 @@ ${content}`;
           accept=".kpt,.yaml,.yml,.txt"
           onChange={handleFileImport}
           className="hidden"
+        />
+
+        {/* Dialogs */}
+        <MessageModal
+          isOpen={showSaveDialog}
+          onClose={() => setShowSaveDialog(false)}
+          title={dialogContent.title}
+          message={dialogContent.message}
+          type={dialogContent.type}
+        />
+
+        <MessageModal
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          title={dialogContent.title}
+          message={dialogContent.message}
+          type={dialogContent.type}
         />
       </div>
     </div>

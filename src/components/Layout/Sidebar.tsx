@@ -31,6 +31,7 @@ import {
   useSessionDeleteModal,
   useWorkspaceClearModal
 } from '@/components/Common';
+import { MessageModal } from '@/components/Common/MessageModal';
 
 interface SidebarProps {
   onCollapse: () => void;
@@ -381,6 +382,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
   const sessionDeleteModal = useSessionDeleteModal();
   const workspaceClearModal = useWorkspaceClearModal();
 
+  // Dialog states
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [detailsContent, setDetailsContent] = useState({ title: '', message: '' });
+
   // Get real session data from store
   const sessions = useAllSessions();
   const sessionsMap = useAppStore(state => state.sessions);
@@ -698,9 +703,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
       const sessionId = connectionId.replace('conn-', '');
       const session = sessionsMap[sessionId];
       if (session) {
-        const details = `连接详情:\n协议: ${session.config.protocol}\n地址: ${session.config.host}:${session.config.port}\n状态: ${session.status}\n连接类型: ${session.config.connectionType}`;
-        // TODO: 替换为更好的弹框组件
-        alert(details);
+        setDetailsContent({
+          title: '连接详情',
+          message: `协议: ${session.config.protocol}\n地址: ${session.config.host}:${session.config.port}\n状态: ${session.status}\n连接类型: ${session.config.connectionType}`
+        });
+        setShowDetailsDialog(true);
       }
     },
     onCopyInfo: (connectionId: string) => {
@@ -917,6 +924,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCollapse, onSessionSelect, o
       {/* Delete Confirmation Modals */}
       <sessionDeleteModal.Modal />
       <workspaceClearModal.Modal />
+
+      {/* Details Dialog */}
+      <MessageModal
+        isOpen={showDetailsDialog}
+        onClose={() => setShowDetailsDialog(false)}
+        title={detailsContent.title}
+        message={detailsContent.message}
+        type="info"
+      />
     </div>
   );
 };

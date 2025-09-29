@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Save, Play, FileText, Eye, Edit3, Download, Upload } from 'lucide-react';
+import { Save, Play, FileText, Edit3, Download, Upload } from 'lucide-react';
 import { ProtocolRepositoryService } from '@/services/ProtocolRepositoryService';
+import { MessageModal } from '@/components/Common/MessageModal';
 
 interface ProtocolEditorProps {
   protocolId?: string;
@@ -40,7 +41,18 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
   const [activeTab, setActiveTab] = useState('editor');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Dialog states
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportDialogContent, setExportDialogContent] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' | 'warning' }>({ title: '', message: '', type: 'info' });
+
   const protocolService = ProtocolRepositoryService.getInstance();
+
+  // Handle content change
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    setContent(newContent);
+    setIsModified(newContent !== originalContent);
+  };
 
   useEffect(() => {
     if (protocolId) {
@@ -118,14 +130,58 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
       if (!content.trim()) {
-        setError('No content to export');
+        setExportDialogContent({
+          title: '导出失败',
+          message: '没有内容可以导出，请先编辑协议内容。',
+          type: 'error'
+        });
+        setShowExportDialog(true);
         return;
       }
 
-      const blob = new Blob([content], { type: 'text/yaml' });
+      // Check if we're in Tauri environment by checking for __TAURI__
+      const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__;
+
+      if (isTauri) {
+        try {
+          // Use string-based dynamic imports to avoid Vite's static analysis
+          const dialogModule = '@tauri-apps/plugin-dialog';
+          const fsModule = '@tauri-apps/api/fs';
+          const tauriDialog = await import(/* @vite-ignore */ dialogModule);
+          const tauriFs = await import(/* @vite-ignore */ fsModule);
+
+          const filePath = await tauriDialog.save({
+            title: '选择导出位置',
+            defaultPath: `${metadata?.name || 'protocol'}.kpt`,
+            filters: [{
+              name: 'KPT Protocol Files',
+              extensions: ['kpt']
+            }, {
+              name: 'Text Files',
+              extensions: ['txt']
+            }]
+          });
+
+          if (filePath) {
+            await tauriFs.writeTextFile(filePath, content);
+            setExportDialogContent({
+              title: '导出成功',
+              message: `协议文件已成功导出到：\n${filePath}`,
+              type: 'success'
+            });
+            setShowExportDialog(true);
+            return;
+          }
+        } catch (tauriError) {
+          console.log('Tauri dialog failed, falling back to browser download:', tauriError);
+        }
+      }
+
+      // Fallback to browser download (for web or if Tauri fails)
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -135,10 +191,19 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setSuccess('Protocol exported successfully');
-      setTimeout(() => setSuccess(''), 3000);
+      setExportDialogContent({
+        title: '导出成功',
+        message: '协议文件已成功下载到默认下载目录。',
+        type: 'success'
+      });
+      setShowExportDialog(true);
     } catch (err) {
-      setError('Failed to export protocol');
+      setExportDialogContent({
+        title: '导出失败',
+        message: '导出协议时发生错误，请重试。',
+        type: 'error'
+      });
+      setShowExportDialog(true);
       console.error('Export error:', err);
     }
   };
@@ -170,88 +235,7 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
     event.target.value = '';
   };
 
-  const getHighlightedContent = () => {
-    if (!content.trim()) {
-      return (
-        <div className="text-gray-400 dark:text-gray-500 italic text-center py-8">
-          No content to preview
-        </div>
-      );
-    }
 
-    // Enhanced syntax highlighting for YAML-like content
-    return content
-      .split('\n')
-      .map((line, index) => {
-        let highlightedLine = line;
-
-        // Escape HTML first
-        highlightedLine = highlightedLine
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-
-        // Highlight comments first (to avoid conflicts)
-        highlightedLine = highlightedLine.replace(
-          /#(.*)$/g,
-          '<span style="color: #6b7280; font-style: italic;">#$1</span>'
-        );
-
-        // Highlight main sections (meta, framing, fields, etc.)
-        highlightedLine = highlightedLine.replace(
-          /^(\s*)(meta|framing|fields|validation|conditions|functions|factor_codes)(\s*:)/g,
-          '$1<span style="color: #dc2626; font-weight: bold;">$2</span><span style="color: #4b5563;">$3</span>'
-        );
-
-        // Highlight field names and properties
-        highlightedLine = highlightedLine.replace(
-          /^(\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g,
-          '$1<span style="color: #2563eb; font-weight: 600;">$2</span><span style="color: #4b5563;">:</span>'
-        );
-
-        // Highlight strings (quoted values)
-        highlightedLine = highlightedLine.replace(
-          /"([^"]*)"/g,
-          '<span style="color: #059669;">"$1"</span>'
-        );
-
-        // Highlight single quoted strings
-        highlightedLine = highlightedLine.replace(
-          /'([^']*)'/g,
-          '<span style="color: #059669;">\'$1\'</span>'
-        );
-
-        // Highlight numbers
-        highlightedLine = highlightedLine.replace(
-          /:\s*(\d+\.?\d*)\b/g,
-          ': <span style="color: #7c3aed;">$1</span>'
-        );
-
-        // Highlight boolean values
-        highlightedLine = highlightedLine.replace(
-          /:\s*(true|false|null)\b/g,
-          ': <span style="color: #ea580c;">$1</span>'
-        );
-
-        // Highlight array indicators
-        highlightedLine = highlightedLine.replace(
-          /^(\s*)-(\s)/g,
-          '$1<span style="color: #0891b2;">-</span>$2'
-        );
-
-        return (
-          <div key={index} className="flex hover:bg-gray-100 dark:hover:bg-gray-700 px-1 py-0.5 rounded text-sm leading-5">
-            <span className="text-gray-400 dark:text-gray-500 text-xs w-10 text-right mr-3 select-none flex-shrink-0 pt-0.5">
-              {index + 1}
-            </span>
-            <span
-              className="flex-1 whitespace-pre"
-              dangerouslySetInnerHTML={{ __html: highlightedLine || '&nbsp;' }}
-            />
-          </div>
-        );
-      });
-  };
 
   return (
     <div className="h-full flex flex-col">
@@ -299,7 +283,7 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
             className="flex items-center whitespace-nowrap"
           >
             <Download className="w-4 h-4 mr-1 flex-shrink-0" />
-            <span className="hidden sm:inline">Export</span>
+            <span className="hidden sm:inline">导出</span>
           </Button>
 
           <Button
@@ -345,45 +329,39 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
         </Alert>
       )}
 
-      {/* Combined Editor and Preview */}
-      <div className="flex-1 flex gap-4 m-4 mt-2 overflow-hidden">
+      {/* Editor Only */}
+      <div className="flex-1 m-4 mt-2 overflow-hidden">
         {/* Editor Panel */}
-        <Card className="flex-1 flex flex-col">
+        <Card className="h-full flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center space-x-2">
               <Edit3 className="w-4 h-4" />
-              <span>Protocol Definition</span>
+              <span>Protocol Editor</span>
+              <Badge variant="secondary" className="ml-auto text-xs">KPT 1.1</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 p-0 overflow-hidden">
             <textarea
               ref={textareaRef}
               value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full h-full p-4 font-mono text-sm border-none resize-none focus:outline-none overflow-auto"
+              onChange={handleContentChange}
+              className="w-full h-full p-4 font-mono text-sm border-0 resize-none focus:outline-none bg-slate-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               placeholder="Enter your protocol definition here..."
               spellCheck={false}
+              style={{ tabSize: 2, lineHeight: '1.5' }}
             />
           </CardContent>
         </Card>
-
-        {/* Live Preview Panel */}
-        <Card className="flex-1 flex flex-col">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center space-x-2">
-              <Eye className="w-4 h-4" />
-              <span>Live Preview</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 p-0 overflow-hidden">
-            <div className="h-full overflow-auto font-mono text-sm bg-gray-50 dark:bg-gray-800 p-4">
-              <div className="space-y-0">
-                {getHighlightedContent()}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Export Dialog */}
+      <MessageModal
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        title={exportDialogContent.title}
+        message={exportDialogContent.message}
+        type={exportDialogContent.type}
+      />
     </div>
   );
 };
