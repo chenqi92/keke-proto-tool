@@ -30,6 +30,10 @@ pub struct ProtocolRule {
     /// Custom functions and expressions
     #[serde(default)]
     pub functions: HashMap<String, String>,
+
+    /// Factor code definitions for environmental protocols
+    #[serde(default)]
+    pub factor_codes: Option<HashMap<String, serde_yaml::Value>>,
 }
 
 /// Protocol metadata

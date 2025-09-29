@@ -32,11 +32,15 @@ pub mod result;
 pub mod fingerprint;
 pub mod protocol_matcher;
 pub mod protocol_parser;
+pub mod repository;
+pub mod factor_translator;
 
 // Re-export key types for convenience
 pub use result::*;
 pub use validation_report::*;
 pub use protocol_parser::ProtocolParser;
+pub use repository::{ProtocolRepository, ProtocolMetadata, ProtocolImportRequest, ProtocolExportOptions, ValidationStatus};
+pub use factor_translator::{FactorTranslator, FactorDefinition, ParsedFactor, FactorValue, FactorSummary};
 
 /// Main parser interface that all protocol parsers must implement
 pub trait Parser: Send + Sync {
@@ -73,6 +77,7 @@ pub struct ProtocolInfo {
 pub struct ParserRegistry {
     parsers: HashMap<String, Box<dyn Parser>>,
     auto_detect_order: Vec<String>,
+    repository: Option<ProtocolRepository>,
 }
 
 impl ParserRegistry {
@@ -81,7 +86,32 @@ impl ParserRegistry {
         Self {
             parsers: HashMap::new(),
             auto_detect_order: Vec::new(),
+            repository: None,
         }
+    }
+
+    /// Create a new parser registry with protocol repository
+    pub fn with_repository(repository: ProtocolRepository) -> Self {
+        Self {
+            parsers: HashMap::new(),
+            auto_detect_order: Vec::new(),
+            repository: Some(repository),
+        }
+    }
+
+    /// Set the protocol repository
+    pub fn set_repository(&mut self, repository: ProtocolRepository) {
+        self.repository = Some(repository);
+    }
+
+    /// Get a reference to the protocol repository
+    pub fn repository(&self) -> Option<&ProtocolRepository> {
+        self.repository.as_ref()
+    }
+
+    /// Get a mutable reference to the protocol repository
+    pub fn repository_mut(&mut self) -> Option<&mut ProtocolRepository> {
+        self.repository.as_mut()
     }
     
     /// Register a new parser
@@ -132,6 +162,64 @@ impl ParserRegistry {
             )),
         }
     }
+
+    /// Load protocols from repository
+    pub fn load_protocols_from_repository(&mut self) -> NetworkResult<usize> {
+        // Collect protocol IDs first to avoid borrowing issues
+        let protocol_ids: Vec<String> = if let Some(repository) = &self.repository {
+            repository.list_enabled_protocols()
+                .into_iter()
+                .map(|metadata| metadata.id.clone())
+                .collect()
+        } else {
+            return Ok(0);
+        };
+
+        let mut loaded_count = 0;
+
+        for protocol_id in protocol_ids {
+            if let Some(repository) = &mut self.repository {
+                match repository.create_protocol_parser(&protocol_id) {
+                    Ok(parser) => {
+                        let protocol_name = parser.get_protocol_info().name.clone();
+                        self.register_parser(Box::new(parser));
+                        loaded_count += 1;
+                        log::info!("Loaded protocol parser: {} ({})", protocol_name, protocol_id);
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to load protocol parser for {}: {}", protocol_id, e);
+                    }
+                }
+            }
+        }
+
+        Ok(loaded_count)
+    }
+
+    /// Reload a specific protocol from repository
+    pub fn reload_protocol(&mut self, protocol_id: &str) -> NetworkResult<()> {
+        // Remove existing parser if it exists
+        self.remove_parser(protocol_id);
+
+        // Load new parser
+        if let Some(repository) = &mut self.repository {
+            let parser = repository.create_protocol_parser(protocol_id)?;
+            self.register_parser(Box::new(parser));
+
+            log::info!("Reloaded protocol parser: {}", protocol_id);
+            Ok(())
+        } else {
+            Err(crate::types::NetworkError::ParseError(
+                "No protocol repository available".to_string()
+            ))
+        }
+    }
+
+    /// Remove a parser by ID
+    pub fn remove_parser(&mut self, parser_id: &str) {
+        self.parsers.remove(parser_id);
+        self.auto_detect_order.retain(|id| id != parser_id);
+    }
 }
 
 impl Default for ParserRegistry {
@@ -152,9 +240,25 @@ pub fn get_parser_registry() -> Arc<RwLock<ParserRegistry>> {
     }).clone()
 }
 
-/// Initialize the parser system with built-in parsers
+/// Initialize the parser system with built-in parsers and protocol repository
 pub fn initialize_parser_system() -> NetworkResult<()> {
+    initialize_parser_system_with_repository(None)
+}
+
+/// Initialize the parser system with a specific repository path
+pub fn initialize_parser_system_with_repository(repository_path: Option<std::path::PathBuf>) -> NetworkResult<()> {
     let registry = get_parser_registry();
+
+    // Set up protocol repository if path is provided
+    if let Some(repo_path) = repository_path {
+        let repository = ProtocolRepository::new(repo_path)?;
+        let mut registry_guard = registry.write().unwrap();
+        registry_guard.set_repository(repository);
+
+        // Load protocols from repository
+        let loaded_count = registry_guard.load_protocols_from_repository()?;
+        log::info!("Loaded {} protocols from repository", loaded_count);
+    }
 
     // TODO: Register built-in parsers here
     // registry.write().unwrap().register_parser(Box::new(ModbusParser::new()));

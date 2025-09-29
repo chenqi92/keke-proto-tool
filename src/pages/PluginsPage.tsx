@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { cn } from '@/utils';
 import { ProtocolPlugin } from '@/types/plugins';
 import { ProtocolPluginManager } from '@/components/plugins/ProtocolPluginManager';
+import FactorTranslationDemo from '@/components/plugins/FactorTranslationDemo';
 import {
   Puzzle,
   Network,
   Store,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Zap
 } from 'lucide-react';
 
-type PluginTab = 'protocol' | 'store' | 'settings';
+type PluginTab = 'protocol' | 'store' | 'settings' | 'factor-demo';
 
 
 
@@ -42,7 +44,6 @@ export const PluginsPage: React.FC = () => {
       case 'protocol':
         return (
           <ProtocolPluginManager
-            plugins={[]}
             onInstall={handleProtocolInstall}
             onUninstall={handleProtocolUninstall}
             onToggle={handleProtocolToggle}
@@ -70,6 +71,8 @@ export const PluginsPage: React.FC = () => {
             </div>
           </div>
         );
+      case 'factor-demo':
+        return <FactorTranslationDemo />;
       default:
         return null;
     }
@@ -123,6 +126,18 @@ export const PluginsPage: React.FC = () => {
           >
             <SettingsIcon className="w-4 h-4" />
             <span>协议设置</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('factor-demo')}
+            className={cn(
+              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
+              activeTab === 'factor-demo'
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-accent"
+            )}
+          >
+            <Zap className="w-4 h-4" />
+            <span>因子翻译演示</span>
           </button>
         </div>
       </div>

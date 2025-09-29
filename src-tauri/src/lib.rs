@@ -43,6 +43,14 @@ pub fn run() {
             validate_parsed_data,
             get_available_parsers,
             register_parser,
+            // Protocol repository commands
+            import_protocol,
+            export_protocol,
+            list_protocols,
+            list_enabled_protocols,
+            get_protocol_metadata,
+            delete_protocol,
+            set_protocol_enabled,
             // Theme commands
             set_window_theme,
             // Logging commands
@@ -51,7 +59,12 @@ pub fn run() {
             export_logs,
             clear_logs,
             get_log_stats,
-            log_network_event
+            log_network_event,
+            // Factor code translation commands
+            parse_factor_codes,
+            get_factor_summary,
+            get_protocol_factor_definitions,
+            parse_hj212_message
         ])
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
@@ -79,8 +92,12 @@ pub fn run() {
 
             app.manage(session_manager);
 
-            // Initialize parser system
-            if let Err(e) = parser::initialize_parser_system() {
+            // Initialize parser system with repository
+            let app_data_dir = app.path().app_data_dir()
+                .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+            let protocols_dir = app_data_dir.join("protocols");
+
+            if let Err(e) = parser::initialize_parser_system_with_repository(Some(protocols_dir)) {
                 log::error!("Failed to initialize parser system: {}", e);
             }
 

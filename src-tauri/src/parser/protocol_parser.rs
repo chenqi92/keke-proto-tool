@@ -424,6 +424,7 @@ mod tests {
             validation: ValidationRules::default(),
             conditions: vec![],
             functions: HashMap::new(),
+            factor_codes: None,
         }
     }
     

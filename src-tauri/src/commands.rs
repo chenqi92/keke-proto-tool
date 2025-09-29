@@ -1,10 +1,11 @@
 use crate::session::SessionManager;
 use crate::types::SessionConfig;
 use crate::utils::{validate_port, is_common_port};
-use crate::parser::{ProtocolParser, get_parser_registry, Parser};
+use crate::parser::{ProtocolParser, get_parser_registry, Parser, ProtocolRepository, ProtocolMetadata, ProtocolImportRequest, ProtocolExportOptions, FactorTranslator, FactorDefinition, ParsedFactor, FactorSummary};
 use tauri::{State, AppHandle, Theme, Manager};
 use tauri::window::Color;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /// Get application version
 #[tauri::command]
@@ -466,6 +467,168 @@ pub async fn register_parser(
     }
 }
 
+// ============================================================================
+// PROTOCOL REPOSITORY COMMANDS
+// ============================================================================
+
+/// Import a protocol into the repository
+#[tauri::command]
+pub async fn import_protocol(
+    content: String,
+    custom_name: Option<String>,
+    custom_category: Option<String>,
+    tags: Vec<String>,
+    enabled: bool,
+) -> Result<String, String> {
+    let registry = get_parser_registry();
+    let mut registry_guard = registry.write().unwrap();
+
+    if let Some(repository) = registry_guard.repository_mut() {
+        let request = ProtocolImportRequest {
+            content,
+            custom_name,
+            custom_category,
+            tags,
+            enabled,
+        };
+
+        match repository.import_protocol(request) {
+            Ok(protocol_id) => {
+                // If enabled, load the parser immediately
+                if enabled {
+                    if let Err(e) = registry_guard.reload_protocol(&protocol_id) {
+                        log::warn!("Failed to load imported protocol parser: {}", e);
+                    }
+                }
+                Ok(protocol_id)
+            }
+            Err(e) => Err(format!("Failed to import protocol: {}", e)),
+        }
+    } else {
+        Err("Protocol repository not available".to_string())
+    }
+}
+
+/// Export a protocol from the repository
+#[tauri::command]
+pub async fn export_protocol(
+    protocol_id: String,
+    export_path: String,
+    include_metadata: bool,
+) -> Result<String, String> {
+    let registry = get_parser_registry();
+    let registry_guard = registry.read().unwrap();
+
+    if let Some(repository) = registry_guard.repository() {
+        let options = ProtocolExportOptions {
+            protocol_id,
+            export_path: PathBuf::from(export_path),
+            include_metadata,
+        };
+
+        match repository.export_protocol(options) {
+            Ok(exported_path) => Ok(exported_path.to_string_lossy().to_string()),
+            Err(e) => Err(format!("Failed to export protocol: {}", e)),
+        }
+    } else {
+        Err("Protocol repository not available".to_string())
+    }
+}
+
+/// List all protocols in the repository
+#[tauri::command]
+pub async fn list_protocols() -> Result<Vec<ProtocolMetadata>, String> {
+    let registry = get_parser_registry();
+    let registry_guard = registry.read().unwrap();
+
+    if let Some(repository) = registry_guard.repository() {
+        let protocols = repository.list_protocols();
+        Ok(protocols.into_iter().cloned().collect())
+    } else {
+        Err("Protocol repository not available".to_string())
+    }
+}
+
+/// List enabled protocols in the repository
+#[tauri::command]
+pub async fn list_enabled_protocols() -> Result<Vec<ProtocolMetadata>, String> {
+    let registry = get_parser_registry();
+    let registry_guard = registry.read().unwrap();
+
+    if let Some(repository) = registry_guard.repository() {
+        let protocols = repository.list_enabled_protocols();
+        Ok(protocols.into_iter().cloned().collect())
+    } else {
+        Err("Protocol repository not available".to_string())
+    }
+}
+
+/// Get protocol metadata by ID
+#[tauri::command]
+pub async fn get_protocol_metadata(protocol_id: String) -> Result<ProtocolMetadata, String> {
+    let registry = get_parser_registry();
+    let registry_guard = registry.read().unwrap();
+
+    if let Some(repository) = registry_guard.repository() {
+        match repository.get_protocol_metadata(&protocol_id) {
+            Ok(metadata) => Ok(metadata.clone()),
+            Err(e) => Err(format!("Failed to get protocol metadata: {}", e)),
+        }
+    } else {
+        Err("Protocol repository not available".to_string())
+    }
+}
+
+/// Delete a protocol from the repository
+#[tauri::command]
+pub async fn delete_protocol(protocol_id: String) -> Result<(), String> {
+    let registry = get_parser_registry();
+    let mut registry_guard = registry.write().unwrap();
+
+    // Remove parser from registry first
+    registry_guard.remove_parser(&protocol_id);
+
+    // Then delete from repository
+    if let Some(repository) = registry_guard.repository_mut() {
+        match repository.delete_protocol(&protocol_id) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(format!("Failed to delete protocol: {}", e)),
+        }
+    } else {
+        Err("Protocol repository not available".to_string())
+    }
+}
+
+/// Enable or disable a protocol
+#[tauri::command]
+pub async fn set_protocol_enabled(
+    protocol_id: String,
+    enabled: bool,
+) -> Result<(), String> {
+    let registry = get_parser_registry();
+    let mut registry_guard = registry.write().unwrap();
+
+    if let Some(repository) = registry_guard.repository_mut() {
+        match repository.set_protocol_enabled(&protocol_id, enabled) {
+            Ok(()) => {
+                if enabled {
+                    // Load the parser
+                    if let Err(e) = registry_guard.reload_protocol(&protocol_id) {
+                        log::warn!("Failed to load protocol parser: {}", e);
+                    }
+                } else {
+                    // Remove the parser
+                    registry_guard.remove_parser(&protocol_id);
+                }
+                Ok(())
+            }
+            Err(e) => Err(format!("Failed to set protocol enabled: {}", e)),
+        }
+    } else {
+        Err("Protocol repository not available".to_string())
+    }
+}
+
 /// Set the application theme for window chrome and system menu integration
 #[tauri::command]
 pub async fn set_window_theme(
@@ -894,4 +1057,157 @@ pub async fn log_network_event(
         data_size,
     ).await
     .map_err(|e| format!("Failed to log network event: {}", e))
+}
+
+// ============================================================================
+// Factor Code Translation Commands
+// ============================================================================
+
+/// Parse factor codes from a factor string
+#[tauri::command]
+pub async fn parse_factor_codes(
+    protocol_id: String,
+    factor_string: String,
+) -> Result<Vec<ParsedFactor>, String> {
+    let registry = get_parser_registry();
+
+    let mut registry = registry.write().map_err(|e| format!("Failed to acquire registry lock: {}", e))?;
+
+    // Get the protocol repository
+    let repository = registry.repository_mut()
+        .ok_or_else(|| "Protocol repository not initialized".to_string())?;
+
+    // Load the protocol rule
+    let rule = repository.load_protocol_rule(&protocol_id)
+        .map_err(|e| format!("Failed to load protocol rule: {}", e))?;
+
+    // Extract factor definitions from the rule
+    let mut factor_translator = FactorTranslator::new();
+
+    if let Some(factor_codes) = rule.factor_codes {
+        let mut factor_definitions = std::collections::HashMap::new();
+
+        for (code, definition_value) in factor_codes {
+            // Convert serde_yaml::Value to FactorDefinition
+            let definition: FactorDefinition = serde_yaml::from_value(definition_value)
+                .map_err(|e| format!("Failed to parse factor definition for {}: {}", code, e))?;
+
+            factor_definitions.insert(code, definition);
+        }
+
+        factor_translator.load_factor_definitions(factor_definitions);
+    }
+
+    // Parse the factor string
+    factor_translator.parse_factor_string(&factor_string)
+        .map_err(|e| format!("Failed to parse factor string: {}", e))
+}
+
+/// Get factor summary for parsed factors
+#[tauri::command]
+pub async fn get_factor_summary(
+    protocol_id: String,
+    factor_string: String,
+) -> Result<FactorSummary, String> {
+    // First parse the factors
+    let parsed_factors = parse_factor_codes(protocol_id, factor_string).await?;
+
+    // Create a temporary translator to get the summary
+    let translator = FactorTranslator::new();
+    let summary = translator.get_factor_summary(&parsed_factors);
+
+    Ok(summary)
+}
+
+/// Get all factor definitions for a protocol
+#[tauri::command]
+pub async fn get_protocol_factor_definitions(
+    protocol_id: String,
+) -> Result<std::collections::HashMap<String, FactorDefinition>, String> {
+    let registry = get_parser_registry();
+
+    let mut registry = registry.write().map_err(|e| format!("Failed to acquire registry lock: {}", e))?;
+
+    // Get the protocol repository
+    let repository = registry.repository_mut()
+        .ok_or_else(|| "Protocol repository not initialized".to_string())?;
+
+    // Load the protocol rule
+    let rule = repository.load_protocol_rule(&protocol_id)
+        .map_err(|e| format!("Failed to load protocol rule: {}", e))?;
+
+    // Extract factor definitions from the rule
+    let mut factor_definitions = std::collections::HashMap::new();
+
+    if let Some(factor_codes) = rule.factor_codes {
+        for (code, definition_value) in factor_codes {
+            // Convert serde_yaml::Value to FactorDefinition
+            let definition: FactorDefinition = serde_yaml::from_value(definition_value)
+                .map_err(|e| format!("Failed to parse factor definition for {}: {}", code, e))?;
+
+            factor_definitions.insert(code, definition);
+        }
+    }
+
+    Ok(factor_definitions)
+}
+
+/// Parse HJ212 message with factor translation
+#[tauri::command]
+pub async fn parse_hj212_message(
+    protocol_id: String,
+    message_data: String,
+) -> Result<HJ212ParseResult, String> {
+    // Parse the message using the protocol
+    let parse_result = {
+        let registry = get_parser_registry();
+        let mut registry = registry.write().map_err(|e| format!("Failed to acquire registry lock: {}", e))?;
+
+        // Get the protocol repository
+        let repository = registry.repository_mut()
+            .ok_or_else(|| "Protocol repository not initialized".to_string())?;
+
+        // Create protocol parser
+        let parser = repository.create_protocol_parser(&protocol_id)
+            .map_err(|e| format!("Failed to create protocol parser: {}", e))?;
+
+        // Parse the message
+        parser.parse(message_data.as_bytes())
+            .map_err(|e| format!("Failed to parse message: {}", e))?
+    };
+
+    // Extract PolId field if present
+    let mut parsed_factors = Vec::new();
+    let mut factor_summary = None;
+
+    if let Some(cp_field) = parse_result.fields.fields.get("cp") {
+        let cp_value = cp_field.value.as_string();
+        // Look for PolId in CP field
+        if let Some(polid_start) = cp_value.find("PolId=") {
+            let polid_part = &cp_value[polid_start + 6..];
+            let polid_end = polid_part.find(';').unwrap_or(polid_part.len());
+            let polid_value = &polid_part[..polid_end];
+
+            // Parse factors
+            parsed_factors = parse_factor_codes(protocol_id.clone(), polid_value.to_string()).await?;
+
+            // Get summary
+            let translator = FactorTranslator::new();
+            factor_summary = Some(translator.get_factor_summary(&parsed_factors));
+        }
+    }
+
+    Ok(HJ212ParseResult {
+        parse_result,
+        parsed_factors,
+        factor_summary,
+    })
+}
+
+/// HJ212 parse result with factor translation
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HJ212ParseResult {
+    pub parse_result: crate::parser::ParseResult,
+    pub parsed_factors: Vec<ParsedFactor>,
+    pub factor_summary: Option<FactorSummary>,
 }

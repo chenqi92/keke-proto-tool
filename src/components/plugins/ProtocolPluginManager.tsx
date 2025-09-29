@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils';
 import { ProtocolPlugin } from '@/types/plugins';
-import { 
-  Network, 
-  Download, 
-  Upload, 
-  Settings, 
-  Trash2, 
-  Eye, 
+import {
+  protocolRepositoryService,
+  ProtocolMetadata
+} from '@/services/ProtocolRepositoryService';
+import {
+  Network,
+  Download,
+  Upload,
+  Settings,
+  Trash2,
+  Eye,
   EyeOff,
   CheckCircle,
   AlertCircle,
@@ -16,16 +20,20 @@ import {
   Search,
   Code,
   Shield,
-  Zap
+  Zap,
+  RefreshCw,
+  Plus,
+  Edit3
 } from 'lucide-react';
+import { ProtocolEditor } from './ProtocolEditor';
 
 interface ProtocolPluginManagerProps {
-  plugins: ProtocolPlugin[];
-  onInstall: (plugin: ProtocolPlugin) => void;
-  onUninstall: (plugin: ProtocolPlugin) => void;
-  onToggle: (plugin: ProtocolPlugin) => void;
-  onConfigure: (plugin: ProtocolPlugin) => void;
-  onUploadDefinition: (file: File) => void;
+  plugins?: ProtocolPlugin[];
+  onInstall?: (plugin: ProtocolPlugin) => void;
+  onUninstall?: (plugin: ProtocolPlugin) => void;
+  onToggle?: (plugin: ProtocolPlugin) => void;
+  onConfigure?: (plugin: ProtocolPlugin) => void;
+  onUploadDefinition?: (file: File) => void;
 }
 
 const mockProtocolPlugins: ProtocolPlugin[] = [
@@ -184,7 +192,7 @@ const renderStars = (rating: number) => {
 };
 
 export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
-  plugins = mockProtocolPlugins,
+  plugins: propPlugins,
   onInstall,
   onUninstall,
   onToggle,
@@ -194,8 +202,61 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProtocol, setSelectedProtocol] = useState<string | null>(null);
   const [selectedPlugin, setSelectedPlugin] = useState<ProtocolPlugin | null>(null);
+  const [protocols, setProtocols] = useState<ProtocolMetadata[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editingProtocol, setEditingProtocol] = useState<ProtocolMetadata | null>(null);
+  const [editorContent, setEditorContent] = useState('');
 
-  const protocols = Array.from(new Set(plugins.map(plugin => plugin.protocolName)));
+  // Load protocols from backend
+  useEffect(() => {
+    loadProtocols();
+  }, []);
+
+  const loadProtocols = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const protocolList = await protocolRepositoryService.listProtocols();
+      setProtocols(protocolList);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load protocols');
+      console.error('Failed to load protocols:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Convert ProtocolMetadata to ProtocolPlugin format for compatibility
+  const convertToPluginFormat = (metadata: ProtocolMetadata): ProtocolPlugin => ({
+    id: metadata.id,
+    name: metadata.name,
+    version: metadata.version,
+    description: metadata.description,
+    author: metadata.author,
+    type: 'protocol',
+    protocolName: metadata.name,
+    supportedFormats: metadata.supported_formats,
+    protocolVersion: metadata.version,
+    ports: [], // Not available in metadata
+    features: {
+      parsing: true,
+      generation: false,
+      validation: true,
+      encryption: false
+    },
+    status: metadata.enabled ? 'active' : 'inactive',
+    installed: true,
+    rating: 4.5, // Default rating
+    downloads: 0, // Not tracked
+    size: `${(metadata.file_size / 1024).toFixed(1)} KB`,
+    lastUpdated: new Date(metadata.modified_at),
+    permissions: ['文件读写']
+  });
+
+  // Use either prop plugins or loaded protocols
+  const plugins = propPlugins || protocols.map(convertToPluginFormat);
+  const protocolNames = Array.from(new Set(plugins.map(plugin => plugin.protocolName)));
 
   const filteredPlugins = plugins.filter(plugin => {
     const matchesSearch = !searchQuery || 
@@ -208,12 +269,142 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
     return matchesSearch && matchesProtocol;
   });
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      onUploadDefinition(file);
+      try {
+        if (!file.name.endsWith('.kpt')) {
+          setError('Invalid file format. Please upload a .kpt file.');
+          return;
+        }
+
+        setLoading(true);
+        const protocolId = await protocolRepositoryService.importProtocolFromFile(file);
+        console.log(`Successfully imported protocol: ${protocolId}`);
+
+        // Reload protocols
+        await loadProtocols();
+
+        // Call the prop handler if provided
+        if (onUploadDefinition) {
+          onUploadDefinition(file);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to import protocol');
+        console.error('Failed to import protocol:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Reset the input
+    event.target.value = '';
+  };
+
+  const handleEditProtocol = async (protocol: ProtocolMetadata) => {
+    try {
+      // For now, we'll load a sample content
+      // In a real implementation, you'd load the actual protocol content from the backend
+      const sampleContent = `# Protocol: ${protocol.name}
+# Version: ${protocol.version}
+# Description: ${protocol.description}
+
+metadata:
+  name: "${protocol.name}"
+  version: "${protocol.version}"
+  description: "${protocol.description}"
+  category: "${protocol.category}"
+  tags: ${JSON.stringify(protocol.tags)}
+
+parsing:
+  # Add your parsing rules here
+
+validation:
+  # Add your validation rules here
+
+factor_codes:
+  # Add your factor codes here
+
+examples:
+  # Add example data here
+`;
+
+      setEditorContent(sampleContent);
+      setEditingProtocol(protocol);
+    } catch (error) {
+      setError(`Failed to load protocol for editing: ${error}`);
     }
   };
+
+  const handleCloseEditor = () => {
+    setEditingProtocol(null);
+    setEditorContent('');
+  };
+
+  const handleSaveProtocol = async (content: string) => {
+    if (!editingProtocol) return;
+
+    try {
+      // Save the protocol content
+      // In a real implementation, you'd save to the backend
+      console.log('Saving protocol content:', content);
+
+      // Refresh the protocols list
+      await loadProtocols();
+    } catch (error) {
+      setError(`Failed to save protocol: ${error}`);
+    }
+  };
+
+  const handleToggleProtocol = async (plugin: ProtocolPlugin) => {
+    try {
+      const newEnabled = plugin.status !== 'active';
+      await protocolRepositoryService.setProtocolEnabled(plugin.id, newEnabled);
+      await loadProtocols();
+
+      if (onToggle) {
+        onToggle(plugin);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to toggle protocol');
+      console.error('Failed to toggle protocol:', err);
+    }
+  };
+
+  const handleDeleteProtocol = async (plugin: ProtocolPlugin) => {
+    if (!confirm(`Are you sure you want to delete the protocol "${plugin.name}"?`)) {
+      return;
+    }
+
+    try {
+      await protocolRepositoryService.deleteProtocol(plugin.id);
+      await loadProtocols();
+
+      // Clear selection if deleted protocol was selected
+      if (selectedPlugin?.id === plugin.id) {
+        setSelectedPlugin(null);
+      }
+
+      if (onUninstall) {
+        onUninstall(plugin);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete protocol');
+      console.error('Failed to delete protocol:', err);
+    }
+  };
+
+  // Show editor if editing a protocol
+  if (editingProtocol) {
+    return (
+      <ProtocolEditor
+        protocolId={editingProtocol.id}
+        initialContent={editorContent}
+        onSave={handleSaveProtocol}
+        onClose={handleCloseEditor}
+      />
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -226,19 +417,31 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
           </div>
           
           <div className="flex items-center space-x-2">
+            <button
+              onClick={loadProtocols}
+              disabled={loading}
+              className="flex items-center space-x-2 px-2.5 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 text-sm disabled:opacity-50"
+            >
+              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+              <span>刷新</span>
+            </button>
             <input
               type="file"
               id="protocol-upload"
-              accept=".json,.xml,.yaml,.yml"
+              accept=".kpt"
               onChange={handleFileUpload}
               className="hidden"
+              disabled={loading}
             />
             <label
               htmlFor="protocol-upload"
-              className="flex items-center space-x-2 px-2.5 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 text-sm cursor-auto"
+              className={cn(
+                "flex items-center space-x-2 px-2.5 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm cursor-pointer",
+                loading && "opacity-50 cursor-not-allowed"
+              )}
             >
               <Upload className="w-4 h-4" />
-              <span>上传协议定义</span>
+              <span>导入协议</span>
             </label>
           </div>
         </div>
@@ -260,9 +463,10 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
             value={selectedProtocol || ''}
             onChange={(e) => setSelectedProtocol(e.target.value || null)}
             className="pl-3 pr-8 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors hover:border-accent-foreground"
+            disabled={loading}
           >
             <option value="">所有协议</option>
-            {protocols.map(protocol => (
+            {protocolNames.map(protocol => (
               <option key={protocol} value={protocol}>
                 {protocol}
               </option>
@@ -271,16 +475,40 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="mx-4 mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-red-500" />
+            <span className="text-sm text-red-700">{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="ml-auto text-red-500 hover:text-red-700"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Plugin List */}
         <div className="flex-1 overflow-auto">
-          {filteredPlugins.length === 0 ? (
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <RefreshCw className="w-16 h-16 mx-auto mb-4 opacity-50 animate-spin" />
+                <h3 className="text-lg font-semibold mb-2">加载中...</h3>
+                <p>正在加载协议列表</p>
+              </div>
+            </div>
+          ) : filteredPlugins.length === 0 ? (
             <div className="h-full flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <Network className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">暂无协议插件</h3>
-                <p>没有找到匹配的协议插件</p>
+                <h3 className="text-lg font-semibold mb-2">暂无协议</h3>
+                <p>没有找到匹配的协议，请尝试导入协议文件</p>
               </div>
             </div>
           ) : (
@@ -349,7 +577,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onToggle(plugin);
+                              handleToggleProtocol(plugin);
                             }}
                             className={cn(
                               "p-1.5 rounded-md transition-colors",
@@ -358,6 +586,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
                                 : "hover:bg-accent text-muted-foreground"
                             )}
                             title={plugin.status === 'active' ? '停用' : '启用'}
+                            disabled={loading}
                           >
                             {plugin.status === 'active' ? (
                               <EyeOff className="w-4 h-4" />
@@ -368,20 +597,45 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onConfigure(plugin);
+                              if (onConfigure) onConfigure(plugin);
                             }}
                             className="p-1.5 hover:bg-accent rounded-md"
                             title="配置"
+                            disabled={loading}
                           >
                             <Settings className="w-4 h-4" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onUninstall(plugin);
+                              // Convert ProtocolPlugin to ProtocolMetadata for editing
+                              const protocolMetadata: ProtocolMetadata = {
+                                id: plugin.id,
+                                name: plugin.name,
+                                version: plugin.version,
+                                description: plugin.description,
+                                category: plugin.type,
+                                tags: [],
+                                enabled: plugin.status === 'active',
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString()
+                              };
+                              handleEditProtocol(protocolMetadata);
+                            }}
+                            className="p-1.5 hover:bg-accent rounded-md"
+                            title="编辑"
+                            disabled={loading}
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProtocol(plugin);
                             }}
                             className="p-1.5 hover:bg-accent rounded-md text-red-600"
-                            title="卸载"
+                            title="删除"
+                            disabled={loading}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -390,7 +644,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onInstall(plugin);
+                            if (onInstall) onInstall(plugin);
                           }}
                           className="flex items-center space-x-2 px-2.5 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
                         >
