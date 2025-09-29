@@ -23,6 +23,7 @@ import { NewSessionModal, SessionData } from '@/components/NewSessionModal'
 import { UpdateNotification } from '@/components/UpdateNotification'
 import { MenuUpdateNotification } from '@/components/MenuUpdateNotification'
 import { UpdateModal } from '@/components/UpdateModal'
+import { ProtocolEditorModal } from '@/components/ProtocolEditorModal'
 
 // Context
 import { SessionProvider } from '@/contexts/SessionContext'
@@ -237,6 +238,13 @@ function App() {
             isOpen={true}
             onClose={closeModal}
             updateInfo={updateCheck.updateInfo}
+          />
+        )
+      case 'edit-protocol':
+        return (
+          <ProtocolEditorModal
+            isOpen={true}
+            onClose={closeModal}
           />
         )
       default:

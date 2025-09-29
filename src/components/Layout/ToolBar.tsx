@@ -8,7 +8,8 @@ import {
   Wrench,
   FileText,
   Settings,
-  Puzzle
+  Puzzle,
+  Edit3
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { usePlatform } from '@/hooks/usePlatform';
@@ -67,6 +68,12 @@ const createLeftToolBarItems = (
     icon: Search,
     shortcut: 'Ctrl+F',
     action: () => console.log('Search')
+  },
+  {
+    id: 'edit-protocol',
+    label: '编辑协议',
+    icon: Edit3,
+    action: () => onOpenModal('edit-protocol')
   }
 ];
 
