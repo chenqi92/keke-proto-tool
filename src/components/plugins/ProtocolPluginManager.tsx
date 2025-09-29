@@ -236,7 +236,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
     author: metadata.author,
     type: 'protocol',
     protocolName: metadata.name,
-    supportedFormats: metadata.supported_formats,
+    supportedFormats: metadata.supported_formats || [], // Safe fallback to empty array
     protocolVersion: metadata.version,
     ports: [], // Not available in metadata
     features: {
@@ -251,7 +251,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
     downloads: 0, // Not tracked
     size: `${(metadata.file_size / 1024).toFixed(1)} KB`,
     lastUpdated: new Date(metadata.modified_at),
-    permissions: ['文件读写']
+    permissions: ['文件读写'] // Default permissions
   });
 
   // Use either prop plugins or loaded protocols
@@ -546,19 +546,19 @@ examples:
                       {/* Features */}
                       <div className="flex items-center space-x-4 mb-2">
                         <div className="flex items-center space-x-2">
-                          {getFeatureIcon('parsing', plugin.features.parsing)}
+                          {getFeatureIcon('parsing', plugin.features?.parsing || false)}
                           <span className="text-xs">解析</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {getFeatureIcon('generation', plugin.features.generation)}
+                          {getFeatureIcon('generation', plugin.features?.generation || false)}
                           <span className="text-xs">生成</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {getFeatureIcon('validation', plugin.features.validation)}
+                          {getFeatureIcon('validation', plugin.features?.validation || false)}
                           <span className="text-xs">验证</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {getFeatureIcon('encryption', plugin.features.encryption)}
+                          {getFeatureIcon('encryption', plugin.features?.encryption || false)}
                           <span className="text-xs">加密</span>
                         </div>
                       </div>
@@ -613,12 +613,16 @@ examples:
                                 id: plugin.id,
                                 name: plugin.name,
                                 version: plugin.version,
+                                author: plugin.author,
                                 description: plugin.description,
                                 category: plugin.type,
                                 tags: [],
+                                supported_formats: plugin.supportedFormats || [],
                                 enabled: plugin.status === 'active',
                                 created_at: new Date().toISOString(),
-                                updated_at: new Date().toISOString()
+                                modified_at: new Date().toISOString(),
+                                file_path: '',
+                                file_size: 0
                               };
                               handleEditProtocol(protocolMetadata);
                             }}
@@ -704,7 +708,7 @@ examples:
                 </div>
               </div>
               
-              {selectedPlugin.ports.length > 0 && (
+              {selectedPlugin.ports && selectedPlugin.ports.length > 0 && (
                 <div>
                   <h5 className="font-medium mb-2">默认端口</h5>
                   <div className="flex flex-wrap gap-2">
@@ -722,19 +726,19 @@ examples:
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">协议解析</span>
-                    {getFeatureIcon('parsing', selectedPlugin.features.parsing)}
+                    {getFeatureIcon('parsing', selectedPlugin.features?.parsing || false)}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">数据生成</span>
-                    {getFeatureIcon('generation', selectedPlugin.features.generation)}
+                    {getFeatureIcon('generation', selectedPlugin.features?.generation || false)}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">数据验证</span>
-                    {getFeatureIcon('validation', selectedPlugin.features.validation)}
+                    {getFeatureIcon('validation', selectedPlugin.features?.validation || false)}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">加密支持</span>
-                    {getFeatureIcon('encryption', selectedPlugin.features.encryption)}
+                    {getFeatureIcon('encryption', selectedPlugin.features?.encryption || false)}
                   </div>
                 </div>
               </div>
@@ -742,7 +746,7 @@ examples:
               <div>
                 <h5 className="font-medium mb-2">权限要求</h5>
                 <div className="space-y-1">
-                  {selectedPlugin.permissions.map((permission, index) => (
+                  {(selectedPlugin.permissions || []).map((permission, index) => (
                     <div key={index} className="text-sm text-muted-foreground">
                       • {permission}
                     </div>
