@@ -119,85 +119,133 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
   };
 
   const handleExport = () => {
-    const blob = new Blob([content], { type: 'text/yaml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${metadata?.name || 'protocol'}.kpt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      if (!content.trim()) {
+        setError('No content to export');
+        return;
+      }
+
+      const blob = new Blob([content], { type: 'text/yaml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${metadata?.name || 'protocol'}.kpt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setSuccess('Protocol exported successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Failed to export protocol');
+      console.error('Export error:', err);
+    }
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const fileContent = e.target?.result as string;
-      setContent(fileContent);
-    };
-    reader.readAsText(file);
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const fileContent = e.target?.result as string;
+        if (fileContent) {
+          setContent(fileContent);
+          setSuccess('Protocol imported successfully');
+          setTimeout(() => setSuccess(''), 3000);
+        }
+      };
+      reader.onerror = () => {
+        setError('Failed to read file');
+      };
+      reader.readAsText(file);
+    } catch (err) {
+      setError('Failed to import protocol');
+      console.error('Import error:', err);
+    }
+
+    // Reset the input value so the same file can be imported again
+    event.target.value = '';
   };
 
   const getHighlightedContent = () => {
+    if (!content.trim()) {
+      return (
+        <div className="text-gray-400 dark:text-gray-500 italic text-center py-8">
+          No content to preview
+        </div>
+      );
+    }
+
     // Enhanced syntax highlighting for YAML-like content
     return content
       .split('\n')
       .map((line, index) => {
         let highlightedLine = line;
 
+        // Escape HTML first
+        highlightedLine = highlightedLine
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+
         // Highlight comments first (to avoid conflicts)
         highlightedLine = highlightedLine.replace(
           /#(.*)$/g,
-          '<span class="text-gray-500 dark:text-gray-400 italic">#$1</span>'
+          '<span style="color: #6b7280; font-style: italic;">#$1</span>'
         );
 
         // Highlight main sections (meta, framing, fields, etc.)
         highlightedLine = highlightedLine.replace(
           /^(\s*)(meta|framing|fields|validation|conditions|functions|factor_codes)(\s*:)/g,
-          '$1<span class="text-red-600 dark:text-red-400 font-bold">$2</span><span class="text-gray-600 dark:text-gray-300">$3</span>'
+          '$1<span style="color: #dc2626; font-weight: bold;">$2</span><span style="color: #4b5563;">$3</span>'
         );
 
         // Highlight field names and properties
         highlightedLine = highlightedLine.replace(
           /^(\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g,
-          '$1<span class="text-blue-600 dark:text-blue-400 font-semibold">$2</span><span class="text-gray-600 dark:text-gray-300">:</span>'
+          '$1<span style="color: #2563eb; font-weight: 600;">$2</span><span style="color: #4b5563;">:</span>'
         );
 
         // Highlight strings (quoted values)
         highlightedLine = highlightedLine.replace(
           /"([^"]*)"/g,
-          '<span class="text-green-600 dark:text-green-400">"$1"</span>'
+          '<span style="color: #059669;">"$1"</span>'
+        );
+
+        // Highlight single quoted strings
+        highlightedLine = highlightedLine.replace(
+          /'([^']*)'/g,
+          '<span style="color: #059669;">\'$1\'</span>'
         );
 
         // Highlight numbers
         highlightedLine = highlightedLine.replace(
           /:\s*(\d+\.?\d*)\b/g,
-          ': <span class="text-purple-600 dark:text-purple-400">$1</span>'
+          ': <span style="color: #7c3aed;">$1</span>'
         );
 
         // Highlight boolean values
         highlightedLine = highlightedLine.replace(
-          /:\s*(true|false)\b/g,
-          ': <span class="text-orange-600 dark:text-orange-400">$1</span>'
+          /:\s*(true|false|null)\b/g,
+          ': <span style="color: #ea580c;">$1</span>'
         );
 
         // Highlight array indicators
         highlightedLine = highlightedLine.replace(
           /^(\s*)-(\s)/g,
-          '$1<span class="text-cyan-600 dark:text-cyan-400">-</span>$2'
+          '$1<span style="color: #0891b2;">-</span>$2'
         );
 
         return (
-          <div key={index} className="flex hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-0.5 rounded">
-            <span className="text-gray-400 dark:text-gray-500 text-xs w-8 text-right mr-3 select-none">
+          <div key={index} className="flex hover:bg-gray-100 dark:hover:bg-gray-700 px-1 py-0.5 rounded text-sm leading-5">
+            <span className="text-gray-400 dark:text-gray-500 text-xs w-10 text-right mr-3 select-none flex-shrink-0 pt-0.5">
               {index + 1}
             </span>
             <span
-              className="flex-1"
+              className="flex-1 whitespace-pre"
               dangerouslySetInnerHTML={{ __html: highlightedLine || '&nbsp;' }}
             />
           </div>
@@ -298,42 +346,40 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
       )}
 
       {/* Combined Editor and Preview */}
-      <div className="flex-1 flex gap-4 m-4 mt-2">
+      <div className="flex-1 flex gap-4 m-4 mt-2 overflow-hidden">
         {/* Editor Panel */}
-        <Card className="flex-1">
-          <CardHeader>
+        <Card className="flex-1 flex flex-col">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center space-x-2">
               <Edit3 className="w-4 h-4" />
               <span>Protocol Definition</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0 h-full">
+          <CardContent className="flex-1 p-0 overflow-hidden">
             <textarea
               ref={textareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full h-full p-4 font-mono text-sm border-none resize-none focus:outline-none"
+              className="w-full h-full p-4 font-mono text-sm border-none resize-none focus:outline-none overflow-auto"
               placeholder="Enter your protocol definition here..."
               spellCheck={false}
-              style={{ minHeight: '500px' }}
             />
           </CardContent>
         </Card>
 
         {/* Live Preview Panel */}
-        <Card className="flex-1">
-          <CardHeader>
+        <Card className="flex-1 flex flex-col">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center space-x-2">
               <Eye className="w-4 h-4" />
               <span>Live Preview</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-full overflow-auto">
-            <div
-              className="font-mono text-sm bg-gray-50 dark:bg-gray-800 p-4 rounded border h-full overflow-auto"
-              style={{ minHeight: '500px' }}
-            >
-              {getHighlightedContent()}
+          <CardContent className="flex-1 p-0 overflow-hidden">
+            <div className="h-full overflow-auto font-mono text-sm bg-gray-50 dark:bg-gray-800 p-4">
+              <div className="space-y-0">
+                {getHighlightedContent()}
+              </div>
             </div>
           </CardContent>
         </Card>
