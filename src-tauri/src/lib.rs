@@ -49,6 +49,7 @@ pub fn run() {
             list_protocols,
             list_enabled_protocols,
             get_protocol_metadata,
+            get_protocol_content,
             delete_protocol,
             set_protocol_enabled,
             // Theme commands

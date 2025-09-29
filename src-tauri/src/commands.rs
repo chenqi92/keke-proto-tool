@@ -549,6 +549,27 @@ pub async fn list_protocols() -> Result<Vec<ProtocolMetadata>, String> {
     }
 }
 
+/// Get protocol content by ID
+#[tauri::command]
+pub async fn get_protocol_content(protocol_id: String) -> Result<String, String> {
+    let registry = get_parser_registry();
+    let registry_guard = registry.read().unwrap();
+
+    if let Some(repository) = registry_guard.repository() {
+        let metadata = repository.get_protocol_metadata(&protocol_id)
+            .map_err(|e| format!("Failed to get protocol metadata: {}", e))?;
+
+        let protocol_path = repository.get_repository_path()
+            .join("protocols")
+            .join(&metadata.filename);
+
+        std::fs::read_to_string(&protocol_path)
+            .map_err(|e| format!("Failed to read protocol file: {}", e))
+    } else {
+        Err("Protocol repository not available".to_string())
+    }
+}
+
 /// List enabled protocols in the repository
 #[tauri::command]
 pub async fn list_enabled_protocols() -> Result<Vec<ProtocolMetadata>, String> {

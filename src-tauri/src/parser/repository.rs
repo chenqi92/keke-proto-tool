@@ -233,6 +233,11 @@ impl ProtocolRepository {
             .filter(|metadata| metadata.enabled)
             .collect()
     }
+
+    /// Get repository path
+    pub fn get_repository_path(&self) -> &PathBuf {
+        &self.repository_path
+    }
     
     /// Delete a protocol
     pub fn delete_protocol(&mut self, protocol_id: &str) -> NetworkResult<()> {

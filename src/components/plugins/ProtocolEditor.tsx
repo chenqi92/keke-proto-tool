@@ -54,17 +54,19 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
 
   const loadProtocol = async () => {
     if (!protocolId) return;
-    
+
     try {
       // Load protocol metadata and content
       const protocols = await protocolService.listProtocols();
       const protocol = protocols.find(p => p.id === protocolId);
-      
+
       if (protocol) {
         setMetadata(protocol);
-        // For now, we'll use the initial content
-        // In a real implementation, you'd load the actual protocol content
-        setOriginalContent(content);
+
+        // Load the actual protocol content
+        const protocolContent = await protocolService.getProtocolContent(protocolId);
+        setContent(protocolContent);
+        setOriginalContent(protocolContent);
       }
     } catch (err) {
       setError(`Failed to load protocol: ${err}`);
@@ -141,48 +143,60 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
   };
 
   const getHighlightedContent = () => {
-    // Simple syntax highlighting for YAML-like content
+    // Enhanced syntax highlighting for YAML-like content
     return content
       .split('\n')
       .map((line, index) => {
         let highlightedLine = line;
-        
-        // Highlight keys (before colon)
+
+        // Highlight comments first (to avoid conflicts)
+        highlightedLine = highlightedLine.replace(
+          /#(.*)$/g,
+          '<span class="text-gray-500 dark:text-gray-400 italic">#$1</span>'
+        );
+
+        // Highlight main sections (meta, framing, fields, etc.)
+        highlightedLine = highlightedLine.replace(
+          /^(\s*)(meta|framing|fields|validation|conditions|functions|factor_codes)(\s*:)/g,
+          '$1<span class="text-red-600 dark:text-red-400 font-bold">$2</span><span class="text-gray-600 dark:text-gray-300">$3</span>'
+        );
+
+        // Highlight field names and properties
         highlightedLine = highlightedLine.replace(
           /^(\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g,
-          '$1<span class="text-blue-600 font-semibold">$2</span>:'
+          '$1<span class="text-blue-600 dark:text-blue-400 font-semibold">$2</span><span class="text-gray-600 dark:text-gray-300">:</span>'
         );
-        
+
         // Highlight strings (quoted values)
         highlightedLine = highlightedLine.replace(
           /"([^"]*)"/g,
-          '<span class="text-green-600">"$1"</span>'
+          '<span class="text-green-600 dark:text-green-400">"$1"</span>'
         );
-        
+
         // Highlight numbers
         highlightedLine = highlightedLine.replace(
-          /:\s*(\d+\.?\d*)/g,
-          ': <span class="text-purple-600">$1</span>'
+          /:\s*(\d+\.?\d*)\b/g,
+          ': <span class="text-purple-600 dark:text-purple-400">$1</span>'
         );
-        
-        // Highlight comments
+
+        // Highlight boolean values
         highlightedLine = highlightedLine.replace(
-          /#(.*)$/g,
-          '<span class="text-gray-500 italic">#$1</span>'
+          /:\s*(true|false)\b/g,
+          ': <span class="text-orange-600 dark:text-orange-400">$1</span>'
         );
-        
-        // Highlight special protocol sections
+
+        // Highlight array indicators
         highlightedLine = highlightedLine.replace(
-          /^(\s*)(metadata|parsing|validation|factor_codes|examples)(\s*:)/g,
-          '$1<span class="text-red-600 font-bold">$2</span>$3'
+          /^(\s*)-(\s)/g,
+          '$1<span class="text-cyan-600 dark:text-cyan-400">-</span>$2'
         );
 
         return (
-          <div key={index} className="flex">
-            <span className="text-gray-400 text-sm w-8 text-right mr-2 select-none">
+          <div key={index} className="flex hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-0.5 rounded">
+            <span className="text-gray-400 dark:text-gray-500 text-xs w-8 text-right mr-3 select-none">
               {index + 1}
             </span>
-            <span 
+            <span
               className="flex-1"
               dangerouslySetInnerHTML={{ __html: highlightedLine || '&nbsp;' }}
             />
@@ -223,9 +237,9 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
           />
           <label htmlFor="import-file">
             <Button variant="outline" size="sm" asChild>
-              <span className="cursor-pointer">
-                <Upload className="w-4 h-4 mr-1" />
-                Import
+              <span className="cursor-pointer flex items-center whitespace-nowrap">
+                <Upload className="w-4 h-4 mr-1 flex-shrink-0" />
+                <span className="hidden sm:inline">Import</span>
               </span>
             </Button>
           </label>
@@ -234,33 +248,37 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
             variant="outline"
             size="sm"
             onClick={handleExport}
+            className="flex items-center whitespace-nowrap"
           >
-            <Download className="w-4 h-4 mr-1" />
-            Export
+            <Download className="w-4 h-4 mr-1 flex-shrink-0" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
-          
+
           <Button
             variant="outline"
             size="sm"
             onClick={handleSave}
             disabled={!isModified || isSaving}
+            className="flex items-center whitespace-nowrap"
           >
-            <Save className="w-4 h-4 mr-1" />
-            {isSaving ? 'Saving...' : 'Save'}
+            <Save className="w-4 h-4 mr-1 flex-shrink-0" />
+            <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save'}</span>
           </Button>
-          
+
           <Button
             size="sm"
             onClick={handleApply}
             disabled={!isModified || isApplying}
+            className="flex items-center whitespace-nowrap"
           >
-            <Play className="w-4 h-4 mr-1" />
-            {isApplying ? 'Applying...' : 'Apply'}
+            <Play className="w-4 h-4 mr-1 flex-shrink-0" />
+            <span className="hidden sm:inline">{isApplying ? 'Applying...' : 'Apply'}</span>
           </Button>
           
           {onClose && (
-            <Button variant="outline" size="sm" onClick={onClose}>
-              Close
+            <Button variant="outline" size="sm" onClick={onClose} className="flex items-center whitespace-nowrap">
+              <span className="hidden sm:inline">Close</span>
+              <span className="sm:hidden">×</span>
             </Button>
           )}
         </div>
@@ -279,48 +297,46 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
         </Alert>
       )}
 
-      {/* Editor Tabs */}
-      <div className="flex-1 flex flex-col">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="mx-4 mt-2 w-fit">
-            <TabsTrigger value="editor" className="flex items-center space-x-1">
+      {/* Combined Editor and Preview */}
+      <div className="flex-1 flex gap-4 m-4 mt-2">
+        {/* Editor Panel */}
+        <Card className="flex-1">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center space-x-2">
               <Edit3 className="w-4 h-4" />
-              <span>Editor</span>
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="flex items-center space-x-1">
+              <span>Protocol Definition</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 h-full">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="w-full h-full p-4 font-mono text-sm border-none resize-none focus:outline-none"
+              placeholder="Enter your protocol definition here..."
+              spellCheck={false}
+              style={{ minHeight: '500px' }}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Live Preview Panel */}
+        <Card className="flex-1">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center space-x-2">
               <Eye className="w-4 h-4" />
-              <span>Preview</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="editor" className="flex-1 m-4 mt-2">
-            <Card className="h-full">
-              <CardContent className="p-0 h-full">
-                <textarea
-                  ref={textareaRef}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="w-full h-full p-4 font-mono text-sm border-none resize-none focus:outline-none"
-                  placeholder="Enter your protocol definition here..."
-                  spellCheck={false}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="preview" className="flex-1 m-4 mt-2">
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="text-sm">Syntax Highlighted Preview</CardTitle>
-              </CardHeader>
-              <CardContent className="h-full overflow-auto">
-                <div className="font-mono text-sm bg-gray-50 p-4 rounded border h-full overflow-auto">
-                  {getHighlightedContent()}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              <span>Live Preview</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-full overflow-auto">
+            <div
+              className="font-mono text-sm bg-gray-50 dark:bg-gray-800 p-4 rounded border h-full overflow-auto"
+              style={{ minHeight: '500px' }}
+            >
+              {getHighlightedContent()}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

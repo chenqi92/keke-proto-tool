@@ -205,6 +205,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
   const [protocols, setProtocols] = useState<ProtocolMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [editingProtocol, setEditingProtocol] = useState<ProtocolMetadata | null>(null);
   const [editorContent, setEditorContent] = useState('');
 
@@ -217,6 +218,7 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
     try {
       setLoading(true);
       setError(null);
+      setSuccess(null);
       const protocolList = await protocolRepositoryService.listProtocols();
       setProtocols(protocolList);
     } catch (err) {
@@ -371,6 +373,26 @@ examples:
     }
   };
 
+  const handleConfigureProtocol = async (plugin: ProtocolPlugin) => {
+    try {
+      // For now, show a simple configuration dialog
+      const enabled = plugin.status === 'active';
+      const newEnabled = confirm(`Protocol "${plugin.name}" is currently ${enabled ? 'enabled' : 'disabled'}. Would you like to ${enabled ? 'disable' : 'enable'} it?`);
+
+      if (newEnabled !== enabled) {
+        await protocolRepositoryService.setProtocolEnabled(plugin.id, newEnabled);
+
+        // Refresh the protocols list
+        await loadProtocols();
+
+        setSuccess(`Protocol "${plugin.name}" ${newEnabled ? 'enabled' : 'disabled'} successfully`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to configure protocol');
+      console.error('Failed to configure protocol:', err);
+    }
+  };
+
   const handleDeleteProtocol = async (plugin: ProtocolPlugin) => {
     if (!confirm(`Are you sure you want to delete the protocol "${plugin.name}"?`)) {
       return;
@@ -491,6 +513,22 @@ examples:
         </div>
       )}
 
+      {/* Success Display */}
+      {success && (
+        <div className="mx-4 mt-2 p-3 bg-green-50 border border-green-200 rounded-md">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span className="text-sm text-green-700">{success}</span>
+            <button
+              onClick={() => setSuccess(null)}
+              className="ml-auto text-green-500 hover:text-green-700"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Plugin List */}
@@ -524,11 +562,13 @@ examples:
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="font-semibold text-lg">{plugin.name}</h3>
-                        <span className="text-sm text-muted-foreground">
-                          v{plugin.version}
-                        </span>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <h3 className="font-semibold text-lg">{plugin.name}</h3>
+                          <span className="text-sm text-muted-foreground">
+                            v{plugin.version}
+                          </span>
+                        </div>
                         <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
                           {plugin.protocolName}
                         </span>
@@ -597,7 +637,7 @@ examples:
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (onConfigure) onConfigure(plugin);
+                              handleConfigureProtocol(plugin);
                             }}
                             className="p-1.5 hover:bg-accent rounded-md"
                             title="配置"
@@ -670,7 +710,7 @@ examples:
             <div className="p-4 border-b border-border">
               <h3 className="font-semibold">协议插件详情</h3>
             </div>
-            <div className="p-4 space-y-4 overflow-auto">
+            <div className="p-4 space-y-4 overflow-y-auto scrollbar-hide" style={{ maxHeight: 'calc(100vh - 200px)' }}>
               <div>
                 <h4 className="font-medium mb-2">{selectedPlugin.name}</h4>
                 <p className="text-sm text-muted-foreground">

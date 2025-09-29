@@ -181,6 +181,19 @@ export class ProtocolRepositoryService {
   }
 
   /**
+   * Get content for a specific protocol
+   */
+  public async getProtocolContent(protocolId: string): Promise<string> {
+    try {
+      const content = await invoke<string>('get_protocol_content', { protocolId });
+      return content;
+    } catch (error) {
+      console.error('Failed to get protocol content:', error);
+      throw new Error(`Failed to get protocol content: ${error}`);
+    }
+  }
+
+  /**
    * Delete a protocol from the repository
    */
   public async deleteProtocol(protocolId: string): Promise<void> {
