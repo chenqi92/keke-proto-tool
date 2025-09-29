@@ -1,0 +1,161 @@
+protocol "modbus-rtu" {
+  title "Modbus RTU Protocol"
+  version "1.1"
+  description "Modbus RTU binary protocol for industrial automation"
+
+  # 帧同步配置 - Modbus RTU使用固定长度帧
+  frame {
+    mode fixed
+    # Modbus RTU没有固定的帧头，通过地址字段识别
+  }
+
+  # 校验配置 - Modbus RTU使用CRC16校验
+  checksum {
+    type modbus
+    store size 2 endian little encoding bin
+    range from frame_start to before_checksum
+  }
+
+  # 枚举定义 - Modbus功能码
+  enum "function_code" {
+    0x01 "读取线圈状态"
+    0x02 "读取离散输入状态"
+    0x03 "读取保持寄存器"
+    0x04 "读取输入寄存器"
+    0x05 "写单个线圈"
+    0x06 "写单个寄存器"
+    0x0F "写多个线圈"
+    0x10 "写多个寄存器"
+    0x17 "读写多个寄存器"
+  }
+
+  # 消息定义 - Modbus RTU的核心解析逻辑
+  message "modbus_request" {
+    select by field "function_code"
+    
+    # 基础字段
+    field slave_id u8
+    field function_code enum function_code base u8
+    
+    # 根据功能码进行条件解析
+    case 0x01 {  # 读取线圈状态
+      field start_address u16 endian big
+      field quantity u16 endian big
+    }
+    
+    case 0x02 {  # 读取离散输入状态
+      field start_address u16 endian big
+      field quantity u16 endian big
+    }
+    
+    case 0x03 {  # 读取保持寄存器
+      field start_address u16 endian big
+      field quantity u16 endian big
+    }
+    
+    case 0x04 {  # 读取输入寄存器
+      field start_address u16 endian big
+      field quantity u16 endian big
+    }
+    
+    case 0x05 {  # 写单个线圈
+      field output_address u16 endian big
+      field output_value u16 endian big
+    }
+    
+    case 0x06 {  # 写单个寄存器
+      field register_address u16 endian big
+      field register_value u16 endian big
+    }
+    
+    case 0x0F {  # 写多个线圈
+      field start_address u16 endian big
+      field quantity u16 endian big
+      field byte_count u8
+      field output_values bytes lenfrom "byte_count"
+    }
+    
+    case 0x10 {  # 写多个寄存器
+      field start_address u16 endian big
+      field quantity u16 endian big
+      field byte_count u8
+      field register_values bytes lenfrom "byte_count"
+    }
+    
+    # 数据验证
+    assert $.slave_id >= 1 && $.slave_id <= 247
+    assert $.function_code != 0
+  }
+
+  message "modbus_response" {
+    select by field "function_code"
+    
+    field slave_id u8
+    field function_code u8
+    
+    # 错误响应检测
+    case when "function_code & 0x80" {
+      field exception_code u8
+      compute error_name = lookup("exception_codes", $.exception_code).name
+    }
+    
+    # 正常响应
+    case 0x01 {  # 读取线圈状态响应
+      field byte_count u8
+      field coil_status bytes lenfrom "byte_count"
+    }
+    
+    case 0x03 {  # 读取保持寄存器响应
+      field byte_count u8
+      field register_values bytes lenfrom "byte_count"
+      
+      # 解析寄存器值
+      group repeat count_from "byte_count/2" {
+        field register_value u16 endian big
+        emit "registers[]"
+      }
+    }
+    
+    case 0x06 {  # 写单个寄存器响应
+      field register_address u16 endian big
+      field register_value u16 endian big
+    }
+    
+    # 数据验证
+    assert $.slave_id >= 1 && $.slave_id <= 247
+  }
+
+  # 异常码表
+  catalog "exception_codes" inline {
+    0x01 "非法功能码"
+    0x02 "非法数据地址"
+    0x03 "非法数据值"
+    0x04 "从站设备故障"
+    0x05 "确认"
+    0x06 "从站设备忙"
+    0x08 "存储奇偶性差错"
+    0x0A "不可用网关路径"
+    0x0B "网关目标设备响应失败"
+  }
+
+  # 测试样例
+  tests {
+    sample "read_holding_registers" {
+      raw "01 03 00 00 00 0A C5 CD"
+      expect "$.message.slave_id" 1
+      expect "$.message.function_code" 3
+      expect "$.message.start_address" 0
+      expect "$.message.quantity" 10
+      expect "$.frame.checksum_ok" true
+    }
+    
+    sample "write_single_register" {
+      raw "01 06 00 01 00 03 9A 0B"
+      expect "$.message.slave_id" 1
+      expect "$.message.function_code" 6
+      expect "$.message.register_address" 1
+      expect "$.message.register_value" 3
+      expect "$.frame.checksum_ok" true
+    }
+  }
+}

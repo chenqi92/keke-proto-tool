@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { convertKptToYaml } from '../utils/kptToYamlConverter';
 
 // Protocol metadata interface matching the backend
 export interface ProtocolMetadata {
@@ -101,12 +102,21 @@ export class ProtocolRepositoryService {
   }
 
   /**
-   * Import a protocol from YAML content
+   * Import a protocol from KPT content
    */
   public async importProtocol(request: ProtocolImportRequest): Promise<string> {
     try {
+      // Convert KPT format to YAML format for backend compatibility
+      let content = request.content;
+
+      // Check if content is in KPT format (starts with 'protocol')
+      if (content.trim().startsWith('protocol ')) {
+        console.log('Converting KPT format to YAML for backend compatibility');
+        content = convertKptToYaml(content);
+      }
+
       const protocolId = await invoke<string>('import_protocol', {
-        content: request.content,
+        content: content,
         custom_name: request.name,
         custom_category: request.category,
         tags: request.tags || [],
@@ -227,7 +237,7 @@ export class ProtocolRepositoryService {
       const content = await this.readFileAsText(file);
       
       // Extract name from filename (remove extension)
-      const name = file.name.replace(/\.(kpt|yaml|yml|json)$/i, '');
+      const name = file.name.replace(/\.(kpt|txt)$/i, '');
       
       const request: ProtocolImportRequest = {
         name,

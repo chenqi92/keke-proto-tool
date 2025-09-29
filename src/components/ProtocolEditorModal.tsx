@@ -18,35 +18,76 @@ interface ProtocolMeta {
   tags: string[];
 }
 
-// 默认协议模板
-const DEFAULT_PROTOCOL_TEMPLATE = `framing:
-  start_delimiter: ""
-  end_delimiter: ""
-  length_field:
-    offset: 0
-    length: 0
-    encoding: ascii_decimal
-    includes_header: false
-    includes_length_field: false
-    endian: big
+// 默认协议模板 - 符合KPT 1.1规范
+const DEFAULT_PROTOCOL_TEMPLATE = `protocol "universal-template" {
+  title "通用协议模板"
+  version "1.1"
+  description "基于KPT 1.1规范的通用协议模板，适用于各种物联网协议"
 
-fields:
-  - name: "example_field"
-    type: "string"
-    offset: 0
-    length: 10
-    description: "示例字段"
-    validation:
-      pattern: "^[A-Za-z0-9]+$"
+  # 帧同步配置 - 定义如何识别和分割数据帧
+  frame {
+    mode length                    # 帧模式: fixed|delimited|length|stxetx|slip|cobs|hdlc
+    header "##"                    # 帧头标识
+    length at +2 size 4 encoding dec_ascii includes payload
+    # length 字段位置: at +偏移量, 大小, 编码方式, 包含范围
+  }
 
-validation:
-  strict_mode: true
-  validate_crc: false
-  validate_timestamps: false
+  # 校验配置 - 数据完整性验证
+  checksum {
+    type crc16                     # 校验类型: none|sum8|xor8|lrc|modbus|crc16|crc32
+    store size 4 encoding hex_ascii
+    range from after_header to before_checksum
+    params poly 0x1021 init 0xFFFF refin off refout off xorout 0x0000
+  }
 
-conditions: []
+  # 编解码插件 - 处理不同数据格式
+  codec "kv" type kv pair ";" kvsep "=" trim
+  codec "json" type json
 
-functions: {}`;
+  # 枚举定义 - 常用的状态码和命令码
+  enum "status" {
+    0x00 "正常"
+    0x01 "告警"
+    0x02 "故障"
+  }
+
+  # 消息定义 - 协议的核心解析逻辑
+  message "data" {
+    select pattern "*"             # 消息选择条件
+
+    # 基础字段解析
+    field header ascii size 2
+    field length u32 encoding dec_ascii
+    field payload ascii lenfrom "length"
+    field checksum ascii size 4
+
+    # 条件解析 - 根据载荷内容选择不同解析方式
+    case when "payload.startsWith('ST=')" {
+      field data codec "kv" src $payload
+      compute station_id = kv(data).ST
+      compute timestamp = kv(data).DataTime
+    }
+
+    case when "payload.startsWith('{')" {
+      field json_data codec "json" src $payload
+      compute device_id = $.json_data.device_id
+      compute values = $.json_data.data
+    }
+
+    # 数据验证
+    assert $.header == "##"
+    assert $.length > 0 && $.length <= 65535
+  }
+
+  # 测试样例 - 验证协议解析正确性
+  tests {
+    sample "basic_kv" {
+      raw "##0025ST=001;DataTime=20250929123000;1234"
+      expect "$.message.station_id" "001"
+      expect "$.frame.checksum_ok" true
+    }
+  }
+}`;
 
 // 默认Meta信息
 const DEFAULT_META: ProtocolMeta = {
@@ -59,65 +100,114 @@ const DEFAULT_META: ProtocolMeta = {
   tags: ["custom", "protocol"]
 };
 
-// 节点提示信息
+// KPT 1.1 节点提示信息
 const NODE_HINTS = {
-  framing: {
-    title: "帧结构定义",
-    description: "定义协议的帧格式，包括起始符、结束符和长度字段",
-    example: `framing:
-  start_delimiter: "##"     # 起始符
-  end_delimiter: "\\r\\n"    # 结束符
-  length_field:             # 长度字段配置
-    offset: 2               # 长度字段偏移
-    length: 4               # 长度字段长度
-    encoding: ascii_decimal # 编码方式
-    includes_header: false  # 是否包含头部
-    includes_length_field: false # 是否包含长度字段本身
-    endian: big            # 字节序`
+  protocol: {
+    title: "协议定义",
+    description: "协议的基本信息和标识，每个KPT文件的根节点",
+    example: `protocol "my-protocol" {
+  title "我的协议"
+  version "1.1"
+  description "协议描述信息"
+  # 其他子块...
+}`
   },
-  fields: {
-    title: "字段定义",
-    description: "定义协议中的各个字段，包括名称、类型、偏移量等",
-    example: `fields:
-  - name: "field_name"      # 字段名称
-    type: "string"          # 字段类型: string, uint8, uint16, uint32, float
-    offset: 0               # 字段偏移量
-    length: 10              # 字段长度
-    description: "字段描述"  # 字段说明
-    validation:             # 验证规则
-      pattern: "^[A-Z]+$"   # 正则表达式
-      min_value: 0          # 最小值（数值类型）
-      max_value: 100        # 最大值（数值类型）
-      allowed_values: ["A", "B"] # 允许的值`
+  frame: {
+    title: "帧同步",
+    description: "定义如何识别和分割数据帧的规则",
+    example: `frame {
+  mode length                    # 帧模式
+  header "##"                    # 帧头标识
+  tail "\\r\\n"                   # 帧尾标识（delimited模式）
+  length at +2 size 4 encoding dec_ascii includes payload
+  escape on                      # 转义处理（slip/hdlc模式）
+}`
   },
-  validation: {
-    title: "验证规则",
-    description: "定义协议的全局验证规则",
-    example: `validation:
-  strict_mode: true         # 严格模式
-  validate_crc: true        # 验证CRC
-  validate_timestamps: true # 验证时间戳
-  validate_factor_ranges: true # 验证因子范围`
+  checksum: {
+    title: "校验配置",
+    description: "数据完整性验证的配置",
+    example: `checksum {
+  type crc16                     # 校验算法
+  store size 4 encoding hex_ascii
+  range from after_header to before_checksum
+  locator after_char "*" take 2  # 定位器（如NMEA）
+  params poly 0x1021 init 0xFFFF # CRC参数
+}`
   },
-  conditions: {
-    title: "条件规则",
-    description: "定义基于条件的字段解析规则",
-    example: `conditions:
-  - if: "field_name == 'value'"
-    then:
-      - parse_field: "conditional_field"
-    else:
-      - skip_bytes: 10`
+  envelope: {
+    title: "传输封装",
+    description: "承载层上下文信息（MQTT主题、CAN ID等）",
+    example: `envelope mqtt {
+  topic_match "plant/{site}/mn/{mn}/up/{type}"
+  expose site mn type
+}
+envelope can {
+  id_bits 11
+  expose id pgn sa da prio
+}`
   },
-  functions: {
-    title: "自定义函数",
-    description: "定义自定义验证和处理函数",
-    example: `functions:
-  custom_validator: |
-    function custom_validator(data, field_value) {
-      // 自定义验证逻辑
-      return true;
-    }`
+  codec: {
+    title: "编解码插件",
+    description: "处理不同数据格式的编解码器",
+    example: `codec "kv" type kv pair ";" kvsep "=" trim
+codec "json" type json
+codec "pb" type protobuf schema "meter.proto" message "Reading"
+codec "tlv" type tlv_ber`
+  },
+  enum: {
+    title: "枚举定义",
+    description: "定义状态码、命令码等枚举值",
+    example: `enum "cmd" {
+  0x01 "读取状态"
+  0x02 "控制命令"
+  0x03 "配置参数"
+}`
+  },
+  catalog: {
+    title: "码表/知识库",
+    description: "外部数据映射表，用于代码到名称的转换",
+    example: `catalog "points" csv "points.csv" key "code"
+catalog "factors" inline {
+  1001 "H2S" unit "mg/m3"
+  1002 "CO" unit "mg/m3"
+}`
+  },
+  units: {
+    title: "单位转换",
+    description: "定义单位之间的转换关系",
+    example: `units {
+  define "mg/m3" to "µg/m3" factor 1000
+  define "Pa" to "kPa" factor 0.001
+}`
+  },
+  message: {
+    title: "消息定义",
+    description: "协议的核心解析逻辑，定义字段和处理规则",
+    example: `message "data" {
+  select pattern "*"             # 消息选择
+  field header ascii size 2     # 字段定义
+  field length u16 endian big   # 数值字段
+  field payload bytes lenfrom "length"
+
+  case 0x01 {                   # 条件分支
+    field temp i16 scale 0.1 unit "°C"
+    field hum u16 scale 0.1 unit "%"
+  }
+
+  compute device_name = lookup("devices", $.id).name
+  assert $.header == "##"       # 数据验证
+}`
+  },
+  tests: {
+    title: "测试样例",
+    description: "验证协议解析正确性的测试用例",
+    example: `tests {
+  sample "case1" {
+    raw "##0048ST=001;DataTime=20250929123000;1234"
+    expect "$.message.station_id" "001"
+    expect "$.frame.checksum_ok" true
+  }
+}`
   }
 };
 
@@ -322,7 +412,6 @@ ${content}`;
               variant="ghost"
               size="sm"
               onClick={() => setShowHints(!showHints)}
-              title="切换提示"
             >
               <HelpCircle className="w-4 h-4" />
             </Button>
@@ -415,7 +504,7 @@ ${content}`;
                 />
                 {/* 编辑器背景装饰 */}
                 <div className="absolute top-2 right-2 text-xs text-gray-400 pointer-events-none">
-                  YAML
+                  KPT 1.1
                 </div>
               </div>
             </div>

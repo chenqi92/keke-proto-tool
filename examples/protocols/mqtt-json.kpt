@@ -1,0 +1,176 @@
+protocol "mqtt-json-iot" {
+  title "MQTT + JSON IoT Protocol"
+  version "1.1"
+  description "MQTT主题路由 + JSON负载的物联网协议"
+
+  # 传输封装 - MQTT主题解析
+  envelope mqtt {
+    topic_match "iot/{site}/{device_type}/{device_id}/{msg_type}"
+    expose site device_type device_id msg_type
+  }
+
+  # 编解码插件
+  codec "json" type json
+
+  # 设备类型枚举
+  enum "device_types" {
+    "sensor" "传感器设备"
+    "actuator" "执行器设备"
+    "gateway" "网关设备"
+    "controller" "控制器设备"
+  }
+
+  # 消息类型枚举
+  enum "message_types" {
+    "data" "数据上报"
+    "alarm" "告警信息"
+    "status" "状态信息"
+    "config" "配置信息"
+    "command" "命令下发"
+    "response" "命令响应"
+  }
+
+  # 设备信息码表
+  catalog "devices" csv "devices.csv" key "device_id"
+  catalog "sensors" csv "sensors.csv" key "sensor_id"
+
+  # 单位转换定义
+  units {
+    define "°C" to "K" factor 1 offset 273.15
+    define "mg/m³" to "µg/m³" factor 1000
+    define "Pa" to "kPa" factor 0.001
+    define "%" to "fraction" factor 0.01
+  }
+
+  # 消息定义
+  message "iot_data" {
+    select by envelope.mqtt.msg_type
+    
+    # 解析JSON载荷
+    field payload bytes lenfrom "_frame_payload_len"
+    field json_data codec "json" src $payload
+    
+    # 提取公共字段
+    compute timestamp = $.json_data.timestamp
+    compute device_id = envelope.mqtt.device_id
+    compute site = envelope.mqtt.site
+    compute device_type = envelope.mqtt.device_type
+    
+    # 设备信息查找
+    compute device_name = lookup("devices", $.device_id).name
+    compute device_location = lookup("devices", $.device_id).location
+    compute device_model = lookup("devices", $.device_id).model
+    
+    # 根据消息类型进行条件解析
+    case "data" {
+      # 传感器数据上报
+      field sensors array from $.json_data.sensors
+      
+      group repeat for_each_sensor {
+        field sensor_id ascii from $.sensor_id
+        field sensor_type ascii from $.type
+        field value f32 from $.value
+        field unit ascii from $.unit
+        field quality ascii from $.quality when "$.quality != null"
+        
+        # 传感器信息查找
+        compute sensor_name = lookup("sensors", $.sensor_id).name
+        compute sensor_category = lookup("sensors", $.sensor_id).category
+        compute measurement_range = lookup("sensors", $.sensor_id).range
+        
+        # 单位转换（如果需要）
+        field converted_value f32 unit $.unit convert_to "standard_unit"
+        
+        # 数据质量验证
+        assert $.quality in ["good", "uncertain", "bad", null]
+        assert $.value >= $.measurement_range.min && $.value <= $.measurement_range.max
+        
+        emit "measurements[]"
+      }
+    }
+    
+    case "alarm" {
+      # 告警信息
+      field alarm_code ascii from $.json_data.alarm_code
+      field alarm_level ascii from $.json_data.level
+      field alarm_message ascii from $.json_data.message
+      field alarm_timestamp ascii from $.json_data.timestamp
+      
+      # 告警级别验证
+      assert $.alarm_level in ["info", "warning", "error", "critical"]
+      
+      compute alarm_description = lookup("alarm_codes", $.alarm_code).description
+    }
+    
+    case "status" {
+      # 设备状态信息
+      field device_status ascii from $.json_data.status
+      field uptime u32 from $.json_data.uptime
+      field cpu_usage f32 from $.json_data.cpu_usage when "$.json_data.cpu_usage != null"
+      field memory_usage f32 from $.json_data.memory_usage when "$.json_data.memory_usage != null"
+      field temperature f32 from $.json_data.temperature when "$.json_data.temperature != null"
+      
+      # 状态验证
+      assert $.device_status in ["online", "offline", "maintenance", "error"]
+      assert $.cpu_usage >= 0 && $.cpu_usage <= 100 when "$.cpu_usage != null"
+      assert $.memory_usage >= 0 && $.memory_usage <= 100 when "$.memory_usage != null"
+    }
+    
+    case "config" {
+      # 配置信息
+      field config_version ascii from $.json_data.version
+      field config_data object from $.json_data.config
+      field config_checksum ascii from $.json_data.checksum when "$.json_data.checksum != null"
+    }
+    
+    # 上下文叠加
+    overlay context {
+      site from envelope.mqtt.site
+      device_id from envelope.mqtt.device_id
+      device_type from envelope.mqtt.device_type
+      device_name from $.device_name
+      location from $.device_location
+      tags ["iot", "mqtt", "json"]
+    }
+    
+    # 全局验证
+    assert $.timestamp != ""
+    assert $.device_id != ""
+  }
+
+  # 导出配置
+  export influx {
+    measurement "iot_measurements"
+    tags ["site", "device_id", "device_type", "sensor_type"]
+    fields ["value", "converted_value", "quality"]
+    timestamp from "timestamp"
+  }
+
+  export json {
+    rename $.device_id -> $.deviceId
+    rename $.sensor_id -> $.sensorId
+    move $.device_name -> $.metadata.deviceName
+    move $.location -> $.metadata.location
+  }
+
+  # 测试样例
+  tests {
+    sample "sensor_data" {
+      topic "iot/factory_a/sensor/temp_001/data"
+      raw "{\"timestamp\":\"2025-09-29T12:30:00Z\",\"sensors\":[{\"sensor_id\":\"temp_01\",\"type\":\"temperature\",\"value\":23.5,\"unit\":\"°C\",\"quality\":\"good\"},{\"sensor_id\":\"hum_01\",\"type\":\"humidity\",\"value\":65.2,\"unit\":\"%\",\"quality\":\"good\"}]}"
+      expect "$.envelope.site" "factory_a"
+      expect "$.envelope.device_id" "temp_001"
+      expect "$.envelope.msg_type" "data"
+      expect "$.message.sensors[0].value" 23.5
+      expect "$.message.sensors[0].unit" "°C"
+    }
+    
+    sample "alarm_message" {
+      topic "iot/factory_a/sensor/temp_001/alarm"
+      raw "{\"timestamp\":\"2025-09-29T12:35:00Z\",\"alarm_code\":\"TEMP_HIGH\",\"level\":\"warning\",\"message\":\"Temperature exceeds normal range\"}"
+      expect "$.envelope.msg_type" "alarm"
+      expect "$.message.alarm_level" "warning"
+      expect "$.message.alarm_code" "TEMP_HIGH"
+    }
+  }
+}

@@ -1,285 +1,193 @@
-# HJ212 Complete Environmental Monitoring Protocol
-# Enhanced implementation with complete factor code translation and attributes
-# Based on HJ212-2017 Chinese national standard
+protocol "hj212-2017" {
+  title "HJ212 Complete Environmental Monitoring Protocol"
+  version "2017-enhanced"
+  description "Complete HJ212-2017 implementation with factor code translation and attributes"
 
-meta:
-  name: "HJ212 Complete Environmental Monitoring Protocol"
-  version: "2017-enhanced"
-  author: "ProtoTool Team"
-  description: "Complete HJ212-2017 implementation with factor code translation and attributes"
-  supported_formats: ["ascii", "hex"]
-  category: "environmental"
-  tags: ["environmental", "monitoring", "china", "standard", "complete"]
+  # 帧同步配置 - HJ212使用长度字段模式
+  frame {
+    mode length
+    header "##"
+    length at +0 size 4 encoding dec_ascii includes payload
+  }
 
-framing:
-  start_delimiter: "##"
-  end_delimiter: "\r\n"
-  length_field:
-    offset: 2
-    length: 4
-    encoding: ascii_decimal
-    includes_header: false
-    includes_length_field: false
-    endian: big
+  # 校验配置 - HJ212使用CRC16校验
+  checksum {
+    type crc16
+    store size 4 encoding hex_ascii
+    range from after_header to before_checksum
+    params poly 0x1021 init 0xFFFF refin off refout off xorout 0x0000
+  }
 
-fields:
-  - name: "start_flag"
-    type: "string"
-    offset: 0
-    length: 2
-    description: "起始符，固定为'##'"
-    validation:
-      allowed_values: ["##"]
+  # 编解码插件 - 处理键值对格式
+  codec "kv" type kv pair ";" kvsep "=" trim
 
-  - name: "data_length"
-    type: "uint32"
-    offset: 2
-    length: 4
-    encoding: ascii_decimal
-    description: "数据段长度（不包括起始符、长度字段和结束符）"
-    validation:
-      min_value: 1
-      max_value: 9999
+  # 枚举定义 - HJ212标准中的系统编码和命令编码
+  enum "system_type" {
+    21 "大气环境污染源"
+    22 "地表水体环境质量"
+    23 "地下水体环境质量"
+    24 "海水环境质量"
+    25 "土壤环境质量"
+    26 "声环境质量"
+    27 "振动环境质量"
+    28 "放射性环境质量"
+    29 "电磁环境质量"
+    30 "室内空气质量"
+    31 "沙尘暴源"
+    32 "生物生态环境质量"
+  }
 
-  - name: "qn"
-    type: "string"
-    offset: 6
-    length: 17
-    description: "请求编号，格式：YYYYMMDDHHmmsszzz"
-    validation:
-      pattern: "^\\d{17}$"
+  enum "command_type" {
+    1011 "取污染物实时数据"
+    1012 "取污染物分钟数据"
+    1013 "取污染物小时数据"
+    2011 "上传污染物实时数据"
+    2012 "上传污染物分钟数据"
+    2013 "上传污染物小时数据"
+    2014 "上传污染物日数据"
+    2015 "上传污染物月数据"
+    2016 "上传污染物年数据"
+    2017 "上传污染物季度数据"
+    2018 "上传污染物周数据"
+    2019 "上传污染物指定时段数据"
+  }
 
-  - name: "st"
-    type: "string"
-    offset: 23
-    length: 5
-    description: "系统编码，标识监测系统类型"
-    validation:
-      allowed_values: ["21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"]
+  # 因子码表 - 环境监测因子代码映射
+  catalog "factors" inline {
+    a00001 "pH值" unit "无量纲" category "水质"
+    a01001 "溶解氧" unit "mg/L" category "水质"
+    a01002 "高锰酸盐指数" unit "mg/L" category "水质"
+    a01003 "化学需氧量" unit "mg/L" category "水质"
+    a01004 "五日生化需氧量" unit "mg/L" category "水质"
+    a01005 "氨氮" unit "mg/L" category "水质"
+    a01006 "总磷" unit "mg/L" category "水质"
+    a01007 "总氮" unit "mg/L" category "水质"
+    a01008 "铜" unit "mg/L" category "水质"
+    a01009 "锌" unit "mg/L" category "水质"
+    a01010 "氟化物" unit "mg/L" category "水质"
+    a01011 "硒" unit "mg/L" category "水质"
+    a01012 "砷" unit "mg/L" category "水质"
+    a01013 "汞" unit "mg/L" category "水质"
+    a01014 "镉" unit "mg/L" category "水质"
+    a01015 "铬" unit "mg/L" category "水质"
+    a01016 "铅" unit "mg/L" category "水质"
+    a01017 "氰化物" unit "mg/L" category "水质"
+    a01018 "挥发酚" unit "mg/L" category "水质"
+    a01019 "石油类" unit "mg/L" category "水质"
+    a01020 "阴离子表面活性剂" unit "mg/L" category "水质"
+    a01021 "硫化物" unit "mg/L" category "水质"
+    a01022 "粪大肠菌群" unit "个/L" category "水质"
+    a01023 "硫酸盐" unit "mg/L" category "水质"
+    a01024 "氯化物" unit "mg/L" category "水质"
+    a01025 "硝酸盐氮" unit "mg/L" category "水质"
+    a01026 "铁" unit "mg/L" category "水质"
+    a01027 "锰" unit "mg/L" category "水质"
+    a21001 "二氧化硫" unit "mg/m³" category "大气"
+    a21002 "二氧化氮" unit "mg/m³" category "大气"
+    a21003 "一氧化氮" unit "mg/m³" category "大气"
+    a21004 "一氧化碳" unit "mg/m³" category "大气"
+    a21005 "臭氧" unit "mg/m³" category "大气"
+    a21006 "颗粒物PM10" unit "mg/m³" category "大气"
+    a21007 "颗粒物PM2.5" unit "mg/m³" category "大气"
+    a21008 "总悬浮颗粒物" unit "mg/m³" category "大气"
+    a21009 "氮氧化物" unit "mg/m³" category "大气"
+    a21010 "氨" unit "mg/m³" category "大气"
+    a21011 "硫化氢" unit "mg/m³" category "大气"
+    a21012 "氟化氢" unit "mg/m³" category "大气"
+    a21013 "氯气" unit "mg/m³" category "大气"
+    a21014 "氯化氢" unit "mg/m³" category "大气"
+    a21015 "甲烷" unit "mg/m³" category "大气"
+    a21016 "总烃" unit "mg/m³" category "大气"
+    a21017 "非甲烷总烃" unit "mg/m³" category "大气"
+    a21018 "苯" unit "mg/m³" category "大气"
+    a21019 "甲苯" unit "mg/m³" category "大气"
+    a21020 "二甲苯" unit "mg/m³" category "大气"
+  }
 
-  - name: "cn"
-    type: "string"
-    offset: 28
-    length: 4
-    description: "命令编码，标识命令类型"
-    validation:
-      allowed_values: ["1011", "1012", "1013", "1061", "1062", "1063", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2031", "2041", "2051", "2061", "2071", "3011", "3012", "3013", "3014", "3015", "3016", "3017", "3018", "3019", "9011", "9012", "9013", "9014"]
+  # 消息定义 - HJ212协议的核心解析逻辑
+  message "hj212" {
+    select pattern "*"
 
-  - name: "pw"
-    type: "string"
-    offset: 32
-    length: 6
-    description: "访问密码"
+    # 基础字段解析
+    field header ascii size 2
+    field length u32 encoding dec_ascii
+    field payload ascii lenfrom "length"
+    field checksum ascii size 4
+    field trailer ascii size 2
 
-  - name: "mn"
-    type: "string"
-    offset: 38
-    length: 14
-    description: "监测点编号，监测点唯一标识"
-    validation:
-      pattern: "^[A-Za-z0-9]{14}$"
+    # 解析载荷中的键值对数据
+    field kv_data codec "kv" src $payload
 
-  - name: "flag"
-    type: "string"
-    offset: 52
-    length: 1
-    description: "标志位，表示数据分包和应答要求"
-    validation:
-      allowed_values: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    # 提取关键字段
+    compute QN = kv(kv_data).QN
+    compute ST = kv(kv_data).ST
+    compute CN = kv(kv_data).CN
+    compute PW = kv(kv_data).PW
+    compute MN = kv(kv_data).MN
+    compute Flag = kv(kv_data).Flag
+    compute PNUM = kv(kv_data).PNUM
+    compute PNO = kv(kv_data).PNO
+    compute CP = kv(kv_data).CP
 
-  - name: "pnum"
-    type: "string"
-    offset: 53
-    length: 4
-    description: "总包数，用于数据分包"
-    validation:
-      pattern: "^\\d{4}$"
+    # 系统类型和命令类型解析
+    compute system_name = lookup("system_type", $.ST).name
+    compute command_name = lookup("command_type", $.CN).name
 
-  - name: "pno"
-    type: "string"
-    offset: 57
-    length: 4
-    description: "包号，当前包序号"
-    validation:
-      pattern: "^\\d{4}$"
+    # 根据命令类型进行条件解析
+    case when "CN.startsWith('20')" {
+      # 数据上传命令 - 解析CP中的监测数据
+      field cp_data codec "kv" src $CP
+      compute DataTime = kv(cp_data).DataTime
 
-  - name: "cp"
-    type: "string"
-    offset: 61
-    length_until_delimiter: "&&"
-    description: "命令参数，包含实际数据内容"
+      # 解析因子数据
+      group repeat for_each_factor_in_cp {
+        field factor_code ascii pattern "a\\d{5}"
+        field factor_value f32 scale 0.001
+        field factor_flag ascii size 1
 
-  - name: "crc"
-    type: "string"
-    offset: "cp_end + 2"
-    length: 4
-    description: "CRC校验码，从QN到CP计算"
-    validation:
-      custom_validator: "validate_hj212_crc"
+        # 因子信息查找
+        compute factor_name = lookup("factors", $.factor_code).name
+        compute factor_unit = lookup("factors", $.factor_code).unit
+        compute factor_category = lookup("factors", $.factor_code).category
 
-  - name: "end_flag"
-    type: "string"
-    offset: "crc_end"
-    length: 2
-    description: "结束符，固定为'\\r\\n'"
-    validation:
-      allowed_values: ["\r\n"]
-
-validation:
-  strict_mode: true
-  validate_crc: true
-  validate_timestamps: true
-  validate_factor_ranges: true
-
-conditions: []
-
-functions:
-  validate_hj212_crc: |
-    function validate_hj212_crc(data, field_value) {
-      // CRC16校验算法实现
-      return true; // 简化实现
+        emit "measurements[]"
+      }
     }
 
-factor_codes:
-  # Water Quality Factors
-  a00001:
-    name: "pH值"
-    name_en: "pH Value"
-    unit: "无量纲"
-    unit_en: "dimensionless"
-    category: "water_quality"
-    data_type: "float"
-    precision: 2
-    range: [0, 14]
-    description: "水的酸碱度指标"
-    alarm_high: 9.0
-    alarm_low: 6.0
-    standard_value: 7.0
-    quality_grade: "I类水质标准"
-    
-  a01001:
-    name: "溶解氧"
-    name_en: "Dissolved Oxygen"
-    unit: "mg/L"
-    unit_en: "mg/L"
-    category: "water_quality"
-    data_type: "float"
-    precision: 2
-    range: [0, 20]
-    description: "水中溶解氧含量"
-    alarm_low: 5.0
-    standard_value: 7.5
-    quality_grade: "I类水质标准"
-    
-  a01002:
-    name: "高锰酸盐指数"
-    name_en: "Permanganate Index"
-    unit: "mg/L"
-    unit_en: "mg/L"
-    category: "water_quality"
-    data_type: "float"
-    precision: 2
-    range: [0, 50]
-    description: "水中有机污染物含量指标"
-    alarm_high: 6.0
-    standard_value: 2.0
-    quality_grade: "I类水质标准"
-    
-  a21001:
-    name: "二氧化硫"
-    name_en: "Sulfur Dioxide"
-    unit: "mg/m³"
-    unit_en: "mg/m³"
-    category: "air_quality"
-    data_type: "float"
-    precision: 3
-    range: [0, 1.0]
-    description: "空气中二氧化硫浓度"
-    alarm_high: 0.15
-    standard_value: 0.05
-    quality_grade: "一级标准"
-    
-  a21002:
-    name: "二氧化氮"
-    name_en: "Nitrogen Dioxide"
-    unit: "mg/m³"
-    unit_en: "mg/m³"
-    category: "air_quality"
-    data_type: "float"
-    precision: 3
-    range: [0, 0.5]
-    description: "空气中二氧化氮浓度"
-    alarm_high: 0.08
-    standard_value: 0.04
-    quality_grade: "一级标准"
-    
-  a21003:
-    name: "一氧化碳"
-    name_en: "Carbon Monoxide"
-    unit: "mg/m³"
-    unit_en: "mg/m³"
-    category: "air_quality"
-    data_type: "float"
-    precision: 1
-    range: [0, 50]
-    description: "空气中一氧化碳浓度"
-    alarm_high: 10.0
-    standard_value: 4.0
-    quality_grade: "一级标准"
-    
-  a21004:
-    name: "臭氧"
-    name_en: "Ozone"
-    unit: "mg/m³"
-    unit_en: "mg/m³"
-    category: "air_quality"
-    data_type: "float"
-    precision: 3
-    range: [0, 1.0]
-    description: "空气中臭氧浓度"
-    alarm_high: 0.16
-    standard_value: 0.1
-    quality_grade: "一级标准"
-    
-  a21005:
-    name: "PM10"
-    name_en: "PM10"
-    unit: "mg/m³"
-    unit_en: "mg/m³"
-    category: "air_quality"
-    data_type: "float"
-    precision: 3
-    range: [0, 1.0]
-    description: "PM10，空气动力学直径≤10μm的颗粒物"
-    alarm_high: 0.15
-    standard_value: 0.05
-    quality_grade: "一级标准"
-    
-  a21026:
-    name: "PM2.5"
-    name_en: "PM2.5"
-    unit: "mg/m³"
-    unit_en: "mg/m³"
-    category: "air_quality"
-    data_type: "float"
-    precision: 3
-    range: [0, 0.5]
-    description: "PM2.5，空气动力学直径≤2.5μm的颗粒物"
-    alarm_high: 0.075
-    standard_value: 0.035
-    quality_grade: "一级标准"
-    
-  # Noise Factors
-  a31001:
-    name: "噪声"
-    name_en: "Noise"
-    unit: "dB(A)"
-    unit_en: "dB(A)"
-    category: "noise"
-    data_type: "float"
-    precision: 1
-    range: [0, 120]
-    description: "环境噪声声级"
-    alarm_high: 70.0
-    standard_value: 55.0
-    quality_grade: "2类声环境功能区"
+    case when "CN.startsWith('10')" {
+      # 数据请求命令 - 解析请求参数
+      field cp_data codec "kv" src $CP
+      compute BeginTime = kv(cp_data).BeginTime
+      compute EndTime = kv(cp_data).EndTime
+    }
+
+    # 数据验证
+    assert $.header == "##"
+    assert $.trailer == "\r\n"
+    assert $.QN != ""
+    assert $.MN != ""
+  }
+  # 测试样例 - 验证HJ212协议解析正确性
+  tests {
+    sample "realtime_data_upload" {
+      raw "##0130QN=20250929123000001;ST=22;CN=2011;PW=123456;MN=88888888888888;Flag=5;PNUM=0001;PNO=0001;CP=&&DataTime=20250929123000;a01001-Rtd=7.85,a01001-Flag=N;a01002-Rtd=3.2,a01002-Flag=N;a01003-Rtd=15.6,a01003-Flag=N&&1234\r\n"
+      expect "$.message.QN" "20250929123000001"
+      expect "$.message.ST" "22"
+      expect "$.message.CN" "2011"
+      expect "$.message.MN" "88888888888888"
+      expect "$.message.system_name" "地表水体环境质量"
+      expect "$.message.command_name" "上传污染物实时数据"
+      expect "$.frame.checksum_ok" true
+    }
+
+    sample "data_request" {
+      raw "##0098QN=20250929123000002;ST=22;CN=1011;PW=123456;MN=88888888888888;Flag=5;PNUM=0001;PNO=0001;CP=&&BeginTime=20250929120000;EndTime=20250929123000&&5678\r\n"
+      expect "$.message.QN" "20250929123000002"
+      expect "$.message.CN" "1011"
+      expect "$.message.command_name" "取污染物实时数据"
+      expect "$.message.BeginTime" "20250929120000"
+      expect "$.message.EndTime" "20250929123000"
+      expect "$.frame.checksum_ok" true
+    }
+  }
+}
