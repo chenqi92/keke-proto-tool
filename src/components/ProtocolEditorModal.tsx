@@ -331,28 +331,28 @@ ${content}`;
               type: 'success'
             });
             setShowExportDialog(true);
-            return;
+          } else {
+            // User cancelled the dialog
+            console.log('Export cancelled by user');
           }
+          return;
         } catch (tauriError) {
-          console.log('Tauri dialog failed, falling back to browser download:', tauriError);
+          console.error('Tauri dialog failed:', tauriError);
+          setDialogContent({
+            title: '导出失败',
+            message: '无法打开文件选择对话框，请检查应用权限。',
+            type: 'error'
+          });
+          setShowExportDialog(true);
+          return;
         }
       }
 
-      // Fallback to browser download (for web or if Tauri fails)
-      const blob = new Blob([fullProtocol], { type: 'text/yaml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${meta.name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}.kpt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
+      // Should not reach here in desktop environment
       setDialogContent({
-        title: '导出成功',
-        message: '协议文件已成功下载到默认下载目录。',
-        type: 'success'
+        title: '导出失败',
+        message: '当前环境不支持文件导出功能。',
+        type: 'error'
       });
       setShowExportDialog(true);
     } catch (error) {
