@@ -300,66 +300,41 @@ meta:
 
 ${content}`;
 
-      // Check if we're in Tauri environment by checking for __TAURI__
-      const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__;
+      // Use string-based dynamic imports to avoid Vite's static analysis
+      const dialogModule = '@tauri-apps/plugin-dialog';
+      const fsModule = '@tauri-apps/api/fs';
+      const tauriDialog = await import(/* @vite-ignore */ dialogModule);
+      const tauriFs = await import(/* @vite-ignore */ fsModule);
 
-      if (isTauri) {
-        try {
-          // Use string-based dynamic imports to avoid Vite's static analysis
-          const dialogModule = '@tauri-apps/plugin-dialog';
-          const fsModule = '@tauri-apps/api/fs';
-          const tauriDialog = await import(/* @vite-ignore */ dialogModule);
-          const tauriFs = await import(/* @vite-ignore */ fsModule);
-
-          const filePath = await tauriDialog.save({
-            title: '选择导出位置',
-            defaultPath: `${meta.name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}.kpt`,
-            filters: [{
-              name: 'KPT Protocol Files',
-              extensions: ['kpt']
-            }, {
-              name: 'Text Files',
-              extensions: ['txt']
-            }]
-          });
-
-          if (filePath) {
-            await tauriFs.writeTextFile(filePath, fullProtocol);
-            setDialogContent({
-              title: '导出成功',
-              message: `协议文件已成功导出到：\n${filePath}`,
-              type: 'success'
-            });
-            setShowExportDialog(true);
-          } else {
-            // User cancelled the dialog
-            console.log('Export cancelled by user');
-          }
-          return;
-        } catch (tauriError) {
-          console.error('Tauri dialog failed:', tauriError);
-          setDialogContent({
-            title: '导出失败',
-            message: '无法打开文件选择对话框，请检查应用权限。',
-            type: 'error'
-          });
-          setShowExportDialog(true);
-          return;
-        }
-      }
-
-      // Should not reach here in desktop environment
-      setDialogContent({
-        title: '导出失败',
-        message: '当前环境不支持文件导出功能。',
-        type: 'error'
+      const filePath = await tauriDialog.save({
+        title: '选择导出位置',
+        defaultPath: `${meta.name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}.kpt`,
+        filters: [{
+          name: 'KPT Protocol Files',
+          extensions: ['kpt']
+        }, {
+          name: 'Text Files',
+          extensions: ['txt']
+        }]
       });
-      setShowExportDialog(true);
+
+      if (filePath) {
+        await tauriFs.writeTextFile(filePath, fullProtocol);
+        setDialogContent({
+          title: '导出成功',
+          message: `协议文件已成功导出到：\n${filePath}`,
+          type: 'success'
+        });
+        setShowExportDialog(true);
+      } else {
+        // User cancelled the dialog
+        console.log('Export cancelled by user');
+      }
     } catch (error) {
       console.error('导出失败:', error);
       setDialogContent({
         title: '导出失败',
-        message: '导出协议时发生错误，请检查协议内容是否正确。',
+        message: `导出协议时发生错误：${error}`,
         type: 'error'
       });
       setShowExportDialog(true);
