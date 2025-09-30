@@ -65,7 +65,9 @@ pub fn run() {
             parse_factor_codes,
             get_factor_summary,
             get_protocol_factor_definitions,
-            parse_hj212_message
+            parse_hj212_message,
+            // File dialog commands
+            save_file_dialog
         ])
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Save, Play, FileText, Edit3, Download, Upload } from 'lucide-react';
 import { ProtocolRepositoryService } from '@/services/ProtocolRepositoryService';
 import { MessageModal } from '@/components/Common/MessageModal';
+import { invoke } from '@tauri-apps/api/core';
 
 interface ProtocolEditorProps {
   protocolId?: string;
@@ -142,36 +143,38 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
         return;
       }
 
-      // Use string-based dynamic imports to avoid Vite's static analysis
-      const dialogModule = '@tauri-apps/plugin-dialog';
-      const fsModule = '@tauri-apps/api/fs';
-      const tauriDialog = await import(/* @vite-ignore */ dialogModule);
-      const tauriFs = await import(/* @vite-ignore */ fsModule);
-
-      const filePath = await tauriDialog.save({
-        title: '选择导出位置',
+      // 使用 Tauri invoke 命令调用后端文件保存功能
+      const result = await invoke<{ success: boolean; path?: string; error?: string }>('save_file_dialog', {
         defaultPath: `${metadata?.name || 'protocol'}.kpt`,
-        filters: [{
-          name: 'KPT Protocol Files',
-          extensions: ['kpt']
-        }, {
-          name: 'Text Files',
-          extensions: ['txt']
-        }]
+        content: content,
+        filters: [
+          {
+            name: 'KPT Protocol Files',
+            extensions: ['kpt']
+          },
+          {
+            name: 'Text Files',
+            extensions: ['txt']
+          }
+        ]
       });
 
-      if (filePath) {
-        await tauriFs.writeTextFile(filePath, content);
+      if (result.success && result.path) {
         setExportDialogContent({
           title: '导出成功',
-          message: `协议文件已成功导出到：\n${filePath}`,
+          message: `协议文件已成功导出到：\n${result.path}`,
           type: 'success'
         });
         setShowExportDialog(true);
-      } else {
-        // User cancelled the dialog
-        console.log('Export cancelled by user');
+      } else if (result.error) {
+        setExportDialogContent({
+          title: '导出失败',
+          message: `导出协议时发生错误：${result.error}`,
+          type: 'error'
+        });
+        setShowExportDialog(true);
       }
+      // 如果用户取消，不显示任何提示
     } catch (err) {
       console.error('Export error:', err);
       setExportDialogContent({

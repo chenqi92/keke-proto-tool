@@ -1232,3 +1232,71 @@ pub struct HJ212ParseResult {
     pub parsed_factors: Vec<ParsedFactor>,
     pub factor_summary: Option<FactorSummary>,
 }
+
+/// File filter for save dialog
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileFilter {
+    pub name: String,
+    pub extensions: Vec<String>,
+}
+
+/// Save file dialog result
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SaveFileResult {
+    pub success: bool,
+    pub path: Option<String>,
+    pub error: Option<String>,
+}
+
+/// Show save file dialog and save content
+#[tauri::command]
+pub async fn save_file_dialog(
+    default_path: String,
+    content: String,
+    filters: Vec<FileFilter>,
+) -> Result<SaveFileResult, String> {
+    use std::fs;
+
+    // Build file dialog using rfd
+    let mut dialog = rfd::FileDialog::new();
+
+    // Set default file name
+    if !default_path.is_empty() {
+        dialog = dialog.set_file_name(&default_path);
+    }
+
+    // Add filters
+    for filter in filters {
+        let extensions: Vec<&str> = filter.extensions.iter().map(|s| s.as_str()).collect();
+        dialog = dialog.add_filter(&filter.name, &extensions);
+    }
+
+    // Show save dialog (blocking)
+    let file_path = dialog.save_file();
+
+    match file_path {
+        Some(path) => {
+            // Write content to file
+            match fs::write(&path, content) {
+                Ok(_) => Ok(SaveFileResult {
+                    success: true,
+                    path: Some(path.to_string_lossy().to_string()),
+                    error: None,
+                }),
+                Err(e) => Ok(SaveFileResult {
+                    success: false,
+                    path: None,
+                    error: Some(format!("Failed to write file: {}", e)),
+                }),
+            }
+        }
+        None => {
+            // User cancelled
+            Ok(SaveFileResult {
+                success: false,
+                path: None,
+                error: None,
+            })
+        }
+    }
+}
