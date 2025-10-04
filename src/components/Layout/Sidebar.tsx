@@ -79,10 +79,10 @@ const createTreeDataFromSessions = (sessions: any[]): TreeNode[] => {
     { protocol: 'WebSocket', connectionType: 'server', label: 'WebSocket 服务端' },
     { protocol: 'MQTT', connectionType: 'client', label: 'MQTT 客户端' },
     { protocol: 'SSE', connectionType: 'client', label: 'SSE 客户端' },
-    { protocol: 'Modbus-TCP', connectionType: 'master', label: 'Modbus TCP 主站' },
-    { protocol: 'Modbus-TCP', connectionType: 'slave', label: 'Modbus TCP 从站' },
-    { protocol: 'Modbus-RTU', connectionType: 'master', label: 'Modbus RTU 主站' },
-    { protocol: 'Modbus-RTU', connectionType: 'slave', label: 'Modbus RTU 从站' }
+    { protocol: 'Modbus', connectionType: 'client', label: 'Modbus TCP 客户端' },
+    { protocol: 'Modbus', connectionType: 'server', label: 'Modbus TCP 服务端' },
+    { protocol: 'Modbus-RTU', connectionType: 'client', label: 'Modbus RTU 客户端' },
+    { protocol: 'Modbus-RTU', connectionType: 'server', label: 'Modbus RTU 服务端' }
   ];
 
   protocolTypes.forEach(({ protocol, connectionType, label }) => {
