@@ -32,6 +32,13 @@ export interface SessionData {
   autoSendData?: string;
   autoSendFormat?: 'text' | 'hex' | 'binary' | 'json';
   autoSendTemplate?: string;
+  // Modbus-specific fields
+  modbusUnitId?: number;
+  modbusSerialPort?: string;
+  modbusBaudRate?: number;
+  modbusDataBits?: number;
+  modbusParity?: 'none' | 'even' | 'odd';
+  modbusStopBits?: number;
 }
 
 // 监听地址选项

@@ -117,7 +117,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
           });
           break;
 
-        case 0x10: // Write Multiple Registers
+        case 0x10: { // Write Multiple Registers
           const values = writeValues.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
           response = await invoke('modbus_write_multiple_registers', {
             sessionId,
@@ -125,6 +125,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             values,
           });
           break;
+        }
 
         default:
           throw new Error(`Function code ${selectedFunctionCode} not yet implemented`);

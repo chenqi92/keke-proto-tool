@@ -43,6 +43,11 @@ export class ConnectionManagerService {
     this.shouldStop = false;
     this.currentRetryAttempt = 0;
 
+    // Map connection type for logging (master/slave -> client/server)
+    const logConnectionType = this.config.connectionType === 'master' ? 'client' :
+                              this.config.connectionType === 'slave' ? 'server' :
+                              this.config.connectionType;
+
     // Log connection attempt
     await backendLogService.addLog(
       'info',
@@ -53,7 +58,7 @@ export class ConnectionManagerService {
       {
         category: 'network',
         protocol: this.config.protocol,
-        connectionType: this.config.connectionType,
+        connectionType: logConnectionType as 'client' | 'server',
         details: {
           host: this.config.host,
           port: this.config.port,
@@ -65,6 +70,11 @@ export class ConnectionManagerService {
     try {
       await this.attemptConnection();
     } catch (error) {
+      // Map connection type for logging (master/slave -> client/server)
+      const logConnectionType = this.config.connectionType === 'master' ? 'client' :
+                                this.config.connectionType === 'slave' ? 'server' :
+                                this.config.connectionType;
+
       // Log connection failure
       await backendLogService.addLog(
         'error',
@@ -75,7 +85,7 @@ export class ConnectionManagerService {
         {
           category: 'network',
           protocol: this.config.protocol,
-          connectionType: this.config.connectionType,
+          connectionType: logConnectionType as 'client' | 'server',
           details: {
             error: error instanceof Error ? error.message : 'Unknown error',
             host: this.config.host,
@@ -85,7 +95,7 @@ export class ConnectionManagerService {
         }
       ).catch(err => console.error('Failed to log connection failure:', err));
 
-      if (this.config.autoReconnect && this.config.connectionType === 'client') {
+      if (this.config.autoReconnect && (this.config.connectionType === 'client' || this.config.connectionType === 'master')) {
         // Log reconnection attempt
         await backendLogService.addLog(
           'warning',
@@ -96,7 +106,7 @@ export class ConnectionManagerService {
           {
             category: 'network',
             protocol: this.config.protocol,
-            connectionType: this.config.connectionType,
+            connectionType: logConnectionType as 'client' | 'server',
             details: {
               autoReconnect: true,
               currentAttempt: this.currentRetryAttempt + 1,
@@ -173,6 +183,11 @@ export class ConnectionManagerService {
           this.currentRetryAttempt = 0;
           this.isReconnecting = false;
 
+          // Map connection type for logging (master/slave -> client/server)
+          const logConnectionType = this.config.connectionType === 'master' ? 'client' :
+                                    this.config.connectionType === 'slave' ? 'server' :
+                                    this.config.connectionType;
+
           // Log successful connection
           backendLogService.addLog(
             'info',
@@ -183,7 +198,7 @@ export class ConnectionManagerService {
             {
               category: 'network',
               protocol: this.config.protocol,
-              connectionType: this.config.connectionType,
+              connectionType: logConnectionType as 'client' | 'server',
               details: {
                 host: this.config.host,
                 port: this.config.port,
