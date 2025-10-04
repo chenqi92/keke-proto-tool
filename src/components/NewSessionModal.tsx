@@ -237,11 +237,13 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
   const [errors, setErrors] = useState<Partial<Record<keyof SessionData | 'mqttTopic' | 'sseEventTypes', string>>>({});
 
   const generateSessionName = (data: SessionData): string => {
-    const protocolName = data.protocol;
-    const connectionType = data.connectionType === 'client' ? '客户端' : '服务端';
-    const address = `${data.host}:${data.port}`;
+    // For Modbus RTU, use serial port name
+    if (data.protocol === 'Modbus-RTU' && data.modbusSerialPort) {
+      return data.modbusSerialPort;
+    }
 
-    return `${protocolName} ${connectionType} - ${address}`;
+    // For other protocols, use host:port format
+    return `${data.host}:${data.port}`;
   };
 
   const validateForm = (): boolean => {
