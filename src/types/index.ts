@@ -110,8 +110,8 @@ export interface ExportOptions {
 
 // Enhanced types for real functionality
 export type DataFormat = 'ascii' | 'binary' | 'octal' | 'decimal' | 'hex' | 'base64' | 'json' | 'utf8';
-export type ProtocolType = 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE';
-export type ConnectionType = 'client' | 'server';
+export type ProtocolType = 'TCP' | 'UDP' | 'WebSocket' | 'MQTT' | 'SSE' | 'Modbus' | 'Modbus-TCP' | 'Modbus-RTU';
+export type ConnectionType = 'client' | 'server' | 'master' | 'slave';
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
 // WebSocket特有类型
@@ -218,6 +218,86 @@ export interface SSEEventFilter {
   createdAt: Date; // 创建时间
 }
 
+// Modbus特有类型
+export type ModbusFunctionCode =
+  | 0x01 // Read Coils
+  | 0x02 // Read Discrete Inputs
+  | 0x03 // Read Holding Registers
+  | 0x04 // Read Input Registers
+  | 0x05 // Write Single Coil
+  | 0x06 // Write Single Register
+  | 0x0F // Write Multiple Coils
+  | 0x10 // Write Multiple Registers
+  | 0x17; // Read/Write Multiple Registers
+
+export type ModbusVariant = 'TCP' | 'RTU';
+export type ModbusMode = 'master' | 'slave';
+export type ModbusRegisterType = 'coil' | 'discrete_input' | 'holding_register' | 'input_register';
+
+export interface ModbusConfig {
+  variant: ModbusVariant; // TCP or RTU
+  mode: ModbusMode; // Master or Slave
+  unitId: number; // Modbus unit/slave ID (1-247)
+
+  // TCP-specific
+  host?: string;
+  port?: number;
+
+  // RTU-specific (Serial)
+  serialPort?: string; // COM port or /dev/ttyUSB0
+  baudRate?: number; // 9600, 19200, 38400, 57600, 115200
+  dataBits?: 5 | 6 | 7 | 8;
+  parity?: 'none' | 'even' | 'odd';
+  stopBits?: 1 | 2;
+
+  // Common settings
+  timeout?: number; // Response timeout in milliseconds
+  retryAttempts?: number;
+  retryDelay?: number;
+}
+
+export interface ModbusRequest {
+  functionCode: ModbusFunctionCode;
+  address: number; // Starting address
+  quantity?: number; // Number of registers/coils to read
+  value?: number; // Single value to write
+  values?: number[]; // Multiple values to write
+  coilValues?: boolean[]; // Coil values for write multiple coils
+}
+
+export interface ModbusResponse {
+  success: boolean;
+  data?: number[]; // Register values
+  coilData?: boolean[]; // Coil values
+  error?: string;
+  timestamp?: Date;
+  responseTime?: number; // Response time in milliseconds
+}
+
+export interface ModbusRegisterMonitor {
+  id: string;
+  registerType: ModbusRegisterType;
+  startAddress: number;
+  quantity: number;
+  pollInterval: number; // Polling interval in milliseconds
+  isActive: boolean;
+  lastValue?: number[] | boolean[];
+  lastPollTime?: Date;
+  errorCount: number;
+}
+
+export interface ModbusStatistics {
+  requestsSent: number;
+  responsesReceived: number;
+  errors: number;
+  crcErrors: number;
+  timeoutErrors: number;
+  exceptionErrors: number;
+  averageResponseTime: number;
+  lastError?: string;
+  lastErrorTime?: Date;
+}
+
 export interface NetworkAddress {
   host: string;
   port: number;
@@ -257,6 +337,13 @@ export interface Message {
   sseEventId?: string; // SSE事件ID
   sseRetry?: number; // SSE重试间隔
   sseLastEventId?: string; // SSE最后事件ID
+  // Modbus特有字段
+  modbusFunctionCode?: ModbusFunctionCode; // Modbus function code
+  modbusAddress?: number; // Starting address
+  modbusQuantity?: number; // Number of registers/coils
+  modbusUnitId?: number; // Unit/slave ID
+  modbusException?: number; // Exception code (if error)
+  modbusResponseTime?: number; // Response time in milliseconds
 }
 
 export interface SessionConfig {
@@ -297,6 +384,15 @@ export interface SessionConfig {
   mqttWillPayload?: string; // MQTT遗嘱消息
   mqttWillQos?: MQTTQoSLevel; // MQTT遗嘱QoS级别
   mqttWillRetain?: boolean; // MQTT遗嘱保留标志
+  // Modbus特有配置
+  modbusVariant?: ModbusVariant; // Modbus variant (TCP or RTU)
+  modbusMode?: ModbusMode; // Modbus mode (master or slave)
+  modbusUnitId?: number; // Modbus unit/slave ID (1-247)
+  modbusSerialPort?: string; // Serial port for RTU
+  modbusBaudRate?: number; // Baud rate for RTU
+  modbusDataBits?: 5 | 6 | 7 | 8; // Data bits for RTU
+  modbusParity?: 'none' | 'even' | 'odd'; // Parity for RTU
+  modbusStopBits?: 1 | 2; // Stop bits for RTU
   // 其他协议配置
   sseEventTypes?: string[];
 }

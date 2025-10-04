@@ -9,6 +9,7 @@ pub mod udp;
 pub mod websocket;
 pub mod mqtt;
 pub mod sse;
+pub mod modbus;
 pub mod connection_manager;
 
 /// Core connection trait that all network protocols must implement
@@ -132,6 +133,16 @@ impl ConnectionFactory {
             }
             "sse" => {
                 Ok(Box::new(sse::SseClient::new(session_id, config)?))
+            }
+            "modbus" | "modbus-tcp" => {
+                if connection_type == "server" {
+                    Ok(Box::new(modbus::ModbusTcpServer::new(session_id, config)?))
+                } else {
+                    Ok(Box::new(modbus::ModbusTcpClient::new(session_id, config)?))
+                }
+            }
+            "modbus-rtu" => {
+                Ok(Box::new(modbus::ModbusRtuClient::new(session_id, config)?))
             }
             _ => Err(crate::types::NetworkError::InvalidConfig(
                 format!("Unsupported protocol: {}", protocol)

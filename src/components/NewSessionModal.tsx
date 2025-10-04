@@ -48,6 +48,9 @@ const protocolDefaultPorts: Record<ProtocolType, number> = {
   'WebSocket': 8080,
   'MQTT': 1883,
   'SSE': 3000,
+  'Modbus': 502,
+  'Modbus-TCP': 502,
+  'Modbus-RTU': 502, // Not used for RTU, but required for type
 };
 
 // 协议是否支持服务端模式
@@ -57,6 +60,9 @@ const protocolSupportsServer: Record<ProtocolType, boolean> = {
   'WebSocket': true,
   'MQTT': false, // MQTT通常只作为客户端连接到broker
   'SSE': false,  // SSE通常只作为客户端连接到服务器
+  'Modbus': true, // Modbus TCP支持服务端(从站模拟器)
+  'Modbus-TCP': true,
+  'Modbus-RTU': false, // Modbus RTU通常只作为主站
 };
 
 const protocolOptions = [
@@ -65,6 +71,8 @@ const protocolOptions = [
   { value: 'WebSocket', label: 'WebSocket', icon: Globe },
   { value: 'MQTT', label: 'MQTT', icon: MessageSquare },
   { value: 'SSE', label: 'SSE', icon: Radio },
+  { value: 'Modbus', label: 'Modbus TCP', icon: Wifi },
+  { value: 'Modbus-RTU', label: 'Modbus RTU', icon: Radio },
 ] as const;
 
 const typeOptions = [
@@ -644,6 +652,106 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                 用逗号分隔多个事件类型，如: message, update, notification
               </p>
             </div>
+          )}
+
+          {/* Modbus Unit ID */}
+          {(formData.protocol === 'Modbus' || formData.protocol === 'Modbus-RTU') && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Modbus 单元 ID <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="247"
+                value={formData.modbusUnitId || 1}
+                onChange={(e) => setFormData({ ...formData, modbusUnitId: parseInt(e.target.value) || 1 })}
+                className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="1-247"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Modbus 从站/单元 ID，范围 1-247
+              </p>
+            </div>
+          )}
+
+          {/* Modbus RTU Serial Configuration */}
+          {formData.protocol === 'Modbus-RTU' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  串口 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.modbusSerialPort || ''}
+                  onChange={(e) => setFormData({ ...formData, modbusSerialPort: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Windows: COM1, Linux: /dev/ttyUSB0"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  串口设备名称 (Windows: COM1, Linux: /dev/ttyUSB0)
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">波特率</label>
+                  <select
+                    value={formData.modbusBaudRate || 9600}
+                    onChange={(e) => setFormData({ ...formData, modbusBaudRate: parseInt(e.target.value) })}
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="9600">9600</option>
+                    <option value="19200">19200</option>
+                    <option value="38400">38400</option>
+                    <option value="57600">57600</option>
+                    <option value="115200">115200</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">数据位</label>
+                  <select
+                    value={formData.modbusDataBits || 8}
+                    onChange={(e) => setFormData({ ...formData, modbusDataBits: parseInt(e.target.value) as 5 | 6 | 7 | 8 })}
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">校验位</label>
+                  <select
+                    value={formData.modbusParity || 'none'}
+                    onChange={(e) => setFormData({ ...formData, modbusParity: e.target.value as 'none' | 'even' | 'odd' })}
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="none">无</option>
+                    <option value="even">偶校验</option>
+                    <option value="odd">奇校验</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">停止位</label>
+                  <select
+                    value={formData.modbusStopBits || 1}
+                    onChange={(e) => setFormData({ ...formData, modbusStopBits: parseInt(e.target.value) as 1 | 2 })}
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                  </select>
+                </div>
+              </div>
+            </>
           )}
 
 

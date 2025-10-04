@@ -11,6 +11,7 @@ import { UDPSessionContent } from '@/components/ProtocolSessions/UDPSessionConte
 import { WebSocketSessionContent } from '@/components/ProtocolSessions/WebSocketSessionContent';
 import { MQTTSessionContent } from '@/components/ProtocolSessions/MQTTSessionContent';
 import { SSESessionContent } from '@/components/ProtocolSessions/SSESessionContent';
+import { ModbusSessionContent } from '@/components/ProtocolSessions/ModbusSessionContent';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession } from '@/contexts/SessionContext';
 import { WorkspacePage } from './WorkspacePage';
@@ -159,6 +160,10 @@ export const SessionPage: React.FC = () => {
         return <MQTTSessionContent key={currentSession.id} sessionId={currentSession.id} />;
       case 'SSE':
         return <SSESessionContent key={currentSession.id} sessionId={currentSession.id} />;
+      case 'Modbus':
+      case 'Modbus-TCP':
+      case 'Modbus-RTU':
+        return <ModbusSessionContent key={currentSession.id} sessionId={currentSession.id} />;
       default:
         // Fall back to generic session content for protocols not yet implemented
         return renderGenericSessionContent();

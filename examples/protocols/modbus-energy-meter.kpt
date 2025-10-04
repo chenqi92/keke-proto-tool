@@ -1,0 +1,294 @@
+protocol "modbus-energy-meter" {
+  title "Modbus Energy Meter Protocol"
+  version "1.0"
+  description "Modbus protocol for smart energy meters (compatible with Schneider PM5xxx, ABB M2M, etc.)"
+
+  # Based on Modbus RTU/TCP
+  extends "modbus-rtu"
+
+  # Energy meter register mappings (typical for IEC 61850 compliant meters)
+  catalog "register_map" inline {
+    # Voltage Measurements (Read Input Registers - 0x04)
+    0x0000 "Phase A Voltage (V)"
+    0x0001 "Phase B Voltage (V)"
+    0x0002 "Phase C Voltage (V)"
+    0x0003 "Average Line Voltage (V)"
+    0x0004 "Voltage L1-L2 (V)"
+    0x0005 "Voltage L2-L3 (V)"
+    0x0006 "Voltage L3-L1 (V)"
+    
+    # Current Measurements (Read Input Registers - 0x04)
+    0x0010 "Phase A Current (A)"
+    0x0011 "Phase B Current (A)"
+    0x0012 "Phase C Current (A)"
+    0x0013 "Neutral Current (A)"
+    0x0014 "Average Current (A)"
+    
+    # Power Measurements (Read Input Registers - 0x04)
+    0x0020 "Total Active Power (kW)"
+    0x0021 "Phase A Active Power (kW)"
+    0x0022 "Phase B Active Power (kW)"
+    0x0023 "Phase C Active Power (kW)"
+    0x0024 "Total Reactive Power (kVAr)"
+    0x0025 "Total Apparent Power (kVA)"
+    
+    # Power Factor (Read Input Registers - 0x04)
+    0x0030 "Total Power Factor"
+    0x0031 "Phase A Power Factor"
+    0x0032 "Phase B Power Factor"
+    0x0033 "Phase C Power Factor"
+    
+    # Frequency (Read Input Registers - 0x04)
+    0x0040 "Frequency (Hz)"
+    
+    # Energy Counters (Read Holding Registers - 0x03)
+    0x0100 "Total Active Energy Import (kWh) - High Word"
+    0x0101 "Total Active Energy Import (kWh) - Low Word"
+    0x0102 "Total Active Energy Export (kWh) - High Word"
+    0x0103 "Total Active Energy Export (kWh) - Low Word"
+    0x0104 "Total Reactive Energy Import (kVArh) - High Word"
+    0x0105 "Total Reactive Energy Import (kVArh) - Low Word"
+    0x0106 "Total Reactive Energy Export (kVArh) - High Word"
+    0x0107 "Total Reactive Energy Export (kVArh) - Low Word"
+    
+    # Demand Measurements (Read Input Registers - 0x04)
+    0x0200 "Current Active Power Demand (kW)"
+    0x0201 "Maximum Active Power Demand (kW)"
+    0x0202 "Current Reactive Power Demand (kVAr)"
+    0x0203 "Maximum Reactive Power Demand (kVAr)"
+    
+    # Harmonics (Read Input Registers - 0x04)
+    0x0300 "Total Harmonic Distortion Voltage (%)"
+    0x0301 "Total Harmonic Distortion Current (%)"
+    
+    # Meter Information (Read Holding Registers - 0x03)
+    0x1000 "Meter Serial Number - Word 1"
+    0x1001 "Meter Serial Number - Word 2"
+    0x1002 "Meter Serial Number - Word 3"
+    0x1003 "Meter Serial Number - Word 4"
+    0x1004 "Firmware Version Major"
+    0x1005 "Firmware Version Minor"
+    0x1006 "Hardware Version"
+    
+    # Configuration (Read/Write Holding Registers - 0x03/0x06/0x10)
+    0x2000 "CT Ratio Primary"
+    0x2001 "CT Ratio Secondary"
+    0x2002 "PT Ratio Primary"
+    0x2003 "PT Ratio Secondary"
+    0x2004 "Demand Interval (minutes)"
+    0x2005 "Communication Address"
+    0x2006 "Baud Rate Setting"
+  }
+
+  # Data scaling factors
+  scaling {
+    voltage {
+      factor 10
+      unit "V"
+      description "Voltage values are scaled by 10 (e.g., 2300 = 230.0V)"
+    }
+    
+    current {
+      factor 1000
+      unit "A"
+      description "Current values are scaled by 1000 (e.g., 5000 = 5.000A)"
+    }
+    
+    power {
+      factor 100
+      unit "kW/kVAr/kVA"
+      description "Power values are scaled by 100 (e.g., 12345 = 123.45kW)"
+    }
+    
+    power_factor {
+      factor 1000
+      unit "PF"
+      description "Power factor scaled by 1000 (e.g., 950 = 0.950)"
+    }
+    
+    frequency {
+      factor 100
+      unit "Hz"
+      description "Frequency scaled by 100 (e.g., 5000 = 50.00Hz)"
+    }
+    
+    energy {
+      factor 100
+      unit "kWh/kVArh"
+      description "Energy values are 32-bit scaled by 100"
+    }
+  }
+
+  # Common operation templates
+  templates {
+    # Read all voltage measurements
+    template "read_voltages" {
+      function_code 0x04
+      start_address 0x0000
+      quantity 7
+      description "Read all voltage measurements"
+    }
+    
+    # Read all current measurements
+    template "read_currents" {
+      function_code 0x04
+      start_address 0x0010
+      quantity 5
+      description "Read all current measurements"
+    }
+    
+    # Read all power measurements
+    template "read_power" {
+      function_code 0x04
+      start_address 0x0020
+      quantity 6
+      description "Read all power measurements"
+    }
+    
+    # Read power factor
+    template "read_power_factor" {
+      function_code 0x04
+      start_address 0x0030
+      quantity 4
+      description "Read power factor for all phases"
+    }
+    
+    # Read frequency
+    template "read_frequency" {
+      function_code 0x04
+      start_address 0x0040
+      quantity 1
+      description "Read system frequency"
+    }
+    
+    # Read total energy import
+    template "read_energy_import" {
+      function_code 0x03
+      start_address 0x0100
+      quantity 2
+      description "Read total active energy import (32-bit)"
+    }
+    
+    # Read meter information
+    template "read_meter_info" {
+      function_code 0x03
+      start_address 0x1000
+      quantity 7
+      description "Read meter serial number and firmware version"
+    }
+    
+    # Read CT/PT ratios
+    template "read_ct_pt_ratios" {
+      function_code 0x03
+      start_address 0x2000
+      quantity 4
+      description "Read CT and PT ratio configuration"
+    }
+  }
+
+  # Typical polling sequence for energy monitoring
+  polling_sequence {
+    interval 5000  # milliseconds (5 seconds for energy meters)
+    
+    poll {
+      name "Voltages"
+      function_code 0x04
+      start_address 0x0000
+      quantity 7
+      priority high
+    }
+    
+    poll {
+      name "Currents"
+      function_code 0x04
+      start_address 0x0010
+      quantity 5
+      priority high
+    }
+    
+    poll {
+      name "Power"
+      function_code 0x04
+      start_address 0x0020
+      quantity 6
+      priority high
+    }
+    
+    poll {
+      name "Power Factor"
+      function_code 0x04
+      start_address 0x0030
+      quantity 4
+      priority medium
+    }
+    
+    poll {
+      name "Frequency"
+      function_code 0x04
+      start_address 0x0040
+      quantity 1
+      priority medium
+    }
+    
+    poll {
+      name "Energy Counters"
+      function_code 0x03
+      start_address 0x0100
+      quantity 8
+      priority low
+      interval 60000  # Read every minute
+    }
+  }
+
+  # Alarm thresholds
+  alarms {
+    voltage_high {
+      register 0x0003
+      threshold 253.0  # 253V (110% of 230V)
+      condition ">"
+      severity "warning"
+    }
+    
+    voltage_low {
+      register 0x0003
+      threshold 207.0  # 207V (90% of 230V)
+      condition "<"
+      severity "warning"
+    }
+    
+    current_high {
+      register 0x0014
+      threshold 100.0  # 100A
+      condition ">"
+      severity "critical"
+    }
+    
+    power_factor_low {
+      register 0x0030
+      threshold 0.85
+      condition "<"
+      severity "warning"
+    }
+  }
+
+  # Test samples
+  tests {
+    sample "read_voltage_phase_a" {
+      raw "01 04 00 00 00 01 31 CA"
+      expect "$.request.function_code" 4
+      expect "$.request.start_address" 0x0000
+      expect "$.request.quantity" 1
+      description "Read Phase A voltage"
+    }
+    
+    sample "voltage_response" {
+      raw "01 04 02 08 FC 38 A9"
+      expect "$.response.function_code" 4
+      expect "$.response.byte_count" 2
+      compute voltage = "$.response.register_value / 10.0"
+      expect voltage 230.0
+      description "Phase A voltage: 230.0V"
+    }
+  }
+}
+

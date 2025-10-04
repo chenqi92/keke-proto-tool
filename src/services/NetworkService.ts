@@ -616,6 +616,13 @@ class NetworkService {
           websocketCompressionEnabled: config.websocketCompressionEnabled,
           mqttTopic: config.mqttTopic,
           sseEventTypes: config.sseEventTypes,
+          // Modbus-specific configuration
+          modbusUnitId: config.modbusUnitId,
+          modbusSerialPort: config.modbusSerialPort,
+          baudRate: config.modbusBaudRate,
+          dataBits: config.modbusDataBits,
+          parity: config.modbusParity,
+          stopBits: config.modbusStopBits,
         },
       });
 

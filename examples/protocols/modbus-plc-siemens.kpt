@@ -1,0 +1,233 @@
+protocol "modbus-plc-siemens" {
+  title "Siemens PLC Modbus Protocol"
+  version "1.0"
+  description "Modbus protocol configuration for Siemens S7-1200/1500 PLCs with common register mappings"
+
+  # Based on Modbus TCP
+  extends "modbus-tcp"
+
+  # Siemens PLC specific register mappings
+  catalog "register_map" inline {
+    # Digital Inputs (Read Discrete Inputs - 0x02)
+    0x0000 "DI0 - Emergency Stop"
+    0x0001 "DI1 - Start Button"
+    0x0002 "DI2 - Stop Button"
+    0x0003 "DI3 - Sensor 1"
+    0x0004 "DI4 - Sensor 2"
+    0x0005 "DI5 - Limit Switch 1"
+    0x0006 "DI6 - Limit Switch 2"
+    0x0007 "DI7 - Safety Door"
+    
+    # Digital Outputs (Read/Write Coils - 0x01/0x05/0x0F)
+    0x0100 "DO0 - Motor 1"
+    0x0101 "DO1 - Motor 2"
+    0x0102 "DO2 - Valve 1"
+    0x0103 "DO3 - Valve 2"
+    0x0104 "DO4 - Alarm Light"
+    0x0105 "DO5 - Warning Buzzer"
+    0x0106 "DO6 - Conveyor Belt"
+    0x0107 "DO7 - Pump"
+    
+    # Analog Inputs (Read Input Registers - 0x04)
+    0x0200 "AI0 - Temperature Sensor 1 (°C)"
+    0x0201 "AI1 - Pressure Sensor 1 (bar)"
+    0x0202 "AI2 - Flow Rate Sensor (L/min)"
+    0x0203 "AI3 - Level Sensor (%)"
+    0x0204 "AI4 - Voltage Monitor (V)"
+    0x0205 "AI5 - Current Monitor (A)"
+    
+    # Analog Outputs (Read/Write Holding Registers - 0x03/0x06/0x10)
+    0x0300 "AO0 - Speed Setpoint (%)"
+    0x0301 "AO1 - Position Setpoint (mm)"
+    0x0302 "AO2 - Pressure Setpoint (bar)"
+    0x0303 "AO3 - Temperature Setpoint (°C)"
+    
+    # System Status Registers (Read Holding Registers - 0x03)
+    0x1000 "System Status Word"
+    0x1001 "Error Code"
+    0x1002 "Warning Code"
+    0x1003 "Operating Mode"
+    0x1004 "Cycle Counter (Low)"
+    0x1005 "Cycle Counter (High)"
+    0x1006 "Runtime Hours (Low)"
+    0x1007 "Runtime Hours (High)"
+    
+    # Configuration Registers (Read/Write Holding Registers - 0x03/0x06/0x10)
+    0x2000 "Config - Auto/Manual Mode"
+    0x2001 "Config - Speed Limit (%)"
+    0x2002 "Config - Alarm Threshold"
+    0x2003 "Config - Maintenance Interval"
+  }
+
+  # System status word bit definitions
+  catalog "status_bits" inline {
+    0 "Running"
+    1 "Fault"
+    2 "Warning"
+    3 "Manual Mode"
+    4 "Auto Mode"
+    5 "Emergency Stop Active"
+    6 "Maintenance Required"
+    7 "Communication OK"
+  }
+
+  # Error codes
+  catalog "error_codes" inline {
+    0x0000 "No Error"
+    0x0001 "Emergency Stop Activated"
+    0x0002 "Motor Overload"
+    0x0003 "Temperature Too High"
+    0x0004 "Pressure Out of Range"
+    0x0005 "Sensor Fault"
+    0x0006 "Communication Timeout"
+    0x0007 "Configuration Error"
+    0x0008 "Safety Circuit Open"
+    0x0009 "Power Supply Fault"
+    0x000A "Position Error"
+  }
+
+  # Common operation templates
+  templates {
+    # Read all digital inputs
+    template "read_all_digital_inputs" {
+      function_code 0x02
+      start_address 0x0000
+      quantity 16
+      description "Read all digital input states"
+    }
+    
+    # Read all digital outputs
+    template "read_all_digital_outputs" {
+      function_code 0x01
+      start_address 0x0100
+      quantity 16
+      description "Read all digital output states"
+    }
+    
+    # Read all analog inputs
+    template "read_all_analog_inputs" {
+      function_code 0x04
+      start_address 0x0200
+      quantity 6
+      description "Read all analog input values"
+    }
+    
+    # Read system status
+    template "read_system_status" {
+      function_code 0x03
+      start_address 0x1000
+      quantity 8
+      description "Read system status and counters"
+    }
+    
+    # Emergency stop
+    template "emergency_stop" {
+      function_code 0x05
+      output_address 0x0100
+      output_value 0x0000
+      description "Emergency stop - turn off all motors"
+    }
+    
+    # Start motor 1
+    template "start_motor_1" {
+      function_code 0x05
+      output_address 0x0100
+      output_value 0xFF00
+      description "Start Motor 1"
+    }
+    
+    # Set speed setpoint
+    template "set_speed_setpoint" {
+      function_code 0x06
+      register_address 0x0300
+      register_value 0x0000  # 0-100%
+      description "Set speed setpoint (0-100%)"
+    }
+  }
+
+  # Typical polling sequence for monitoring
+  polling_sequence {
+    interval 1000  # milliseconds
+    
+    poll {
+      name "Digital Inputs"
+      function_code 0x02
+      start_address 0x0000
+      quantity 16
+    }
+    
+    poll {
+      name "Analog Inputs"
+      function_code 0x04
+      start_address 0x0200
+      quantity 6
+    }
+    
+    poll {
+      name "System Status"
+      function_code 0x03
+      start_address 0x1000
+      quantity 8
+    }
+  }
+
+  # Data type conversions
+  conversions {
+    # Temperature: raw value / 10 = °C
+    temperature {
+      formula "value / 10.0"
+      unit "°C"
+      range [-40, 125]
+    }
+    
+    # Pressure: raw value / 100 = bar
+    pressure {
+      formula "value / 100.0"
+      unit "bar"
+      range [0, 10]
+    }
+    
+    # Flow rate: raw value / 10 = L/min
+    flow_rate {
+      formula "value / 10.0"
+      unit "L/min"
+      range [0, 1000]
+    }
+    
+    # Percentage: raw value = %
+    percentage {
+      formula "value"
+      unit "%"
+      range [0, 100]
+    }
+  }
+
+  # Test samples
+  tests {
+    sample "read_temperature" {
+      raw "00 01 00 00 00 06 01 04 02 00 01"
+      expect "$.request.function_code" 4
+      expect "$.request.start_address" 0x0200
+      expect "$.request.quantity" 1
+      description "Read temperature sensor value"
+    }
+    
+    sample "temperature_response" {
+      raw "00 01 00 00 00 05 01 04 02 00 FA"
+      expect "$.response.function_code" 4
+      expect "$.response.byte_count" 2
+      compute temperature = "$.response.register_value / 10.0"
+      expect temperature 25.0
+      description "Temperature response: 25.0°C"
+    }
+    
+    sample "start_motor" {
+      raw "00 02 00 00 00 06 01 05 01 00 FF 00"
+      expect "$.request.function_code" 5
+      expect "$.request.output_address" 0x0100
+      expect "$.request.output_value" 0xFF00
+      description "Start Motor 1"
+    }
+  }
+}
+

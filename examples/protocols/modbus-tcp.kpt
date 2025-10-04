@@ -1,0 +1,216 @@
+protocol "modbus-tcp" {
+  title "Modbus TCP Protocol"
+  version "1.0"
+  description "Modbus TCP/IP protocol for industrial automation and SCADA systems"
+
+  # Frame synchronization - Modbus TCP uses MBAP header
+  frame {
+    mode fixed
+    # MBAP header is 7 bytes + PDU
+  }
+
+  # Enumeration definitions - Modbus function codes
+  enum "function_code" {
+    0x01 "Read Coils"
+    0x02 "Read Discrete Inputs"
+    0x03 "Read Holding Registers"
+    0x04 "Read Input Registers"
+    0x05 "Write Single Coil"
+    0x06 "Write Single Register"
+    0x0F "Write Multiple Coils"
+    0x10 "Write Multiple Registers"
+    0x17 "Read/Write Multiple Registers"
+    0x2B "Read Device Identification"
+  }
+
+  # MBAP Header (Modbus Application Protocol Header)
+  message "mbap_header" {
+    field transaction_id u16 endian big
+    field protocol_id u16 endian big
+    field length u16 endian big
+    field unit_id u8
+    
+    # Validation
+    assert $.protocol_id == 0  # Must be 0 for Modbus
+    assert $.unit_id >= 0 && $.unit_id <= 255
+  }
+
+  # Modbus Request PDU
+  message "modbus_request" {
+    select by field "function_code"
+    
+    field function_code enum function_code base u8
+    
+    # Read operations (0x01-0x04)
+    case 0x01 {  # Read Coils
+      field start_address u16 endian big
+      field quantity u16 endian big
+      assert $.quantity >= 1 && $.quantity <= 2000
+    }
+    
+    case 0x02 {  # Read Discrete Inputs
+      field start_address u16 endian big
+      field quantity u16 endian big
+      assert $.quantity >= 1 && $.quantity <= 2000
+    }
+    
+    case 0x03 {  # Read Holding Registers
+      field start_address u16 endian big
+      field quantity u16 endian big
+      assert $.quantity >= 1 && $.quantity <= 125
+    }
+    
+    case 0x04 {  # Read Input Registers
+      field start_address u16 endian big
+      field quantity u16 endian big
+      assert $.quantity >= 1 && $.quantity <= 125
+    }
+    
+    # Write operations
+    case 0x05 {  # Write Single Coil
+      field output_address u16 endian big
+      field output_value u16 endian big
+      # 0xFF00 = ON, 0x0000 = OFF
+    }
+    
+    case 0x06 {  # Write Single Register
+      field register_address u16 endian big
+      field register_value u16 endian big
+    }
+    
+    case 0x0F {  # Write Multiple Coils
+      field start_address u16 endian big
+      field quantity u16 endian big
+      field byte_count u8
+      field output_values bytes lenfrom "byte_count"
+      assert $.quantity >= 1 && $.quantity <= 1968
+    }
+    
+    case 0x10 {  # Write Multiple Registers
+      field start_address u16 endian big
+      field quantity u16 endian big
+      field byte_count u8
+      field register_values bytes lenfrom "byte_count"
+      assert $.quantity >= 1 && $.quantity <= 123
+      assert $.byte_count == $.quantity * 2
+    }
+    
+    case 0x17 {  # Read/Write Multiple Registers
+      field read_start_address u16 endian big
+      field read_quantity u16 endian big
+      field write_start_address u16 endian big
+      field write_quantity u16 endian big
+      field write_byte_count u8
+      field write_register_values bytes lenfrom "write_byte_count"
+    }
+  }
+
+  # Modbus Response PDU
+  message "modbus_response" {
+    select by field "function_code"
+    
+    field function_code u8
+    
+    # Check for exception response
+    case when "function_code & 0x80" {
+      field exception_code u8
+      compute error_name = lookup("exception_codes", $.exception_code).name
+    }
+    
+    # Normal responses
+    case 0x01 {  # Read Coils Response
+      field byte_count u8
+      field coil_status bytes lenfrom "byte_count"
+    }
+    
+    case 0x02 {  # Read Discrete Inputs Response
+      field byte_count u8
+      field input_status bytes lenfrom "byte_count"
+    }
+    
+    case 0x03 {  # Read Holding Registers Response
+      field byte_count u8
+      field register_values bytes lenfrom "byte_count"
+      
+      # Parse register values
+      group repeat count_from "byte_count/2" {
+        field register_value u16 endian big
+        emit "registers[]"
+      }
+    }
+    
+    case 0x04 {  # Read Input Registers Response
+      field byte_count u8
+      field register_values bytes lenfrom "byte_count"
+      
+      # Parse register values
+      group repeat count_from "byte_count/2" {
+        field register_value u16 endian big
+        emit "input_registers[]"
+      }
+    }
+    
+    case 0x05 {  # Write Single Coil Response
+      field output_address u16 endian big
+      field output_value u16 endian big
+    }
+    
+    case 0x06 {  # Write Single Register Response
+      field register_address u16 endian big
+      field register_value u16 endian big
+    }
+    
+    case 0x0F {  # Write Multiple Coils Response
+      field start_address u16 endian big
+      field quantity u16 endian big
+    }
+    
+    case 0x10 {  # Write Multiple Registers Response
+      field start_address u16 endian big
+      field quantity u16 endian big
+    }
+  }
+
+  # Exception codes catalog
+  catalog "exception_codes" inline {
+    0x01 "Illegal Function"
+    0x02 "Illegal Data Address"
+    0x03 "Illegal Data Value"
+    0x04 "Slave Device Failure"
+    0x05 "Acknowledge"
+    0x06 "Slave Device Busy"
+    0x08 "Memory Parity Error"
+    0x0A "Gateway Path Unavailable"
+    0x0B "Gateway Target Device Failed to Respond"
+  }
+
+  # Test samples
+  tests {
+    sample "read_holding_registers_request" {
+      raw "00 01 00 00 00 06 01 03 00 00 00 0A"
+      expect "$.mbap_header.transaction_id" 1
+      expect "$.mbap_header.unit_id" 1
+      expect "$.request.function_code" 3
+      expect "$.request.start_address" 0
+      expect "$.request.quantity" 10
+    }
+    
+    sample "write_single_register_request" {
+      raw "00 02 00 00 00 06 01 06 00 01 00 03"
+      expect "$.mbap_header.transaction_id" 2
+      expect "$.mbap_header.unit_id" 1
+      expect "$.request.function_code" 6
+      expect "$.request.register_address" 1
+      expect "$.request.register_value" 3
+    }
+    
+    sample "exception_response" {
+      raw "00 01 00 00 00 03 01 83 02"
+      expect "$.mbap_header.transaction_id" 1
+      expect "$.response.function_code" 0x83
+      expect "$.response.exception_code" 2
+      expect "$.response.error_name" "Illegal Data Address"
+    }
+  }
+}
+
