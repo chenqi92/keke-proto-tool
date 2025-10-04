@@ -298,6 +298,17 @@ export interface ModbusStatistics {
   lastErrorTime?: Date;
 }
 
+// Serial Port types
+export interface SerialPortInfo {
+  port_name: string;
+  port_type: string;
+  description?: string;
+  manufacturer?: string;
+  serial_number?: string;
+  vid?: number;
+  pid?: number;
+}
+
 export interface NetworkAddress {
   host: string;
   port: number;

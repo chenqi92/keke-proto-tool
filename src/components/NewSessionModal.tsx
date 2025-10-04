@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/utils';
-import { X, Server, Wifi, MessageSquare, Globe, Radio, AlertTriangle, Info } from 'lucide-react';
-import { ProtocolType, ConnectionType } from '@/types';
+import { X, Server, Wifi, MessageSquare, Globe, Radio, AlertTriangle, Info, Network, Zap, RefreshCw, Edit3 } from 'lucide-react';
+import { ProtocolType, ConnectionType, SerialPortInfo } from '@/types';
+import { invoke } from '@tauri-apps/api/core';
 
 interface NewSessionModalProps {
   isOpen: boolean;
@@ -72,6 +73,36 @@ const protocolSupportsServer: Record<ProtocolType, boolean> = {
   'Modbus-RTU': false, // Modbus RTU通常只作为主站
 };
 
+// Categorized protocol options for better organization
+const protocolCategories = [
+  {
+    name: '网络协议',
+    icon: Network,
+    protocols: [
+      { value: 'TCP', label: 'TCP', icon: Wifi },
+      { value: 'UDP', label: 'UDP', icon: Wifi },
+      { value: 'WebSocket', label: 'WebSocket', icon: Globe },
+    ]
+  },
+  {
+    name: '消息协议',
+    icon: MessageSquare,
+    protocols: [
+      { value: 'MQTT', label: 'MQTT', icon: MessageSquare },
+      { value: 'SSE', label: 'SSE', icon: Radio },
+    ]
+  },
+  {
+    name: '工业协议',
+    icon: Zap,
+    protocols: [
+      { value: 'Modbus', label: 'Modbus TCP', icon: Wifi },
+      { value: 'Modbus-RTU', label: 'Modbus RTU', icon: Radio },
+    ]
+  }
+] as const;
+
+// Flat list for backward compatibility
 const protocolOptions = [
   { value: 'TCP', label: 'TCP', icon: Wifi },
   { value: 'UDP', label: 'UDP', icon: Wifi },
@@ -118,6 +149,37 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
   // 服务端监听地址选择状态
   const [listenAddressType, setListenAddressType] = useState<'0.0.0.0' | '127.0.0.1' | 'custom'>('0.0.0.0');
   const [customListenAddress, setCustomListenAddress] = useState('');
+
+  // 串口检测状态
+  const [serialPorts, setSerialPorts] = useState<SerialPortInfo[]>([]);
+  const [isLoadingPorts, setIsLoadingPorts] = useState(false);
+  const [useManualSerialPort, setUseManualSerialPort] = useState(false);
+
+  // 加载串口列表
+  const loadSerialPorts = async () => {
+    setIsLoadingPorts(true);
+    try {
+      const ports = await invoke<SerialPortInfo[]>('list_serial_ports');
+      setSerialPorts(ports);
+
+      // 如果检测到串口且当前没有选择，自动选择第一个
+      if (ports.length > 0 && !formData.modbusSerialPort) {
+        setFormData({ ...formData, modbusSerialPort: ports[0].port_name });
+      }
+    } catch (error) {
+      console.error('Failed to load serial ports:', error);
+      setSerialPorts([]);
+    } finally {
+      setIsLoadingPorts(false);
+    }
+  };
+
+  // 当协议切换到 Modbus RTU 时自动加载串口
+  useEffect(() => {
+    if (formData.protocol === 'Modbus-RTU' && serialPorts.length === 0 && !isLoadingPorts) {
+      loadSerialPorts();
+    }
+  }, [formData.protocol]);
 
   // 根据连接类型和协议获取默认配置
   const getDefaultConfig = (connectionType: ConnectionType, protocol: ProtocolType) => {
@@ -370,7 +432,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
       tabIndex={-1}
     >
       <div
-        className="bg-background border border-border rounded-lg shadow-lg w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
+        className="bg-background border border-border rounded-lg shadow-lg w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -409,33 +471,53 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
           {/* Protocol Selection */}
           <div>
             <label className="block text-sm font-medium mb-2">协议类型</label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {protocolOptions.map((option) => {
-                const Icon = option.icon;
+            <div className="space-y-2.5">
+              {protocolCategories.map((category) => {
+                const CategoryIcon = category.icon;
                 return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => handleProtocolChange(option.value as ProtocolType)}
-                    className={cn(
-                      "flex flex-col items-center p-2 sm:p-3 border rounded-md text-xs transition-colors min-h-[60px]",
-                      formData.protocol === option.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border hover:bg-accent"
-                    )}
-                  >
-                    <Icon className="w-4 h-4 mb-1" />
-                    <span className="text-center leading-tight">{option.label}</span>
-                  </button>
+                  <div key={category.name} className="space-y-1.5">
+                    {/* Category Header */}
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <CategoryIcon className="w-3 h-3" />
+                      <span className="text-[11px]">{category.name}</span>
+                      <div className="flex-1 h-px bg-border"></div>
+                    </div>
+
+                    {/* Protocol Buttons */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {category.protocols.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleProtocolChange(option.value as ProtocolType)}
+                            className={cn(
+                              "flex flex-col items-center justify-center p-2 border rounded-md text-xs transition-colors min-h-[52px] hover:shadow-sm",
+                              formData.protocol === option.value
+                                ? "border-primary bg-primary/10 text-primary shadow-sm"
+                                : "border-border hover:bg-accent hover:border-accent-foreground/20"
+                            )}
+                          >
+                            <Icon className="w-4 h-4 mb-0.5" />
+                            <span className="text-center leading-tight font-medium text-[11px]">{option.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>
           </div>
 
+          {/* Section Divider */}
+          <div className="border-t border-border my-2"></div>
+
           {/* Connection Type */}
           <div>
             <label className="block text-sm font-medium mb-2">连接类型</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {typeOptions.map((option) => {
                 const Icon = option.icon;
                 const isDisabled = option.value === 'server' && !protocolSupportsServer[formData.protocol];
@@ -446,30 +528,33 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                     onClick={() => !isDisabled && handleTypeChange(option.value)}
                     disabled={isDisabled}
                     className={cn(
-                      "flex items-center justify-center p-2 sm:p-3 border rounded-md text-sm transition-colors min-h-[48px]",
+                      "flex items-center justify-center p-3 border rounded-md text-sm transition-colors min-h-[52px] hover:shadow-sm",
                       isDisabled
                         ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                         : formData.connectionType === option.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border hover:bg-accent"
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : "border-border hover:bg-accent hover:border-accent-foreground/20"
                     )}
                   >
-                    <Icon className="w-4 h-4 mr-1 sm:mr-2" />
-                    <span className="text-center">{option.label}</span>
+                    <Icon className="w-4 h-4 mr-2" />
+                    <span className="text-center font-medium">{option.label}</span>
                   </button>
                 );
               })}
             </div>
             {/* 协议不支持服务端模式的提示 */}
             {!protocolSupportsServer[formData.protocol] && (
-              <div className="flex items-start gap-2 mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+              <div className="flex items-start gap-2 mt-2 p-2.5 bg-yellow-50 border border-yellow-200 rounded-md">
                 <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-yellow-800">
+                <p className="text-xs text-yellow-800 leading-relaxed">
                   {formData.protocol} 协议通常只作为客户端使用，连接到相应的服务器或代理。
                 </p>
               </div>
             )}
           </div>
+
+          {/* Section Divider */}
+          <div className="border-t border-border my-2"></div>
 
           {/* Host and Port */}
           {(() => {
@@ -591,123 +676,206 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
 
           {/* WebSocket 子协议 */}
           {formData.protocol === 'WebSocket' && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                WebSocket 子协议 <span className="text-muted-foreground text-xs">(可选)</span>
-              </label>
-              <input
-                type="text"
-                value={formData.websocketSubprotocol || ''}
-                onChange={(e) => setFormData({ ...formData, websocketSubprotocol: e.target.value })}
-                className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="例如: chat, echo"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                指定WebSocket子协议，用于协议协商
-              </p>
-            </div>
+            <>
+              <div className="border-t border-border my-2"></div>
+              <div className="p-4 bg-accent/30 border border-border rounded-lg">
+                <label className="block text-sm font-medium mb-1">
+                  WebSocket 子协议 <span className="text-muted-foreground text-xs">(可选)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.websocketSubprotocol || ''}
+                  onChange={(e) => setFormData({ ...formData, websocketSubprotocol: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                  placeholder="例如: chat, echo"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  指定WebSocket子协议，用于协议协商
+                </p>
+              </div>
+            </>
           )}
 
           {/* MQTT 主题 */}
           {formData.protocol === 'MQTT' && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                MQTT 主题 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.mqttTopic || ''}
-                onChange={(e) => setFormData({ ...formData, mqttTopic: e.target.value })}
-                className={cn(
-                  "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
-                  errors.mqttTopic ? "border-red-500" : "border-border"
+            <>
+              <div className="border-t border-border my-2"></div>
+              <div className="p-4 bg-accent/30 border border-border rounded-lg">
+                <label className="block text-sm font-medium mb-1">
+                  MQTT 主题 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.mqttTopic || ''}
+                  onChange={(e) => setFormData({ ...formData, mqttTopic: e.target.value })}
+                  className={cn(
+                    "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background",
+                    errors.mqttTopic ? "border-red-500" : "border-border"
+                  )}
+                  placeholder="例如: test/topic, sensors/temperature"
+                />
+                {errors.mqttTopic && (
+                  <p className="text-red-500 text-xs mt-1">{errors.mqttTopic}</p>
                 )}
-                placeholder="例如: test/topic, sensors/temperature"
-              />
-              {errors.mqttTopic && (
-                <p className="text-red-500 text-xs mt-1">{errors.mqttTopic}</p>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">
-                MQTT消息发布和订阅的主题路径
-              </p>
-            </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  MQTT消息发布和订阅的主题路径
+                </p>
+              </div>
+            </>
           )}
 
           {/* SSE 事件类型 */}
           {formData.protocol === 'SSE' && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                SSE 事件类型 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.sseEventTypes?.join(', ') || ''}
-                onChange={(e) => {
-                  const types = e.target.value.split(',').map(t => t.trim()).filter(t => t);
-                  setFormData({ ...formData, sseEventTypes: types });
-                }}
-                className={cn(
-                  "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
-                  errors.sseEventTypes ? "border-red-500" : "border-border"
+            <>
+              <div className="border-t border-border my-2"></div>
+              <div className="p-4 bg-accent/30 border border-border rounded-lg">
+                <label className="block text-sm font-medium mb-1">
+                  SSE 事件类型 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.sseEventTypes?.join(', ') || ''}
+                  onChange={(e) => {
+                    const types = e.target.value.split(',').map(t => t.trim()).filter(t => t);
+                    setFormData({ ...formData, sseEventTypes: types });
+                  }}
+                  className={cn(
+                    "w-full px-3 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background",
+                    errors.sseEventTypes ? "border-red-500" : "border-border"
+                  )}
+                  placeholder="例如: message, update, notification"
+                />
+                {errors.sseEventTypes && (
+                  <p className="text-red-500 text-xs mt-1">{errors.sseEventTypes}</p>
                 )}
-                placeholder="例如: message, update, notification"
-              />
-              {errors.sseEventTypes && (
-                <p className="text-red-500 text-xs mt-1">{errors.sseEventTypes}</p>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">
-                用逗号分隔多个事件类型，如: message, update, notification
-              </p>
-            </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  用逗号分隔多个事件类型，如: message, update, notification
+                </p>
+              </div>
+            </>
           )}
 
           {/* Modbus Unit ID */}
           {(formData.protocol === 'Modbus' || formData.protocol === 'Modbus-RTU') && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Modbus 单元 ID <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="247"
-                value={formData.modbusUnitId || 1}
-                onChange={(e) => setFormData({ ...formData, modbusUnitId: parseInt(e.target.value) || 1 })}
-                className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="1-247"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Modbus 从站/单元 ID，范围 1-247
-              </p>
-            </div>
+            <>
+              <div className="border-t border-border my-2"></div>
+              <div className="p-4 bg-accent/30 border border-border rounded-lg">
+                <div className="flex items-center gap-2 text-sm font-medium mb-3">
+                  <Zap className="w-4 h-4 text-primary" />
+                  <span>Modbus 配置</span>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    单元 ID <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="247"
+                    value={formData.modbusUnitId || 1}
+                    onChange={(e) => setFormData({ ...formData, modbusUnitId: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                    placeholder="1-247"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Modbus 从站/单元 ID，范围 1-247
+                  </p>
+                </div>
+              </div>
+            </>
           )}
 
           {/* Modbus RTU Serial Configuration */}
           {formData.protocol === 'Modbus-RTU' && (
-            <>
+            <div className="space-y-3 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+              <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                <Radio className="w-4 h-4 text-primary" />
+                <span>串口配置</span>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  串口 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.modbusSerialPort || ''}
-                  onChange={(e) => setFormData({ ...formData, modbusSerialPort: e.target.value })}
-                  className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Windows: COM1, Linux: /dev/ttyUSB0"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium">
+                    串口 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {!useManualSerialPort && (
+                      <button
+                        type="button"
+                        onClick={loadSerialPorts}
+                        disabled={isLoadingPorts}
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-primary hover:bg-primary/10 rounded transition-colors disabled:opacity-50"
+                        title="刷新串口列表"
+                      >
+                        <RefreshCw className={cn("w-3 h-3", isLoadingPorts && "animate-spin")} />
+                        刷新
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setUseManualSerialPort(!useManualSerialPort)}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                      title={useManualSerialPort ? "使用自动检测" : "手动输入"}
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      {useManualSerialPort ? "自动" : "手动"}
+                    </button>
+                  </div>
+                </div>
+
+                {useManualSerialPort ? (
+                  // 手动输入模式
+                  <input
+                    type="text"
+                    value={formData.modbusSerialPort || ''}
+                    onChange={(e) => setFormData({ ...formData, modbusSerialPort: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                    placeholder="Windows: COM1, Linux: /dev/ttyUSB0"
+                  />
+                ) : (
+                  // 自动检测下拉框
+                  <select
+                    value={formData.modbusSerialPort || ''}
+                    onChange={(e) => setFormData({ ...formData, modbusSerialPort: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                    disabled={isLoadingPorts}
+                  >
+                    {isLoadingPorts ? (
+                      <option value="">正在检测串口...</option>
+                    ) : serialPorts.length === 0 ? (
+                      <option value="">未检测到串口设备</option>
+                    ) : (
+                      <>
+                        <option value="">请选择串口</option>
+                        {serialPorts.map((port) => (
+                          <option key={port.port_name} value={port.port_name}>
+                            {port.port_name}
+                            {port.description && ` - ${port.description}`}
+                            {port.manufacturer && ` (${port.manufacturer})`}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                )}
+
                 <p className="text-xs text-muted-foreground mt-1">
-                  串口设备名称 (Windows: COM1, Linux: /dev/ttyUSB0)
+                  {useManualSerialPort
+                    ? "手动输入串口设备名称 (Windows: COM1, Linux: /dev/ttyUSB0)"
+                    : serialPorts.length === 0
+                      ? "未检测到串口设备，点击刷新或切换到手动输入"
+                      : `检测到 ${serialPorts.length} 个串口设备`
+                  }
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">波特率</label>
                   <select
                     value={formData.modbusBaudRate || 9600}
                     onChange={(e) => setFormData({ ...formData, modbusBaudRate: parseInt(e.target.value) })}
-                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
                   >
                     <option value="9600">9600</option>
                     <option value="19200">19200</option>
@@ -722,7 +890,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                   <select
                     value={formData.modbusDataBits || 8}
                     onChange={(e) => setFormData({ ...formData, modbusDataBits: parseInt(e.target.value) as 5 | 6 | 7 | 8 })}
-                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
                   >
                     <option value="5">5</option>
                     <option value="6">6</option>
@@ -730,15 +898,13 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                     <option value="8">8</option>
                   </select>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">校验位</label>
                   <select
                     value={formData.modbusParity || 'none'}
                     onChange={(e) => setFormData({ ...formData, modbusParity: e.target.value as 'none' | 'even' | 'odd' })}
-                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
                   >
                     <option value="none">无</option>
                     <option value="even">偶校验</option>
@@ -751,14 +917,14 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                   <select
                     value={formData.modbusStopBits || 1}
                     onChange={(e) => setFormData({ ...formData, modbusStopBits: parseInt(e.target.value) as 1 | 2 })}
-                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 py-1.5 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
                   >
                     <option value="1">1</option>
                     <option value="2">2</option>
                   </select>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
 

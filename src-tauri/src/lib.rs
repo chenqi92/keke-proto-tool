@@ -40,6 +40,8 @@ pub fn run() {
             modbus_read_holding_registers,
             modbus_write_single_register,
             modbus_write_multiple_registers,
+            // Serial port commands
+            list_serial_ports,
             // Parsing commands
             load_protocol_rule,
             load_protocol_rule_from_string,

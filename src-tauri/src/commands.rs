@@ -424,6 +424,83 @@ pub async fn modbus_write_multiple_registers(
 }
 
 // ============================================================================
+// SERIAL PORT COMMANDS
+// ============================================================================
+
+/// Serial port information
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SerialPortInfo {
+    pub port_name: String,
+    pub port_type: String,
+    pub description: Option<String>,
+    pub manufacturer: Option<String>,
+    pub serial_number: Option<String>,
+    pub vid: Option<u16>,
+    pub pid: Option<u16>,
+}
+
+/// List available serial ports on the system
+#[tauri::command]
+pub async fn list_serial_ports() -> Result<Vec<SerialPortInfo>, String> {
+    match serialport::available_ports() {
+        Ok(ports) => {
+            let port_infos: Vec<SerialPortInfo> = ports
+                .into_iter()
+                .map(|port| {
+                    let (port_type, description, manufacturer, serial_number, vid, pid) = match &port.port_type {
+                        serialport::SerialPortType::UsbPort(usb_info) => (
+                            "USB".to_string(),
+                            Some(format!("USB Serial Port")),
+                            usb_info.manufacturer.clone(),
+                            usb_info.serial_number.clone(),
+                            Some(usb_info.vid),
+                            Some(usb_info.pid),
+                        ),
+                        serialport::SerialPortType::PciPort => (
+                            "PCI".to_string(),
+                            Some("PCI Serial Port".to_string()),
+                            None,
+                            None,
+                            None,
+                            None,
+                        ),
+                        serialport::SerialPortType::BluetoothPort => (
+                            "Bluetooth".to_string(),
+                            Some("Bluetooth Serial Port".to_string()),
+                            None,
+                            None,
+                            None,
+                            None,
+                        ),
+                        serialport::SerialPortType::Unknown => (
+                            "Unknown".to_string(),
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                        ),
+                    };
+
+                    SerialPortInfo {
+                        port_name: port.port_name.clone(),
+                        port_type,
+                        description,
+                        manufacturer,
+                        serial_number,
+                        vid,
+                        pid,
+                    }
+                })
+                .collect();
+
+            Ok(port_infos)
+        }
+        Err(e) => Err(format!("Failed to enumerate serial ports: {}", e)),
+    }
+}
+
+// ============================================================================
 // PARSING COMMANDS
 // ============================================================================
 
