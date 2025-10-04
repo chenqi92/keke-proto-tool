@@ -115,7 +115,7 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
       // Import the modified protocol
       const request = {
         name: metadata?.name || 'Modified Protocol',
-        content: content,
+        content,
         description: 'Modified protocol from editor',
         category: metadata?.category || 'custom',
         tags: metadata?.tags || ['modified']
@@ -146,7 +146,7 @@ export const ProtocolEditor: React.FC<ProtocolEditorProps> = ({
       // 使用 Tauri invoke 命令调用后端文件保存功能
       const result = await invoke<{ success: boolean; path?: string; error?: string }>('save_file_dialog', {
         defaultPath: `${metadata?.name || 'protocol'}.kpt`,
-        content: content,
+        content,
         filters: [
           {
             name: 'KPT Protocol Files',

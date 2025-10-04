@@ -228,7 +228,7 @@ export const ProtocolEditorModal: React.FC<ProtocolEditorModalProps> = ({
   // Dialog states
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [dialogContent, setDialogContent] = useState({ title: '', message: '', type: 'info' as const });
+  const [dialogContent, setDialogContent] = useState<{ title: string; message: string; type: 'info' | 'success' | 'error' }>({ title: '', message: '', type: 'info' });
 
   // 检测内容是否被修改
   useEffect(() => {

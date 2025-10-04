@@ -335,8 +335,8 @@ class NetworkService {
     console.log('🔧 NetworkService - handleClientDisconnected called:', JSON.stringify({
       sessionId,
       clientId,
-      manualDisconnect: manualDisconnect,
-      serverShutdown: serverShutdown,
+      manualDisconnect,
+      serverShutdown,
       manualDisconnectType: typeof manualDisconnect,
       serverShutdownType: typeof serverShutdown
     }, null, 2));

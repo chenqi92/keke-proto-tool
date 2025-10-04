@@ -116,7 +116,7 @@ export class ProtocolRepositoryService {
       }
 
       const protocolId = await invoke<string>('import_protocol', {
-        content: content,
+        content,
         custom_name: request.name,
         custom_category: request.category,
         tags: request.tags || [],

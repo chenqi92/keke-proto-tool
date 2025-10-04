@@ -240,7 +240,7 @@ function parseFrameBlock(content: string[]): KptFrame {
       case 'tail':
         frame.tail = parts[1].replace(/^"(.*)"$/, '$1');
         break;
-      case 'length':
+      case 'length': {
         // Parse: length at +2 size 4 encoding dec_ascii includes payload
         const lengthConfig: any = {};
         for (let i = 1; i < parts.length; i += 2) {
@@ -251,6 +251,7 @@ function parseFrameBlock(content: string[]): KptFrame {
         }
         frame.length = lengthConfig;
         break;
+      }
       case 'escape':
         frame.escape = parts[1] === 'on';
         break;
@@ -274,7 +275,7 @@ function parseChecksumBlock(content: string[]): KptChecksum {
       case 'type':
         checksum.type = parts[1];
         break;
-      case 'store':
+      case 'store': {
         // Parse: store size 4 encoding hex_ascii
         const storeConfig: any = {};
         for (let i = 1; i < parts.length; i += 2) {
@@ -283,7 +284,8 @@ function parseChecksumBlock(content: string[]): KptChecksum {
         }
         checksum.store = storeConfig;
         break;
-      case 'range':
+      }
+      case 'range': {
         // Parse: range from after_header to before_checksum
         const rangeConfig: any = {};
         for (let i = 1; i < parts.length; i += 2) {
@@ -292,6 +294,7 @@ function parseChecksumBlock(content: string[]): KptChecksum {
         }
         checksum.range = rangeConfig;
         break;
+      }
       case 'params':
         // Parse parameters
         if (!checksum.params) checksum.params = {};
