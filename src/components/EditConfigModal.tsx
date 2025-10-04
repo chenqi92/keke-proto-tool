@@ -97,10 +97,10 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
   if (!isOpen || !config) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-3xl flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
           <h2 className="text-lg font-semibold">编辑配置</h2>
           <button
             onClick={handleClose}
@@ -110,10 +110,11 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
-          {/* Session Name */}
-          <div>
+        {/* Content - Scrollable */}
+        <div className="p-6 overflow-y-auto flex-1">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          {/* Session Name - Full width */}
+          <div className="col-span-2">
             <label className="block text-sm font-medium mb-1">会话名称</label>
             <input
               type="text"
@@ -291,7 +292,7 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
           {/* Modbus RTU Serial Configuration */}
           {formData.protocol === 'Modbus-RTU' && (
             <>
-              <div>
+              <div className="col-span-2">
                 <label className="block text-sm font-medium mb-1">
                   串口 <span className="text-red-500">*</span>
                 </label>
@@ -313,69 +314,68 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">波特率</label>
-                  <select
-                    value={formData.modbusBaudRate || 9600}
-                    onChange={(e) => handleInputChange('modbusBaudRate', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="9600">9600</option>
-                    <option value="19200">19200</option>
-                    <option value="38400">38400</option>
-                    <option value="57600">57600</option>
-                    <option value="115200">115200</option>
-                  </select>
-                </div>
+              {/* Serial port settings - these will naturally flow in the parent 2-column grid */}
+              <div>
+                <label className="block text-sm font-medium mb-1">波特率</label>
+                <select
+                  value={formData.modbusBaudRate || 9600}
+                  onChange={(e) => handleInputChange('modbusBaudRate', parseInt(e.target.value))}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="9600">9600</option>
+                  <option value="19200">19200</option>
+                  <option value="38400">38400</option>
+                  <option value="57600">57600</option>
+                  <option value="115200">115200</option>
+                </select>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-1">数据位</label>
-                  <select
-                    value={formData.modbusDataBits || 8}
-                    onChange={(e) => handleInputChange('modbusDataBits', parseInt(e.target.value) as 5 | 6 | 7 | 8)}
-                    className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">数据位</label>
+                <select
+                  value={formData.modbusDataBits || 8}
+                  onChange={(e) => handleInputChange('modbusDataBits', parseInt(e.target.value) as 5 | 6 | 7 | 8)}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                </select>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-1">校验位</label>
-                  <select
-                    value={formData.modbusParity || 'none'}
-                    onChange={(e) => handleInputChange('modbusParity', e.target.value as 'none' | 'even' | 'odd')}
-                    className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="none">无</option>
-                    <option value="even">偶校验</option>
-                    <option value="odd">奇校验</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">校验位</label>
+                <select
+                  value={formData.modbusParity || 'none'}
+                  onChange={(e) => handleInputChange('modbusParity', e.target.value as 'none' | 'even' | 'odd')}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="none">无</option>
+                  <option value="even">偶校验</option>
+                  <option value="odd">奇校验</option>
+                </select>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-1">停止位</label>
-                  <select
-                    value={formData.modbusStopBits || 1}
-                    onChange={(e) => handleInputChange('modbusStopBits', parseInt(e.target.value) as 1 | 2)}
-                    className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">停止位</label>
+                <select
+                  value={formData.modbusStopBits || 1}
+                  onChange={(e) => handleInputChange('modbusStopBits', parseInt(e.target.value) as 1 | 2)}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                </select>
               </div>
             </>
           )}
 
-          {/* Connection Management Settings */}
-          <div className="border-t border-border pt-4 mt-4">
+          {/* Connection Management Settings - Full width */}
+          <div className="col-span-2 border-t border-border pt-4 mt-2">
             <h3 className="text-sm font-medium mb-3">连接管理</h3>
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-sm">自动重连</label>
                 <input
@@ -422,10 +422,11 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
               </div>
             </div>
           </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end space-x-2 p-4 border-t border-border">
+        {/* Footer - Fixed at bottom */}
+        <div className="flex items-center justify-end space-x-2 p-4 border-t border-border flex-shrink-0">
           <button
             onClick={handleClose}
             className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"

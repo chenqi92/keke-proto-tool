@@ -434,11 +434,11 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
       tabIndex={-1}
     >
       <div
-        className="bg-background border border-border rounded-lg shadow-lg w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto"
+        className="bg-background border border-border rounded-lg shadow-lg w-full max-w-3xl mx-4 flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
           <h2 className="text-lg font-semibold">新建会话</h2>
           <button
             onClick={handleClose}
@@ -449,7 +449,9 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          {/* Scrollable Content */}
+          <div className="p-4 space-y-4 overflow-y-auto flex-1">
           {/* Session Name */}
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -928,13 +930,10 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
               </div>
             </div>
           )}
+          </div>
 
-
-
-
-
-          {/* Actions */}
-          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2 pt-4">
+          {/* Actions - Fixed at bottom */}
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:space-x-2 p-4 border-t border-border flex-shrink-0">
             <button
               type="button"
               onClick={handleClose}
