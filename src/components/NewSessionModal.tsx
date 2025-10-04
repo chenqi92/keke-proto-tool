@@ -478,8 +478,8 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                   <div key={category.name} className="space-y-1.5">
                     {/* Category Header */}
                     <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <CategoryIcon className="w-3 h-3" />
-                      <span className="text-[11px]">{category.name}</span>
+                      <CategoryIcon className="w-3.5 h-3.5" />
+                      <span>{category.name}</span>
                       <div className="flex-1 h-px bg-border"></div>
                     </div>
 
@@ -493,14 +493,14 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                             type="button"
                             onClick={() => handleProtocolChange(option.value as ProtocolType)}
                             className={cn(
-                              "flex flex-col items-center justify-center p-2 border rounded-md text-xs transition-colors min-h-[52px] hover:shadow-sm",
+                              "flex flex-col items-center justify-center p-2 border rounded-md transition-colors min-h-[52px] hover:shadow-sm",
                               formData.protocol === option.value
                                 ? "border-primary bg-primary/10 text-primary shadow-sm"
                                 : "border-border hover:bg-accent hover:border-accent-foreground/20"
                             )}
                           >
-                            <Icon className="w-4 h-4 mb-0.5" />
-                            <span className="text-center leading-tight font-medium text-[11px]">{option.label}</span>
+                            <Icon className="w-5 h-5 mb-1" />
+                            <span className="text-center leading-tight font-medium text-xs">{option.label}</span>
                           </button>
                         );
                       })}
