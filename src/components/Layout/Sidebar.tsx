@@ -14,7 +14,8 @@ import {
   Play,
   Square,
   RefreshCw,
-  Folder
+  Folder,
+  Radio
 } from 'lucide-react';
 import { NewSessionModal, SessionData } from '@/components/NewSessionModal';
 import { EditConfigModal } from '@/components/EditConfigModal';
@@ -43,8 +44,8 @@ interface TreeNode {
   id: string;
   label: string;
   type: 'workspace' | 'protocol-type' | 'session' | 'connection';
-  protocol?: 'TCP' | 'UDP' | 'MQTT' | 'WebSocket' | 'SSE';
-  connectionType?: 'client' | 'server';
+  protocol?: 'TCP' | 'UDP' | 'MQTT' | 'WebSocket' | 'SSE' | 'Modbus' | 'Modbus-TCP' | 'Modbus-RTU';
+  connectionType?: 'client' | 'server' | 'master' | 'slave';
   status?: 'connected' | 'disconnected' | 'connecting';
   children?: TreeNode[];
   expanded?: boolean;
@@ -77,7 +78,11 @@ const createTreeDataFromSessions = (sessions: any[]): TreeNode[] => {
     { protocol: 'WebSocket', connectionType: 'client', label: 'WebSocket 客户端' },
     { protocol: 'WebSocket', connectionType: 'server', label: 'WebSocket 服务端' },
     { protocol: 'MQTT', connectionType: 'client', label: 'MQTT 客户端' },
-    { protocol: 'SSE', connectionType: 'client', label: 'SSE 客户端' }
+    { protocol: 'SSE', connectionType: 'client', label: 'SSE 客户端' },
+    { protocol: 'Modbus-TCP', connectionType: 'master', label: 'Modbus TCP 主站' },
+    { protocol: 'Modbus-TCP', connectionType: 'slave', label: 'Modbus TCP 从站' },
+    { protocol: 'Modbus-RTU', connectionType: 'master', label: 'Modbus RTU 主站' },
+    { protocol: 'Modbus-RTU', connectionType: 'slave', label: 'Modbus RTU 从站' }
   ];
 
   protocolTypes.forEach(({ protocol, connectionType, label }) => {
@@ -172,6 +177,10 @@ const getProtocolIcon = (protocol?: string, status?: string) => {
         return "text-orange-500";
       case 'SSE':
         return "text-pink-500";
+      case 'Modbus':
+      case 'Modbus-TCP':
+      case 'Modbus-RTU':
+        return "text-cyan-500";
       default:
         return "text-blue-500";
     }
@@ -191,6 +200,10 @@ const getProtocolIcon = (protocol?: string, status?: string) => {
       return <ArrowLeftRight className={cn("w-4 h-4", colorClass)} />;
     case 'SSE':
       return <Activity className={cn("w-4 h-4", colorClass)} />;
+    case 'Modbus':
+    case 'Modbus-TCP':
+    case 'Modbus-RTU':
+      return <Radio className={cn("w-4 h-4", colorClass)} />;
     default:
       return <Link className={cn("w-4 h-4", colorClass)} />;
   }
