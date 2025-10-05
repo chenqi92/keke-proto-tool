@@ -3,16 +3,13 @@ import { cn } from '@/utils';
 import { ProtocolPlugin } from '@/types/plugins';
 import { ProtocolPluginManager } from '@/components/plugins/ProtocolPluginManager';
 import { ProtocolStore } from '@/components/plugins/ProtocolStore';
-import FactorTranslationDemo from '@/components/plugins/FactorTranslationDemo';
 import {
   Puzzle,
   Network,
-  Store,
-  Settings as SettingsIcon,
-  Zap
+  Store
 } from 'lucide-react';
 
-type PluginTab = 'protocol' | 'store' | 'settings' | 'factor-demo';
+type PluginTab = 'protocol' | 'store';
 
 
 
@@ -60,18 +57,6 @@ export const PluginsPage: React.FC = () => {
             }}
           />
         );
-      case 'settings':
-        return (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <SettingsIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">协议设置</h3>
-              <p>即将推出...</p>
-            </div>
-          </div>
-        );
-      case 'factor-demo':
-        return <FactorTranslationDemo />;
       default:
         return null;
     }
@@ -113,30 +98,6 @@ export const PluginsPage: React.FC = () => {
           >
             <Store className="w-4 h-4" />
             <span>协议商店</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={cn(
-              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
-              activeTab === 'settings'
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent"
-            )}
-          >
-            <SettingsIcon className="w-4 h-4" />
-            <span>协议设置</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('factor-demo')}
-            className={cn(
-              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
-              activeTab === 'factor-demo'
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent"
-            )}
-          >
-            <Zap className="w-4 h-4" />
-            <span>因子翻译演示</span>
           </button>
         </div>
       </div>

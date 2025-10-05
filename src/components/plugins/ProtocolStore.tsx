@@ -247,13 +247,13 @@ export const ProtocolStore: React.FC<ProtocolStoreProps> = ({ onProtocolInstalle
                 {/* Protocol Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm truncate mb-1">
+                    <h3 className="font-semibold text-base truncate mb-1">
                       {protocol.name}
                     </h3>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span>v{protocol.version}</span>
                       {protocol.verified && (
-                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
                       )}
                     </div>
                   </div>
@@ -265,18 +265,18 @@ export const ProtocolStore: React.FC<ProtocolStoreProps> = ({ onProtocolInstalle
                 </div>
 
                 {/* Description */}
-                <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                   {protocol.description || '暂无描述'}
                 </p>
 
                 {/* Metadata */}
-                <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
                   <div className="flex items-center gap-1">
-                    <User className="w-3 h-3" />
+                    <User className="w-3.5 h-3.5" />
                     <span>{protocol.author}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Tag className="w-3 h-3" />
+                    <Tag className="w-3.5 h-3.5" />
                     <span>{protocol.category}</span>
                   </div>
                 </div>

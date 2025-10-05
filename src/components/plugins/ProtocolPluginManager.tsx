@@ -581,29 +581,28 @@ examples:
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
+                      {/* Header with name, version and status */}
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-3">
-                          <h3 className="font-semibold text-lg">{plugin.name}</h3>
+                          <h3 className="font-semibold text-base">{plugin.name}</h3>
                           <span className="text-sm text-muted-foreground">
                             v{plugin.version}
                           </span>
                         </div>
-                        <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
-                          {plugin.protocolName}
-                        </span>
                         {plugin.installed && (
                           <div className="flex items-center space-x-1">
                             {getStatusIcon(plugin.status)}
                           </div>
                         )}
                       </div>
-                      
+
+                      {/* Description */}
                       <p className="text-sm text-muted-foreground mb-3">
                         {plugin.description}
                       </p>
-                      
+
                       {/* Features */}
-                      <div className="flex items-center space-x-4 mb-2">
+                      <div className="flex items-center space-x-4 mb-3">
                         <div className="flex items-center space-x-2">
                           {getFeatureIcon('parsing', plugin.features?.parsing || false)}
                           <span className="text-xs">解析</span>
@@ -621,12 +620,18 @@ examples:
                           <span className="text-xs">加密</span>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                        <span>作者: {plugin.author}</span>
-                        <span>大小: {plugin.size}</span>
-                        <span>下载: {plugin.downloads.toLocaleString()}</span>
-                        <div>{renderStars(plugin.rating)}</div>
+
+                      {/* Bottom row: metadata and protocol type badge */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                          <span>作者: {plugin.author}</span>
+                          <span>大小: {plugin.size}</span>
+                          <span>下载: {plugin.downloads.toLocaleString()}</span>
+                          <div>{renderStars(plugin.rating)}</div>
+                        </div>
+                        <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full whitespace-nowrap ml-2">
+                          {plugin.protocolName}
+                        </span>
                       </div>
                     </div>
                     
