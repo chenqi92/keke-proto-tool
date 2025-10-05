@@ -53,7 +53,22 @@ import { versionUpdateService } from '@/services/VersionUpdateService'
 // Components
 import { ShortcutHelp, useShortcutHelp } from '@/components/ShortcutHelp'
 
+// Internal component that uses SessionContext
+function AppWithSession({
+  openModal,
+  handleMenuUpdateCheck
+}: {
+  openModal: (modalType: string) => void;
+  handleMenuUpdateCheck: () => Promise<void>;
+}) {
+  // Initialize native menu handling (needs SessionContext)
+  useNativeMenu({
+    onOpenModal: openModal,
+    onCheckUpdates: handleMenuUpdateCheck
+  })
 
+  return null
+}
 
 function App() {
   const [showWelcome, setShowWelcome] = useState(false)
@@ -92,12 +107,6 @@ function App() {
     setShowMenuUpdateNotification(true)
     await updateCheck.checkForUpdates()
   }
-
-  // Initialize native menu handling
-  useNativeMenu({
-    onOpenModal: openModal,
-    onCheckUpdates: handleMenuUpdateCheck
-  })
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -265,6 +274,12 @@ function App() {
 
   return (
     <SessionProvider>
+      {/* Initialize hooks that need SessionContext */}
+      <AppWithSession
+        openModal={openModal}
+        handleMenuUpdateCheck={handleMenuUpdateCheck}
+      />
+
       <MainLayout onOpenModal={openModal}>
         <MainContent />
       </MainLayout>

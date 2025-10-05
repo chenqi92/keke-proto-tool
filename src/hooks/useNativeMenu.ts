@@ -1,13 +1,22 @@
 import { useEffect } from 'react';
 import { useTheme } from '@/hooks/useTheme';
+import { useAppStore } from '@/stores/AppStore';
+import { useSession } from '@/contexts/SessionContext';
 
 interface UseNativeMenuProps {
   onOpenModal: (modalType: string) => void;
   onCheckUpdates?: () => void;
+  onOpenSearch?: () => void;
 }
 
-export const useNativeMenu = ({ onOpenModal, onCheckUpdates }: UseNativeMenuProps) => {
+export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: UseNativeMenuProps) => {
   const { setTheme, setColorTheme } = useTheme();
+  const { selectedNode } = useSession();
+  const startRecording = useAppStore(state => state.startRecording);
+  const stopRecording = useAppStore(state => state.stopRecording);
+  const currentSession = useAppStore(state =>
+    selectedNode?.config ? state.sessions[selectedNode.config.id] : null
+  );
 
   useEffect(() => {
     // 安全的事件监听器设置
@@ -219,12 +228,16 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates }: UseNativeMenuProp
           // TODO: 实现发送构建器逻辑
           break;
         case 'start_capture':
-          console.log('Start Capture');
-          // TODO: 实现开始抓包逻辑
+          if (selectedNode?.config && currentSession && !currentSession.isRecording) {
+            startRecording(selectedNode.config.id);
+            console.log('Started recording session:', selectedNode.config.id);
+          }
           break;
         case 'stop_capture':
-          console.log('Stop Capture');
-          // TODO: 实现停止抓包逻辑
+          if (selectedNode?.config && currentSession && currentSession.isRecording) {
+            stopRecording(selectedNode.config.id);
+            console.log('Stopped recording session:', selectedNode.config.id);
+          }
           break;
         case 'apply_rule':
           console.log('Apply Rule');

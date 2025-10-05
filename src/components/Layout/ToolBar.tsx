@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '@/utils';
 import {
   Plus,
@@ -13,10 +13,12 @@ import {
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { usePlatform } from '@/hooks/usePlatform';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useSession } from '@/contexts/SessionContext';
 import { networkService } from '@/services/NetworkService';
 import { useAppStore } from '@/stores/AppStore';
+import { MessageSearchDialog } from '@/components/MessageSearch';
 
 interface ToolBarProps {
   className?: string;
@@ -38,7 +40,13 @@ const createLeftToolBarItems = (
   onOpenModal: (modalType: string) => void,
   onConnect: () => void,
   canConnect: boolean,
-  connectButtonLabel: string
+  connectButtonLabel: string,
+  onToggleCapture: () => void,
+  isCapturing: boolean,
+  captureButtonLabel: string,
+  canCapture: boolean,
+  onOpenSearch: () => void,
+  canSearch: boolean
 ): ToolBarItem[] => [
   {
     id: 'new-session',
@@ -57,17 +65,19 @@ const createLeftToolBarItems = (
   },
   {
     id: 'capture',
-    label: '抓包',
+    label: captureButtonLabel,
     icon: Activity,
     shortcut: 'Ctrl+R',
-    action: () => console.log('Start Capture')
+    action: onToggleCapture,
+    disabled: !canCapture
   },
   {
     id: 'search',
     label: '搜索',
     icon: Search,
     shortcut: 'Ctrl+F',
-    action: () => console.log('Search')
+    action: onOpenSearch,
+    disabled: !canSearch
   },
   {
     id: 'edit-protocol',
@@ -91,11 +101,16 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
   const layoutConfig = useLayoutConfig();
   const { isMacOS } = usePlatform();
   const { selectedNode } = useSession();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // 使用 Zustand 选择器直接订阅会话状态变化，确保状态更新时组件重新渲染
   const currentSession = useAppStore(state =>
     selectedNode?.config ? state.sessions[selectedNode.config.id] : null
   );
+
+  // 获取 store 方法
+  const startRecording = useAppStore(state => state.startRecording);
+  const stopRecording = useAppStore(state => state.stopRecording);
 
   // 判断是否可以连接：选中的节点必须是会话类型且有连接类型
   const canConnect = Boolean(selectedNode &&
@@ -143,7 +158,79 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     }
   };
 
-  const leftItems = createLeftToolBarItems(onOpenModal, handleConnect, canConnect, connectButtonLabel);
+  // 抓包处理函数
+  const handleToggleCapture = () => {
+    if (!selectedNode || !selectedNode.config) {
+      console.warn('No valid node selected for capture');
+      return;
+    }
+
+    const sessionId = selectedNode.config.id;
+    const isRecording = currentSession?.isRecording || false;
+
+    if (isRecording) {
+      stopRecording(sessionId);
+      console.log('Stopped recording session:', sessionId);
+    } else {
+      startRecording(sessionId);
+      console.log('Started recording session:', sessionId);
+    }
+  };
+
+  // 搜索处理函数
+  const handleOpenSearch = () => {
+    setIsSearchOpen(true);
+  };
+
+  // 判断是否可以抓包：必须有选中的会话
+  const canCapture = Boolean(selectedNode && selectedNode.type === 'session');
+  const isCapturing = currentSession?.isRecording || false;
+  const captureButtonLabel = isCapturing ? '停止抓包' : '开始抓包';
+
+  // 判断是否可以搜索：必须有选中的会话且有消息
+  const canSearch = Boolean(
+    selectedNode &&
+    selectedNode.type === 'session' &&
+    currentSession &&
+    currentSession.messages.length > 0
+  );
+
+  // 注册键盘快捷键
+  useKeyboardShortcuts([
+    {
+      key: 'r',
+      ctrl: true,
+      handler: () => {
+        if (canCapture) {
+          handleToggleCapture();
+        }
+      },
+      description: '开始/停止抓包'
+    },
+    {
+      key: 'f',
+      ctrl: true,
+      handler: () => {
+        if (canSearch) {
+          handleOpenSearch();
+        }
+      },
+      description: '搜索消息'
+    }
+  ]);
+
+  const leftItems = createLeftToolBarItems(
+    onOpenModal,
+    handleConnect,
+    canConnect,
+    connectButtonLabel,
+    handleToggleCapture,
+    isCapturing,
+    captureButtonLabel,
+    canCapture,
+    handleOpenSearch,
+    canSearch
+  );
   const rightItems = createRightToolBarItems(onOpenModal);
 
   const handleItemClick = (item: ToolBarItem) => {
@@ -213,6 +300,9 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
       );
     }
 
+    // 特殊处理抓包按钮，添加动画效果
+    const isCapturingButton = item.id === 'capture' && isCapturing;
+
     return (
       <button
         key={item.id}
@@ -222,11 +312,15 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
           "flex flex-col items-center justify-center px-3 py-2 text-xs rounded-md transition-colors min-w-16 h-12",
           "hover:bg-accent text-muted-foreground hover:text-foreground",
           layoutConfig.isMobile && "min-w-12 px-2",
-          item.disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground"
+          item.disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground",
+          isCapturingButton && "bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600"
         )}
         title={item.shortcut ? `${item.label} (${item.shortcut})` : item.label}
       >
-        <Icon className="w-4 h-4 mb-1" />
+        <Icon className={cn(
+          "w-4 h-4 mb-1",
+          isCapturingButton && "animate-pulse"
+        )} />
         {!layoutConfig.isMobile && (
           <span className="leading-none">{item.label}</span>
         )}
@@ -235,32 +329,45 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
   };
 
   return (
-    <div className={cn(
-      "h-16 bg-card border-b border-border flex items-center justify-between",
-      layoutConfig.isMobile ? "px-2 h-14" : "px-4",
-      // Add macOS-specific padding to avoid window controls
-      isMacOS && "macos-window-controls-padding",
-      // Add small top padding on macOS to account for minimal drag region
-      isMacOS && "pt-3",
-      className
-    )}>
+    <>
+      <div className={cn(
+        "h-16 bg-card border-b border-border flex items-center justify-between",
+        layoutConfig.isMobile ? "px-2 h-14" : "px-4",
+        // Add macOS-specific padding to avoid window controls
+        isMacOS && "macos-window-controls-padding",
+        // Add small top padding on macOS to account for minimal drag region
+        isMacOS && "pt-3",
+        className
+      )}>
 
 
-      {/* 左侧主要功能按钮 */}
-      <div className="flex items-center space-x-1">
-        {visibleLeftItems.map((item, index) => renderToolBarItem(item, index))}
-      </div>
-
-      {/* 右侧工具和设置按钮 */}
-      <div className="flex items-center space-x-2">
-        {/* 主题切换按钮 */}
-        <ThemeToggle compact />
-
-        {/* 设置按钮 */}
+        {/* 左侧主要功能按钮 */}
         <div className="flex items-center space-x-1">
-          {visibleRightItems.map((item, index) => renderToolBarItem(item, index))}
+          {visibleLeftItems.map((item, index) => renderToolBarItem(item, index))}
+        </div>
+
+        {/* 右侧工具和设置按钮 */}
+        <div className="flex items-center space-x-2">
+          {/* 主题切换按钮 */}
+          <ThemeToggle compact />
+
+          {/* 设置按钮 */}
+          <div className="flex items-center space-x-1">
+            {visibleRightItems.map((item, index) => renderToolBarItem(item, index))}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* 消息搜索对话框 */}
+      <MessageSearchDialog
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        messages={currentSession?.messages || []}
+        onMessageSelect={(messageId) => {
+          console.log('Selected message:', messageId);
+          // TODO: 实现消息定位功能
+        }}
+      />
+    </>
   );
 };
