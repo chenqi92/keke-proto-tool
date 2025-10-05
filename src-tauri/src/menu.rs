@@ -127,7 +127,7 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         "视图",
         true,
         &[
-            &MenuItem::with_id(app, "command_palette", "命令面板", true, Some("CmdOrCtrl+K"))?,
+            &MenuItem::with_id(app, "command_palette", "快捷命令", true, Some("CmdOrCtrl+K"))?,
             &PredefinedMenuItem::separator(app)?,
             &theme_submenu,
             &color_theme_submenu,

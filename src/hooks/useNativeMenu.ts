@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useAppStore } from '@/stores/AppStore';
 import { useSession } from '@/contexts/SessionContext';
 import { notificationService } from '@/services/NotificationService';
+import { commandPaletteService } from '@/services/CommandPalette';
 
 interface UseNativeMenuProps {
   onOpenModal: (modalType: string) => void;
@@ -247,8 +248,7 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
         // 视图菜单
         case 'command_palette':
           console.log('[useNativeMenu] Command Palette');
-          notificationService.info('命令面板', '功能开发中，敬请期待');
-          // TODO: 实现命令面板逻辑
+          commandPaletteService.open();
           break;
 
         // 主题风格

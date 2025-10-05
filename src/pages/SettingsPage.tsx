@@ -489,7 +489,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
             { action: '查找', shortcut: 'Ctrl+F' },
             { action: '连接/断开', shortcut: 'Ctrl+Enter' },
             { action: '开始/停止录制', shortcut: 'Ctrl+R' },
-            { action: '命令面板', shortcut: 'Ctrl+K' },
+            { action: '快捷命令', shortcut: 'Ctrl+K' },
             { action: '切换主题', shortcut: 'Ctrl+J' },
           ].map((item, index) => (
             <div key={index} className="flex items-center justify-between p-4 border border-border rounded-lg bg-card hover:bg-accent/50 transition-colors">

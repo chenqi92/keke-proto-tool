@@ -175,7 +175,7 @@ const welcomeSteps = [
           <p className="text-sm text-muted-foreground">
             您可以使用快捷键 <kbd className="px-1 py-0.5 bg-background rounded text-xs">Ctrl+N</kbd> 
             快速创建新连接，或使用 <kbd className="px-1 py-0.5 bg-background rounded text-xs">Ctrl+K</kbd> 
-            打开命令面板。
+            打开快捷命令。
           </p>
         </div>
       </div>

@@ -9,7 +9,8 @@ import {
   FileText,
   Settings,
   Puzzle,
-  Edit3
+  Edit3,
+  Terminal
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { usePlatform } from '@/hooks/usePlatform';
@@ -19,6 +20,9 @@ import { useSession } from '@/contexts/SessionContext';
 import { networkService } from '@/services/NetworkService';
 import { useAppStore } from '@/stores/AppStore';
 import { MessageSearchDialog } from '@/components/MessageSearch';
+import { CommandPalette } from '@/components/CommandPalette/CommandPalette';
+import { useCommandPalette } from '@/hooks/useCommandPalette';
+import { commandPaletteService } from '@/services/CommandPalette';
 
 interface ToolBarProps {
   className?: string;
@@ -46,7 +50,8 @@ const createLeftToolBarItems = (
   captureButtonLabel: string,
   canCapture: boolean,
   onOpenSearch: () => void,
-  canSearch: boolean
+  canSearch: boolean,
+  onOpenCommandPalette: () => void
 ): ToolBarItem[] => [
   {
     id: 'new-session',
@@ -84,6 +89,13 @@ const createLeftToolBarItems = (
     label: '编辑协议',
     icon: Edit3,
     action: () => onOpenModal('edit-protocol')
+  },
+  {
+    id: 'command-palette',
+    label: '快捷命令',
+    icon: Terminal,
+    shortcut: 'Ctrl+K',
+    action: onOpenCommandPalette
   }
 ];
 
@@ -102,6 +114,12 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
   const { isMacOS } = usePlatform();
   const { selectedNode } = useSession();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Initialize command palette
+  useCommandPalette({
+    onOpenModal,
+    onOpenToolbox: () => onOpenModal('toolbox')
+  });
 
   // 使用 Zustand 选择器直接订阅会话状态变化，确保状态更新时组件重新渲染
   const currentSession = useAppStore(state =>
@@ -182,6 +200,11 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     setIsSearchOpen(true);
   };
 
+  // 控制面板处理函数
+  const handleOpenCommandPalette = () => {
+    commandPaletteService.open();
+  };
+
   // 判断是否可以抓包：必须有选中的会话
   const canCapture = Boolean(selectedNode && selectedNode.type === 'session');
   const isCapturing = currentSession?.isRecording || false;
@@ -216,6 +239,14 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
         }
       },
       description: '搜索消息'
+    },
+    {
+      key: 'k',
+      ctrl: true,
+      handler: () => {
+        handleOpenCommandPalette();
+      },
+      description: '打开控制面板'
     }
   ]);
 
@@ -229,7 +260,8 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     captureButtonLabel,
     canCapture,
     handleOpenSearch,
-    canSearch
+    canSearch,
+    handleOpenCommandPalette
   );
   const rightItems = createRightToolBarItems(onOpenModal);
 
@@ -247,9 +279,9 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     if (layoutConfig.toolbar.showAllButtons) {
       return leftItems;
     } else if (layoutConfig.toolbar.showEssentialButtons) {
-      // 平板：显示核心功能
+      // 平板：显示核心功能，包括控制面板
       return leftItems.filter(item =>
-        item.id && ['new-session', 'connect', 'capture', 'search'].includes(item.id)
+        item.id && ['new-session', 'connect', 'capture', 'search', 'command-palette'].includes(item.id)
       );
     } else {
       // 移动端：只显示最重要的功能
@@ -368,6 +400,9 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
           // TODO: 实现消息定位功能
         }}
       />
+
+      {/* 快捷命令 */}
+      <CommandPalette />
     </>
   );
 };
