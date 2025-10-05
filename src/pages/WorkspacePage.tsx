@@ -423,11 +423,11 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       setContextMenu(null);
     },
     onViewLogs: (sessionId: string) => {
-      // 切换到日志页面，并设置会话过滤
+      // 打开日志 Modal，并设置会话过滤
       const session = allSessions.find(s => s.config.id === sessionId);
       if (session) {
-        // 触发自定义事件来切换到日志页面并设置过滤
-        const event = new CustomEvent('navigate-to-logs', {
+        // 触发自定义事件来打开日志 Modal 并设置过滤
+        const event = new CustomEvent('open-logs-modal', {
           detail: {
             sessionId,
             sessionName: session.config.name

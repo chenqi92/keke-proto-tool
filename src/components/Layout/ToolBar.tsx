@@ -40,6 +40,7 @@ const createLeftToolBarItems = (
   onOpenCommandPalette: () => void,
   onOpenProtoShell: () => void
 ): ToolBarItem[] => [
+  // 核心操作区
   {
     id: 'new-session',
     label: '新建会话',
@@ -53,19 +54,7 @@ const createLeftToolBarItems = (
     icon: Edit3,
     action: () => onOpenModal('edit-protocol')
   },
-  {
-    id: 'command-palette',
-    label: '快捷命令',
-    icon: Command,
-    shortcut: 'Ctrl+K',
-    action: onOpenCommandPalette
-  },
-  {
-    id: 'proto-shell',
-    label: 'ProtoShell',
-    icon: Terminal,
-    action: onOpenProtoShell
-  },
+  // 工具区
   {
     id: 'toolbox',
     label: '工具箱',
@@ -74,18 +63,32 @@ const createLeftToolBarItems = (
     action: () => onOpenModal('toolbox')
   },
   {
-    id: 'logs',
-    label: '日志管理',
-    icon: FileText,
-    shortcut: 'Ctrl+3',
-    action: () => onOpenModal('logs')
+    id: 'proto-shell',
+    label: 'ProtoShell',
+    icon: Terminal,
+    action: onOpenProtoShell
   },
+  {
+    id: 'command-palette',
+    label: '快捷命令',
+    icon: Command,
+    shortcut: 'Ctrl+K',
+    action: onOpenCommandPalette
+  },
+  // 管理区
   {
     id: 'plugins',
     label: '协议仓库',
     icon: Puzzle,
     shortcut: 'Ctrl+4',
     action: () => onOpenModal('plugins')
+  },
+  {
+    id: 'logs',
+    label: '日志管理',
+    icon: FileText,
+    shortcut: 'Ctrl+3',
+    action: () => onOpenModal('logs')
   },
   {
     id: 'storage',

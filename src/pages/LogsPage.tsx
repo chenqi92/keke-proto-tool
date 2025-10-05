@@ -116,14 +116,19 @@ const getCategoryLabel = (log: LogEntry) => {
     }
 };
 
-export const LogsPage: React.FC = () => {
+interface LogsPageProps {
+    initialSessionId?: string;
+    initialSessionName?: string;
+}
+
+export const LogsPage: React.FC<LogsPageProps> = ({ initialSessionId, initialSessionName }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedTimeRange, setSelectedTimeRange] = useState('all');
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
-    const [sessionFilter, setSessionFilter] = useState<string | null>(null);
-    const [sessionName, setSessionName] = useState<string>('');
+    const [sessionFilter, setSessionFilter] = useState<string | null>(initialSessionId || null);
+    const [sessionName, setSessionName] = useState<string>(initialSessionName || '');
     const [logs, setLogs] = useState<LogEntry[]>([]);
 
     // Modal states

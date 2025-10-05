@@ -84,6 +84,7 @@ function App() {
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [showMenuUpdateNotification, setShowMenuUpdateNotification] = useState(false)
+  const [logsModalParams, setLogsModalParams] = useState<{ sessionId?: string; sessionName?: string } | null>(null)
   const createSession = useAppStore(state => state.createSession)
   const shortcutHelp = useShortcutHelp()
 
@@ -164,6 +165,7 @@ function App() {
 
   const closeModal = () => {
     setActiveModal(null)
+    setLogsModalParams(null)
   }
 
   // Handle menu-triggered update check
@@ -172,6 +174,21 @@ function App() {
     setShowMenuUpdateNotification(true)
     await updateCheck.checkForUpdates()
   }, [updateCheck])
+
+  // Listen for open-logs-modal event
+  useEffect(() => {
+    const handleOpenLogsModal = (event: CustomEvent) => {
+      const { sessionId, sessionName } = event.detail;
+      setLogsModalParams({ sessionId, sessionName });
+      setActiveModal('logs');
+    };
+
+    window.addEventListener('open-logs-modal', handleOpenLogsModal as EventListener);
+
+    return () => {
+      window.removeEventListener('open-logs-modal', handleOpenLogsModal as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -359,7 +376,10 @@ function App() {
             size="xl"
             fixedHeight={true}
           >
-            <LogsPage />
+            <LogsPage
+              initialSessionId={logsModalParams?.sessionId}
+              initialSessionName={logsModalParams?.sessionName}
+            />
           </Modal>
         )
       case 'plugins':
