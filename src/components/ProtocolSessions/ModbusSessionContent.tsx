@@ -50,6 +50,9 @@ interface HistoryRecord {
   responseTime: number;
   error?: string;
   responseData?: any;
+  // Hex frame data (simulated for now, will be real when backend supports it)
+  requestFrame?: string;
+  responseFrame?: string;
 }
 
 interface AddressBookEntry {
@@ -70,6 +73,19 @@ const FUNCTION_CODES = [
   { code: 0x06, name: '写单个寄存器 (0x06)', type: 'write', registerType: 'holding' },
   { code: 0x0F, name: '写多个线圈 (0x0F)', type: 'write', registerType: 'coil' },
   { code: 0x10, name: '写多个寄存器 (0x10)', type: 'write', registerType: 'holding' },
+];
+
+const EXCEPTION_CODES = [
+  { code: 0x01, name: '非法功能', description: '服务器不支持该功能码' },
+  { code: 0x02, name: '非法数据地址', description: '请求的数据地址不存在或超出范围' },
+  { code: 0x03, name: '非法数据值', description: '请求的数据值不在允许的范围内' },
+  { code: 0x04, name: '从站设备故障', description: '从站设备在处理请求时发生不可恢复的错误' },
+  { code: 0x05, name: '确认', description: '从站已接受请求，正在处理（长时间操作）' },
+  { code: 0x06, name: '从站设备忙', description: '从站正在处理长时间程序命令，请稍后重试' },
+  { code: 0x07, name: '否定确认', description: '从站无法执行程序功能' },
+  { code: 0x08, name: '内存奇偶校验错误', description: '从站在读取扩展内存时检测到奇偶校验错误' },
+  { code: 0x0A, name: '网关路径不可用', description: '网关配置错误或网关路径不可达' },
+  { code: 0x0B, name: '网关目标设备响应失败', description: '网关无法从目标设备获得响应' },
 ];
 
 type DataDisplayFormat = 'decimal' | 'hex' | 'binary' | 'float';
@@ -96,13 +112,34 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
   // History state
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showHexFrames, setShowHexFrames] = useState(false);
 
   // Address book state
   const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
   const [showAddressBook, setShowAddressBook] = useState(false);
+
+  // Exception codes reference
+  const [showExceptionCodes, setShowExceptionCodes] = useState(false);
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [newAddressName, setNewAddressName] = useState('');
   const [newAddressDescription, setNewAddressDescription] = useState('');
+
+  // Communication details state
+  const [showCommDetails, setShowCommDetails] = useState(false);
+
+  // Statistics state
+  const [statistics, setStatistics] = useState({
+    totalRequests: 0,
+    successCount: 0,
+    failureCount: 0,
+    totalResponseTime: 0,
+    lastError: '',
+  });
+
+  // Data type and byte order state
+  const [dataType, setDataType] = useState<'uint16' | 'int16' | 'uint32' | 'int32' | 'float32' | 'float64' | 'string' | 'bcd'>('uint16');
+  const [byteOrder, setByteOrder] = useState<'ABCD' | 'BADC' | 'CDAB' | 'DCBA'>('ABCD');
+  const [addressBase, setAddressBase] = useState<0 | 1>(0); // 0-based or 1-based addressing
 
   // Cleanup polling on unmount or when polling stops
   useEffect(() => {
@@ -158,6 +195,58 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
       default:
         return value.toString();
     }
+  };
+
+  // Generate simulated Modbus frame (for visualization purposes)
+  // In production, this should come from the backend
+  const generateSimulatedFrame = (functionCode: number, address: number, quantity: number, isRequest: boolean): string => {
+    const unitId = session.config.modbusUnitId || 1;
+    const bytes: number[] = [unitId, functionCode];
+
+    if (isRequest) {
+      // Request frame
+      bytes.push((address >> 8) & 0xFF, address & 0xFF);
+      bytes.push((quantity >> 8) & 0xFF, quantity & 0xFF);
+    } else {
+      // Response frame (simplified)
+      const byteCount = quantity * 2;
+      bytes.push(byteCount);
+      // Add dummy data
+      for (let i = 0; i < byteCount; i++) {
+        bytes.push(0x00);
+      }
+    }
+
+    // Add CRC (dummy values for now)
+    bytes.push(0x00, 0x00);
+
+    return bytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+  };
+
+  // Export history to CSV
+  const exportHistoryToCSV = () => {
+    const headers = ['时间', '方向', '功能码', '地址', '数量/值', '耗时(ms)', '结果', '错误'];
+    const rows = history.map(record => [
+      new Date(record.timestamp).toLocaleString(),
+      '→/←',
+      `${record.functionName} (0x${record.functionCode.toString(16).toUpperCase().padStart(2, '0')})`,
+      record.address + addressBase,
+      record.quantity || record.value || '',
+      record.responseTime,
+      record.success ? '成功' : '失败',
+      record.error || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `modbus_history_${Date.now()}.csv`;
+    link.click();
   };
 
   const handleConnect = async () => {
@@ -297,9 +386,20 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
         responseTime: responseTimeMs,
         error: response.error,
         responseData: response.data || response.coilData,
+        requestFrame: generateSimulatedFrame(selectedFunctionCode, startAddress, quantity, true),
+        responseFrame: generateSimulatedFrame(selectedFunctionCode, startAddress, quantity, false),
       };
 
       setHistory(prev => [historyRecord, ...prev].slice(0, 100)); // Keep last 100 records
+
+      // Update statistics
+      setStatistics(prev => ({
+        totalRequests: prev.totalRequests + 1,
+        successCount: prev.successCount + 1,
+        failureCount: prev.failureCount,
+        totalResponseTime: prev.totalResponseTime + responseTimeMs,
+        lastError: '',
+      }));
     } catch (error) {
       console.error('Modbus operation failed:', error);
       const errorResponse = { success: false, error: String(error) };
@@ -317,9 +417,19 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
         success: false,
         responseTime: Date.now() - startTime,
         error: String(error),
+        requestFrame: generateSimulatedFrame(selectedFunctionCode, startAddress, quantity, true),
       };
 
       setHistory(prev => [historyRecord, ...prev].slice(0, 100));
+
+      // Update statistics
+      setStatistics(prev => ({
+        totalRequests: prev.totalRequests + 1,
+        successCount: prev.successCount,
+        failureCount: prev.failureCount + 1,
+        totalResponseTime: prev.totalResponseTime,
+        lastError: String(error),
+      }));
     } finally {
       setIsExecuting(false);
     }
@@ -409,16 +519,36 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
           )} />
           <div>
             <h2 className="text-lg font-semibold">{session.config.name}</h2>
-            <p className="text-sm text-muted-foreground">
-              {session.config.protocol} - Unit ID: {session.config.modbusUnitId || 1}
-            </p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{session.config.protocol}</span>
+              {session.config.modbusSerialPort && (
+                <>
+                  <span>•</span>
+                  <span>{session.config.modbusSerialPort} @ {session.config.modbusBaudRate || 9600} bps</span>
+                </>
+              )}
+              <span>•</span>
+              <span>Unit ID: {session.config.modbusUnitId || 1}</span>
+              {session.status === 'connected' && statistics.totalRequests > 0 && (
+                <>
+                  <span>•</span>
+                  <span>
+                    成功率: {((statistics.successCount / statistics.totalRequests) * 100).toFixed(1)}%
+                  </span>
+                  <span>•</span>
+                  <span>
+                    平均延迟: {(statistics.totalResponseTime / statistics.successCount || 0).toFixed(0)}ms
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsEditConfigOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 border border-border rounded-md hover:bg-accent transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-md hover:bg-accent transition-colors text-sm"
             title="编辑配置"
           >
             <Settings className="w-4 h-4" />
@@ -427,7 +557,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
           {session.status === 'connected' ? (
             <button
               onClick={handleDisconnect}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-sm"
             >
               <WifiOff className="w-4 h-4" />
               断开连接
@@ -436,7 +566,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             <button
               onClick={handleConnect}
               disabled={session.status === 'connecting'}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm"
             >
               {session.status === 'connecting' ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -452,6 +582,59 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-4xl mx-auto space-y-6">
+          {/* Global Settings */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h3 className="text-sm font-semibold mb-3">全局设置</h3>
+            <div className="grid grid-cols-3 gap-3">
+              {/* Address Base */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5 text-muted-foreground">地址基址</label>
+                <select
+                  value={addressBase}
+                  onChange={(e) => setAddressBase(Number(e.target.value) as 0 | 1)}
+                  className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
+                >
+                  <option value={0}>0 基址</option>
+                  <option value={1}>1 基址</option>
+                </select>
+              </div>
+
+              {/* Data Type */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5 text-muted-foreground">数据类型</label>
+                <select
+                  value={dataType}
+                  onChange={(e) => setDataType(e.target.value as any)}
+                  className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
+                >
+                  <option value="uint16">UInt16</option>
+                  <option value="int16">Int16</option>
+                  <option value="uint32">UInt32</option>
+                  <option value="int32">Int32</option>
+                  <option value="float32">Float32</option>
+                  <option value="float64">Float64</option>
+                  <option value="string">字符串</option>
+                  <option value="bcd">BCD</option>
+                </select>
+              </div>
+
+              {/* Byte Order */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5 text-muted-foreground">字节序</label>
+                <select
+                  value={byteOrder}
+                  onChange={(e) => setByteOrder(e.target.value as any)}
+                  className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
+                >
+                  <option value="ABCD">ABCD (Big-Big)</option>
+                  <option value="BADC">BADC (Big-Little)</option>
+                  <option value="CDAB">CDAB (Little-Big)</option>
+                  <option value="DCBA">DCBA (Little-Little)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           {/* Function Code Selector */}
           <div className="bg-card border border-border rounded-lg p-4">
             <h3 className="text-sm font-semibold mb-3">功能码选择</h3>
@@ -557,15 +740,17 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium mb-1">起始地址</label>
+                  <label className="block text-sm font-medium mb-1">
+                    起始地址 {addressBase === 1 && <span className="text-xs text-muted-foreground">(1-based)</span>}
+                  </label>
                   <input
                     type="number"
-                    min="0"
-                    max="65535"
-                    value={startAddress}
-                    onChange={(e) => setStartAddress(parseInt(e.target.value) || 0)}
+                    min={addressBase}
+                    max={65535 + addressBase}
+                    value={startAddress + addressBase}
+                    onChange={(e) => setStartAddress((parseInt(e.target.value) || addressBase) - addressBase)}
                     className="w-full px-3 py-2 border border-border rounded-md text-sm"
-                    placeholder="0-65535"
+                    placeholder={addressBase === 0 ? "0-65535" : "1-65536"}
                   />
                 </div>
 
@@ -613,62 +798,69 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                 </div>
               )}
 
-              {/* Polling Controls - Only for read operations */}
-              {isReadOperation && (
-                <div className="border-t border-border pt-4">
-                  <div className="flex items-center gap-3">
-                    <label className="text-sm font-medium whitespace-nowrap">轮询间隔</label>
-                    <input
-                      type="number"
-                      min="100"
-                      max="60000"
-                      step="100"
-                      value={pollingInterval}
-                      onChange={(e) => setPollingInterval(parseInt(e.target.value) || 1000)}
-                      disabled={isPolling}
-                      className="w-24 px-2 py-1 border border-border rounded-md text-sm disabled:opacity-50"
-                    />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">毫秒</span>
+              {/* Action Buttons Row */}
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center gap-3">
+                  {/* Polling Controls - Only for read operations */}
+                  {isReadOperation && (
+                    <>
+                      <label className="text-sm font-medium whitespace-nowrap">轮询间隔</label>
+                      <input
+                        type="number"
+                        min="100"
+                        max="60000"
+                        step="100"
+                        value={pollingInterval}
+                        onChange={(e) => setPollingInterval(parseInt(e.target.value) || 1000)}
+                        disabled={isPolling}
+                        className="w-24 px-2 py-1 border border-border rounded-md text-sm disabled:opacity-50"
+                      />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">毫秒</span>
 
-                    {!isPolling ? (
-                      <button
-                        onClick={handleStartPolling}
-                        disabled={session.status !== 'connected' || isExecuting}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 text-sm"
-                      >
-                        <Play className="w-4 h-4" />
-                        开始轮询
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleStopPolling}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
-                      >
-                        <Square className="w-4 h-4" />
-                        停止轮询
-                      </button>
+                      {!isPolling ? (
+                        <button
+                          onClick={handleStartPolling}
+                          disabled={session.status !== 'connected' || isExecuting}
+                          className="flex items-center justify-center gap-1.5 px-4 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
+                        >
+                          <Play className="w-3.5 h-3.5" />
+                          开始轮询
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleStopPolling}
+                          className="flex items-center justify-center gap-1.5 px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm whitespace-nowrap"
+                        >
+                          <Square className="w-3.5 h-3.5" />
+                          停止轮询
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {/* Execute Button */}
+                  <button
+                    onClick={handleExecute}
+                    disabled={session.status !== 'connected' || isExecuting || isPolling}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm whitespace-nowrap",
+                      !isReadOperation && "ml-auto"
                     )}
-                  </div>
+                  >
+                    {isExecuting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        执行中...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        {isPolling ? '轮询中...' : '执行操作'}
+                      </>
+                    )}
+                  </button>
                 </div>
-              )}
-
-              <button
-                onClick={handleExecute}
-                disabled={session.status !== 'connected' || isExecuting || isPolling}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {isExecuting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    执行中...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    {isPolling ? '轮询中...' : '执行操作'}
-                  </>
-                )}
-              </button>
+              </div>
             </div>
           </div>
 
@@ -723,7 +915,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                         <div className="grid grid-cols-4 gap-2">
                           {lastResponse.data.map((value: number, index: number) => (
                             <div key={index} className="bg-white px-2 py-1 rounded">
-                              <div className="text-xs text-gray-500 mb-1">[{startAddress + index}]</div>
+                              <div className="text-xs text-gray-500 mb-1">[{startAddress + index + addressBase}]</div>
                               <div className="font-mono text-sm break-all">{formatRegisterValue(value)}</div>
                               {displayFormat !== 'decimal' && (
                                 <div className="text-xs text-gray-400 mt-1">({value})</div>
@@ -742,7 +934,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                               "px-2 py-1 rounded text-center",
                               value ? "bg-green-200" : "bg-gray-200"
                             )}>
-                              <div className="text-xs">[{startAddress + index}]</div>
+                              <div className="text-xs">[{startAddress + index + addressBase}]</div>
                               <div className="font-mono">{value ? 'ON' : 'OFF'}</div>
                             </div>
                           ))}
@@ -757,6 +949,72 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                   </div>
                 )}
               </div>
+
+              {/* Communication Details - Collapsible */}
+              <div className="mt-3 border-t border-border pt-3">
+                <button
+                  onClick={() => setShowCommDetails(!showCommDetails)}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Activity className="w-3 h-3" />
+                  <span>通信详情</span>
+                  <span className="text-xs">{showCommDetails ? '▼' : '▶'}</span>
+                </button>
+
+                {showCommDetails && (
+                  <div className="mt-2 space-y-2 text-xs">
+                    {/* Request Details */}
+                    <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                      <div className="font-medium text-blue-800 mb-1">请求信息</div>
+                      <div className="space-y-1 text-blue-700">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">功能码:</span>
+                          <span className="font-mono">
+                            {FUNCTION_CODES.find(f => f.code === selectedFunctionCode)?.name || `0x${selectedFunctionCode.toString(16).toUpperCase()}`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">起始地址:</span>
+                          <span className="font-mono">{startAddress + addressBase} (0x{startAddress.toString(16).toUpperCase().padStart(4, '0')})</span>
+                        </div>
+                        {isReadOperation && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">数量:</span>
+                            <span className="font-mono">{quantity}</span>
+                          </div>
+                        )}
+                        {!isReadOperation && !isMultipleOperation && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">写入值:</span>
+                            <span className="font-mono">{writeValue} (0x{writeValue.toString(16).toUpperCase().padStart(4, '0')})</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Response Details */}
+                    {lastResponse.success && (lastResponse.data || lastResponse.coilData) && (
+                      <div className="bg-green-50 border border-green-200 rounded p-2">
+                        <div className="font-medium text-green-800 mb-1">响应信息</div>
+                        <div className="space-y-1 text-green-700">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">数据长度:</span>
+                            <span className="font-mono">
+                              {lastResponse.data ? lastResponse.data.length : lastResponse.coilData.length} 个
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">地址范围:</span>
+                            <span className="font-mono">
+                              {startAddress + addressBase} - {startAddress + addressBase + (lastResponse.data ? lastResponse.data.length : lastResponse.coilData.length) - 1}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -765,17 +1023,33 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">操作历史</h3>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  共 {history.length} 条记录
-                </span>
+                <button
+                  onClick={() => setShowHexFrames(!showHexFrames)}
+                  className="text-xs px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
+                  title="显示/隐藏十六进制帧"
+                >
+                  {showHexFrames ? '隐藏帧' : '显示帧'}
+                </button>
                 {history.length > 0 && (
-                  <button
-                    onClick={() => setHistory([])}
-                    className="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                  >
-                    清空
-                  </button>
+                  <>
+                    <button
+                      onClick={exportHistoryToCSV}
+                      className="text-xs px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors"
+                      title="导出为 CSV"
+                    >
+                      导出
+                    </button>
+                    <button
+                      onClick={() => setHistory([])}
+                      className="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                    >
+                      清空
+                    </button>
+                  </>
                 )}
+                <span className="text-xs text-muted-foreground">
+                  共 {history.length} 条
+                </span>
                 <button
                   onClick={() => setShowHistory(!showHistory)}
                   className="text-xs px-2 py-1 bg-accent hover:bg-accent/80 rounded transition-colors"
@@ -837,9 +1111,71 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                           错误: {record.error}
                         </div>
                       )}
+
+                      {/* Hex Frame Display */}
+                      {showHexFrames && (record.requestFrame || record.responseFrame) && (
+                        <div className="mt-3 pt-3 border-t border-gray-300 space-y-2">
+                          {record.requestFrame && (
+                            <div className="text-xs">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-blue-700 font-medium">→ 请求帧:</span>
+                                <span className="text-xs text-muted-foreground">(模拟数据)</span>
+                              </div>
+                              <div className="font-mono text-xs bg-blue-50 p-2 rounded border border-blue-200 break-all">
+                                {record.requestFrame}
+                              </div>
+                            </div>
+                          )}
+                          {record.responseFrame && (
+                            <div className="text-xs">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-green-700 font-medium">← 响应帧:</span>
+                                <span className="text-xs text-muted-foreground">(模拟数据)</span>
+                              </div>
+                              <div className="font-mono text-xs bg-green-50 p-2 rounded border border-green-200 break-all">
+                                {record.responseFrame}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Exception Codes Reference */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">异常码参考</h3>
+              <button
+                onClick={() => setShowExceptionCodes(!showExceptionCodes)}
+                className="text-xs px-2 py-1 bg-accent hover:bg-accent/80 rounded transition-colors"
+              >
+                {showExceptionCodes ? '隐藏' : '显示'}
+              </button>
+            </div>
+
+            {showExceptionCodes && (
+              <div className="space-y-2">
+                {EXCEPTION_CODES.map((exception) => (
+                  <div
+                    key={exception.code}
+                    className="p-3 rounded-md border bg-muted/50 text-sm"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-mono font-medium text-red-700">
+                        0x{exception.code.toString(16).toUpperCase().padStart(2, '0')}
+                      </span>
+                      <span className="font-medium">{exception.name}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {exception.description}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
