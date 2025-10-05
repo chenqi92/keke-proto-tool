@@ -472,19 +472,27 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
 
     // 设置事件监听器
     let unlisten: (() => void) | undefined;
+    let isMounted = true;
 
     listen('menu-action', (event: any) => {
       const action = event.payload;
       handleMenuAction(action);
     }).then((unlistenFn) => {
-      unlisten = unlistenFn;
-      console.log('[useNativeMenu] Event listener successfully set up');
+      if (isMounted) {
+        unlisten = unlistenFn;
+        console.log('[useNativeMenu] Event listener successfully set up');
+      } else {
+        // 如果组件已经卸载，立即清理监听器
+        unlistenFn();
+        console.log('[useNativeMenu] Component unmounted before listener setup, cleaned up immediately');
+      }
     }).catch((error) => {
       console.error('[useNativeMenu] Failed to set up event listener:', error);
     });
 
     return () => {
       console.log('[useNativeMenu] Cleaning up event listener');
+      isMounted = false;
       if (unlisten) {
         unlisten();
       }
