@@ -107,6 +107,13 @@ function App() {
     }
   }, [])
 
+  // Initialize zoom level from store
+  useEffect(() => {
+    const zoomLevel = useAppStore.getState().zoomLevel;
+    document.documentElement.style.fontSize = `${zoomLevel}%`;
+    console.log('[App] Initialized zoom level:', zoomLevel);
+  }, [])
+
   // Modal handling functions (defined before useNativeMenu)
   const openModal = useCallback((modalType: string) => {
     console.log('[App] openModal called with:', modalType)

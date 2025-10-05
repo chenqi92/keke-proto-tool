@@ -24,6 +24,14 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
     selectedNode?.config ? state.sessions[selectedNode.config.id] : null
   );
 
+  // View state
+  const toggleSidebar = useAppStore(state => state.toggleSidebar);
+  const toggleInspector = useAppStore(state => state.toggleInspector);
+  const toggleStatusBar = useAppStore(state => state.toggleStatusBar);
+  const zoomIn = useAppStore(state => state.zoomIn);
+  const zoomOut = useAppStore(state => state.zoomOut);
+  const resetZoom = useAppStore(state => state.resetZoom);
+
   // 工作区管理函数
   const handleNewWorkspace = useCallback(async () => {
     if (Object.keys(sessions).length > 0) {
@@ -175,6 +183,23 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
     }
   }, []);
 
+  const handleFullscreen = useCallback(async () => {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+      const isFullscreen = await appWindow.isFullscreen();
+      await appWindow.setFullscreen(!isFullscreen);
+      console.log('[useNativeMenu] Fullscreen toggled:', !isFullscreen);
+      notificationService.success(
+        isFullscreen ? '退出全屏' : '进入全屏',
+        isFullscreen ? '已退出全屏模式' : '已进入全屏模式'
+      );
+    } catch (error) {
+      console.error('[useNativeMenu] Failed to toggle fullscreen:', error);
+      notificationService.error('切换全屏失败', String(error));
+    }
+  }, []);
+
   useEffect(() => {
     console.log('[useNativeMenu] Setting up event listener with onOpenModal:', typeof onOpenModal);
 
@@ -218,7 +243,8 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
 
         // 视图菜单
         case 'command_palette':
-          console.log('Command Palette');
+          console.log('[useNativeMenu] Command Palette');
+          notificationService.info('命令面板', '功能开发中，敬请期待');
           // TODO: 实现命令面板逻辑
           break;
 
@@ -304,32 +330,35 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
           setColorTheme('rose');
           break;
         case 'show_sidebar':
-          console.log('Show Sidebar');
-          // TODO: 实现显示侧边栏逻辑
+          console.log('[useNativeMenu] Toggle Sidebar');
+          toggleSidebar();
           break;
         case 'show_inspector':
-          console.log('Show Inspector');
-          // TODO: 实现显示检视器逻辑
+          console.log('[useNativeMenu] Toggle Inspector');
+          toggleInspector();
           break;
         case 'show_status_bar':
-          console.log('Show Status Bar');
-          // TODO: 实现显示状态栏逻辑
+          console.log('[useNativeMenu] Toggle Status Bar');
+          toggleStatusBar();
           break;
         case 'zoom_in':
-          console.log('Zoom In');
-          // TODO: 实现放大逻辑
+          console.log('[useNativeMenu] Zoom In');
+          zoomIn();
+          notificationService.success('放大', `当前缩放: ${useAppStore.getState().zoomLevel}%`);
           break;
         case 'zoom_out':
-          console.log('Zoom Out');
-          // TODO: 实现缩小逻辑
+          console.log('[useNativeMenu] Zoom Out');
+          zoomOut();
+          notificationService.success('缩小', `当前缩放: ${useAppStore.getState().zoomLevel}%`);
           break;
         case 'zoom_reset':
-          console.log('Reset Zoom');
-          // TODO: 实现重置缩放逻辑
+          console.log('[useNativeMenu] Reset Zoom');
+          resetZoom();
+          notificationService.success('重置缩放', '已恢复到 100%');
           break;
         case 'fullscreen':
-          console.log('Fullscreen');
-          // TODO: 实现全屏逻辑
+          console.log('[useNativeMenu] Toggle Fullscreen');
+          handleFullscreen();
           break;
 
         // 会话菜单
@@ -502,6 +531,13 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
     handleSaveWorkspace,
     handleImportConfig,
     handleExportConfig,
-    handleExportLogs
+    handleExportLogs,
+    handleFullscreen,
+    toggleSidebar,
+    toggleInspector,
+    toggleStatusBar,
+    zoomIn,
+    zoomOut,
+    resetZoom
   ]);
 };

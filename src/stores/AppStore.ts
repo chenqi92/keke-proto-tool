@@ -22,6 +22,12 @@ interface AppStore extends WorkspaceState {
   selectedNodeType: 'workspace' | 'session' | 'connection' | null;
   selectedNodeData: any;
 
+  // View State
+  showSidebar: boolean;
+  showInspector: boolean;
+  showStatusBar: boolean;
+  zoomLevel: number;
+
   // Session Management
   createSession: (config: SessionConfig) => void;
   updateSession: (sessionId: string, updates: Partial<SessionState>) => void;
@@ -68,6 +74,15 @@ interface AppStore extends WorkspaceState {
   clearAllSessions: () => void;
   loadSessions: (sessions: Record<string, SessionState>) => void;
 
+  // View Management
+  toggleSidebar: () => void;
+  toggleInspector: () => void;
+  toggleStatusBar: () => void;
+  setZoomLevel: (level: number) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
+
   // Utility Methods
   getSession: (sessionId: string) => SessionState | undefined;
   getActiveSession: () => SessionState | undefined;
@@ -111,6 +126,11 @@ const persistConfig = {
     activeSessionId: state.activeSessionId,
     selectedNodeId: state.selectedNodeId,
     selectedNodeType: state.selectedNodeType,
+    // 持久化视图状态
+    showSidebar: state.showSidebar,
+    showInspector: state.showInspector,
+    showStatusBar: state.showStatusBar,
+    zoomLevel: state.zoomLevel,
   }),
   onRehydrateStorage: () => (state: AppStore | undefined) => {
     // 数据恢复后的处理
@@ -189,6 +209,12 @@ export const useAppStore = create<AppStore>()(
     selectedNodeId: null,
     selectedNodeType: null,
     selectedNodeData: null,
+
+    // View state
+    showSidebar: true,
+    showInspector: false,
+    showStatusBar: true,
+    zoomLevel: 100,
 
     // Session Management
     createSession: (config: SessionConfig) => {
@@ -894,6 +920,54 @@ export const useAppStore = create<AppStore>()(
         selectedNodeType: null,
         selectedNodeData: null,
       });
+    },
+
+    // View Management
+    toggleSidebar: () => {
+      set((state) => {
+        const newValue = !state.showSidebar;
+        console.log('[AppStore] Toggle sidebar:', newValue);
+        return { showSidebar: newValue };
+      });
+    },
+
+    toggleInspector: () => {
+      set((state) => {
+        const newValue = !state.showInspector;
+        console.log('[AppStore] Toggle inspector:', newValue);
+        return { showInspector: newValue };
+      });
+    },
+
+    toggleStatusBar: () => {
+      set((state) => {
+        const newValue = !state.showStatusBar;
+        console.log('[AppStore] Toggle status bar:', newValue);
+        return { showStatusBar: newValue };
+      });
+    },
+
+    setZoomLevel: (level: number) => {
+      const clampedLevel = Math.max(50, Math.min(200, level));
+      console.log('[AppStore] Set zoom level:', clampedLevel);
+      set({ zoomLevel: clampedLevel });
+      document.documentElement.style.fontSize = `${clampedLevel}%`;
+    },
+
+    zoomIn: () => {
+      const currentLevel = get().zoomLevel;
+      const newLevel = Math.min(200, currentLevel + 10);
+      get().setZoomLevel(newLevel);
+    },
+
+    zoomOut: () => {
+      const currentLevel = get().zoomLevel;
+      const newLevel = Math.max(50, currentLevel - 10);
+      get().setZoomLevel(newLevel);
+    },
+
+    resetZoom: () => {
+      get().setZoomLevel(100);
     },
   })),
   persistConfig

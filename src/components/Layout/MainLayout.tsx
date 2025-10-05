@@ -19,14 +19,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 }) => {
   const layoutConfig = useLayoutConfig();
   const { setCurrentSession, setSessionId } = useSession();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true); // 默认隐藏检视器
+  const showSidebar = useAppStore(state => state.showSidebar);
+  const showInspector = useAppStore(state => state.showInspector);
+  const showStatusBar = useAppStore(state => state.showStatusBar);
+  const toggleSidebar = useAppStore(state => state.toggleSidebar);
+  const toggleInspector = useAppStore(state => state.toggleInspector);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // 响应式处理：在移动端自动折叠侧边栏
   useEffect(() => {
     if (layoutConfig.sidebar.shouldCollapse) {
-      setSidebarCollapsed(true);
       setMobileMenuOpen(false);
     }
   }, [layoutConfig.sidebar.shouldCollapse]);
@@ -97,7 +99,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         {!layoutConfig.isMobile ? (
           <PanelGroup direction="horizontal">
             {/* 左侧边栏 */}
-            {!sidebarCollapsed && (
+            {showSidebar && (
               <>
                 <Panel
                   defaultSize={layoutConfig.isTablet ? 35 : 28}
@@ -106,7 +108,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   className="bg-card border-r border-border"
                 >
                   <Sidebar
-                    onCollapse={() => setSidebarCollapsed(true)}
+                    onCollapse={toggleSidebar}
                     onSessionSelect={handleSessionSelect}
                     onNodeSelect={handleNodeSelect}
                   />
@@ -126,7 +128,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   </Panel>
 
                   {/* 右侧检视器 */}
-                  {!rightPanelCollapsed && (
+                  {showInspector && (
                     <>
                       <PanelResizeHandle className="w-1 bg-border hover:bg-accent transition-colors" />
                       <Panel
@@ -139,7 +141,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                           <div className="flex items-center justify-between mb-4">
                             <h3 className="font-semibold text-sm">检视器</h3>
                             <button
-                              onClick={() => setRightPanelCollapsed(true)}
+                              onClick={toggleInspector}
                               className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
                               title="折叠检视器"
                             >
@@ -183,14 +185,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         )}
 
         {/* 左侧面板边缘切换器 */}
-        {(sidebarCollapsed || layoutConfig.isMobile) && (
+        {(!showSidebar || layoutConfig.isMobile) && (
           <div
             className="absolute left-0 top-1/2 -translate-y-1/2 z-20 group"
             onClick={() => {
               if (layoutConfig.isMobile) {
                 setMobileMenuOpen(true);
               } else {
-                setSidebarCollapsed(false);
+                toggleSidebar();
               }
             }}
           >
@@ -205,10 +207,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         )}
 
         {/* 右侧面板边缘切换器 */}
-        {rightPanelCollapsed && layoutConfig.mainContent.showThreeColumns && (
+        {!showInspector && layoutConfig.mainContent.showThreeColumns && (
           <div
             className="absolute right-0 top-1/2 -translate-y-1/2 z-20 group"
-            onClick={() => setRightPanelCollapsed(false)}
+            onClick={toggleInspector}
           >
             <div className="flex items-center bg-card border border-border rounded-md rounded-r-none shadow-sm transition-all duration-200 hover:bg-accent group-hover:scale-105">
               <div className="px-2 py-3">
@@ -222,7 +224,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       </div>
 
       {/* 底部状态栏 */}
-      <StatusBar />
+      {showStatusBar && <StatusBar />}
     </div>
   );
 };
