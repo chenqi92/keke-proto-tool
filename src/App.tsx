@@ -26,6 +26,7 @@ import { UpdateNotification } from '@/components/UpdateNotification'
 import { MenuUpdateNotification } from '@/components/MenuUpdateNotification'
 import { UpdateModal } from '@/components/UpdateModal'
 import { ProtocolEditorModal } from '@/components/ProtocolEditorModal'
+import { useToast, useConfirmDialog } from '@/components/Common'
 
 // Context
 import { SessionProvider } from '@/contexts/SessionContext'
@@ -34,6 +35,7 @@ import { useAppStore } from '@/stores/AppStore'
 // Services
 import { statusBarService } from '@/services/StatusBarService'
 import { backendLogService } from '@/services/BackendLogService'
+import { notificationService } from '@/services/NotificationService'
 
 // Hooks
 import { useTheme } from '@/hooks/useTheme'
@@ -85,6 +87,16 @@ function App() {
 
   // Initialize theme system at app level
   useTheme()
+
+  // Initialize global toast and confirm dialog
+  const toast = useToast()
+  const confirmDialog = useConfirmDialog()
+
+  // Register global notification service
+  useEffect(() => {
+    notificationService.registerToast(toast.addToast)
+    notificationService.registerConfirm(confirmDialog.confirm)
+  }, [toast.addToast, confirmDialog.confirm])
 
   // Initialize status bar service
   useEffect(() => {
@@ -326,6 +338,12 @@ function App() {
           console.log('Update now clicked');
         }}
       />
+
+      {/* Global Toast Container */}
+      <toast.ToastContainer />
+
+      {/* Global Confirm Dialog */}
+      <confirmDialog.ConfirmDialog />
     </SessionProvider>
   )
 }

@@ -287,7 +287,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
 
   const handleExecute = async () => {
     if (session.status !== 'connected') {
-      alert('请先连接到 Modbus 设备');
+      toast.warning('请先连接', '请先连接到 Modbus 设备');
       return;
     }
 
@@ -444,12 +444,12 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
 
   const handleStartPolling = () => {
     if (!isReadOperation) {
-      alert('轮询功能仅支持读取操作');
+      toast.warning('不支持的操作', '轮询功能仅支持读取操作');
       return;
     }
 
     if (session.status !== 'connected') {
-      alert('请先连接到 Modbus 设备');
+      toast.warning('请先连接', '请先连接到 Modbus 设备');
       return;
     }
 
@@ -474,7 +474,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
 
   const handleSaveToAddressBook = () => {
     if (!newAddressName.trim()) {
-      alert('请输入地址名称');
+      toast.warning('请输入地址名称', '地址名称不能为空');
       return;
     }
 

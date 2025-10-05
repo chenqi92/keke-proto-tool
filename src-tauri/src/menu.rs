@@ -13,12 +13,13 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
             &MenuItem::with_id(app, "new_session", "新建会话", true, Some("CmdOrCtrl+N"))?,
             &MenuItem::with_id(app, "new_workspace", "新建工作区", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "open", "打开", true, Some("CmdOrCtrl+O"))?,
-            &MenuItem::with_id(app, "save", "保存", true, Some("CmdOrCtrl+S"))?,
-            &MenuItem::with_id(app, "save_as", "另存为", true, Some("CmdOrCtrl+Shift+S"))?,
+            &MenuItem::with_id(app, "open_workspace", "打开工作区", true, Some("CmdOrCtrl+O"))?,
+            &MenuItem::with_id(app, "save_workspace", "保存工作区", true, Some("CmdOrCtrl+S"))?,
+            &MenuItem::with_id(app, "save_workspace_as", "工作区另存为", true, Some("CmdOrCtrl+Shift+S"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "import_config", "导入配置", true, None::<&str>)?,
             &MenuItem::with_id(app, "export_config", "导出配置", true, None::<&str>)?,
+            &MenuItem::with_id(app, "export_logs", "导出日志", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::quit(app, Some("退出"))?,
         ],
@@ -214,20 +215,23 @@ pub fn handle_menu_event(app: &AppHandle, event: &str) {
         "new_workspace" => {
             let _ = app.emit("menu-action", "new_workspace");
         }
-        "open" => {
-            let _ = app.emit("menu-action", "open");
+        "open_workspace" => {
+            let _ = app.emit("menu-action", "open_workspace");
         }
-        "save" => {
-            let _ = app.emit("menu-action", "save");
+        "save_workspace" => {
+            let _ = app.emit("menu-action", "save_workspace");
         }
-        "save_as" => {
-            let _ = app.emit("menu-action", "save_as");
+        "save_workspace_as" => {
+            let _ = app.emit("menu-action", "save_workspace_as");
         }
         "import_config" => {
             let _ = app.emit("menu-action", "import_config");
         }
         "export_config" => {
             let _ = app.emit("menu-action", "export_config");
+        }
+        "export_logs" => {
+            let _ = app.emit("menu-action", "export_logs");
         }
 
         // 编辑菜单

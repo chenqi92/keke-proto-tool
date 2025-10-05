@@ -64,6 +64,10 @@ interface AppStore extends WorkspaceState {
   // Node Selection
   setSelectedNode: (nodeId: string | null, nodeType: 'workspace' | 'session' | 'connection' | null, nodeData?: any) => void;
 
+  // Workspace Management
+  clearAllSessions: () => void;
+  loadSessions: (sessions: Record<string, SessionState>) => void;
+
   // Utility Methods
   getSession: (sessionId: string) => SessionState | undefined;
   getActiveSession: () => SessionState | undefined;
@@ -866,6 +870,29 @@ export const useAppStore = create<AppStore>()(
             },
           },
         };
+      });
+    },
+
+    // Workspace Management
+    clearAllSessions: () => {
+      console.log('[AppStore] Clearing all sessions');
+      set({
+        sessions: {},
+        activeSessionId: null,
+        selectedNodeId: null,
+        selectedNodeType: null,
+        selectedNodeData: null,
+      });
+    },
+
+    loadSessions: (sessions: Record<string, SessionState>) => {
+      console.log('[AppStore] Loading sessions:', Object.keys(sessions).length);
+      set({
+        sessions: sessions,
+        activeSessionId: null,
+        selectedNodeId: null,
+        selectedNodeType: null,
+        selectedNodeData: null,
       });
     },
   })),

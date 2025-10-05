@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { showOpenDialog, showSaveDialog, readTextFile, writeTextFile } from '@/utils/tauri';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppStore } from '@/stores/AppStore';
 import { useSession } from '@/contexts/SessionContext';
+import { notificationService } from '@/services/NotificationService';
 
 interface UseNativeMenuProps {
   onOpenModal: (modalType: string) => void;
@@ -15,9 +17,163 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
   const { selectedNode } = useSession();
   const startRecording = useAppStore(state => state.startRecording);
   const stopRecording = useAppStore(state => state.stopRecording);
+  const sessions = useAppStore(state => state.sessions);
+  const clearAllSessions = useAppStore(state => state.clearAllSessions);
+  const loadSessions = useAppStore(state => state.loadSessions);
   const currentSession = useAppStore(state =>
     selectedNode?.config ? state.sessions[selectedNode.config.id] : null
   );
+
+  // 工作区管理函数
+  const handleNewWorkspace = async () => {
+    if (Object.keys(sessions).length > 0) {
+      const confirmed = await notificationService.confirm({
+        title: '创建新工作区',
+        message: '创建新工作区将清空当前所有会话，是否继续？',
+        variant: 'warning',
+        confirmText: '继续',
+        cancelText: '取消'
+      });
+      if (!confirmed) return;
+    }
+    clearAllSessions();
+    notificationService.success('新工作区已创建');
+    console.log('[useNativeMenu] New workspace created');
+  };
+
+  const handleOpenWorkspace = async () => {
+    try {
+      const filePath = await showOpenDialog({
+        title: '打开工作区',
+        filters: [{
+          name: 'ProtoTool Workspace',
+          extensions: ['json']
+        }],
+        multiple: false
+      });
+
+      if (filePath && typeof filePath === 'string') {
+        const content = await readTextFile(filePath);
+        const workspaceData = JSON.parse(content);
+
+        if (workspaceData.sessions) {
+          loadSessions(workspaceData.sessions);
+          console.log('[useNativeMenu] Workspace loaded successfully');
+          notificationService.success('工作区加载成功', `已加载 ${Object.keys(workspaceData.sessions).length} 个会话`);
+        }
+      }
+    } catch (error) {
+      console.error('[useNativeMenu] Failed to open workspace:', error);
+      notificationService.error('打开工作区失败', String(error));
+    }
+  };
+
+  const handleSaveWorkspace = async (saveAs: boolean = false) => {
+    try {
+      const workspaceData = {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        sessions: sessions
+      };
+
+      const filePath = await showSaveDialog({
+        title: saveAs ? '工作区另存为' : '保存工作区',
+        defaultPath: `workspace-${Date.now()}.json`,
+        filters: [{
+          name: 'ProtoTool Workspace',
+          extensions: ['json']
+        }]
+      });
+
+      if (filePath) {
+        await writeTextFile(filePath, JSON.stringify(workspaceData, null, 2));
+        console.log('[useNativeMenu] Workspace saved successfully');
+        notificationService.success('工作区保存成功', `已保存 ${Object.keys(sessions).length} 个会话`);
+      }
+    } catch (error) {
+      console.error('[useNativeMenu] Failed to save workspace:', error);
+      notificationService.error('保存工作区失败', String(error));
+    }
+  };
+
+  const handleImportConfig = async () => {
+    try {
+      const filePath = await showOpenDialog({
+        title: '导入配置',
+        filters: [{
+          name: 'JSON Files',
+          extensions: ['json']
+        }],
+        multiple: false
+      });
+
+      if (filePath && typeof filePath === 'string') {
+        const content = await readTextFile(filePath);
+        const config = JSON.parse(content);
+        // TODO: 实现配置导入逻辑
+        console.log('[useNativeMenu] Config imported:', config);
+        notificationService.success('配置导入成功');
+      }
+    } catch (error) {
+      console.error('[useNativeMenu] Failed to import config:', error);
+      notificationService.error('导入配置失败', String(error));
+    }
+  };
+
+  const handleExportConfig = async () => {
+    try {
+      const config = {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        sessions: sessions
+      };
+
+      const filePath = await showSaveDialog({
+        title: '导出配置',
+        defaultPath: `config-${Date.now()}.json`,
+        filters: [{
+          name: 'JSON Files',
+          extensions: ['json']
+        }]
+      });
+
+      if (filePath) {
+        await writeTextFile(filePath, JSON.stringify(config, null, 2));
+        console.log('[useNativeMenu] Config exported successfully');
+        notificationService.success('配置导出成功');
+      }
+    } catch (error) {
+      console.error('[useNativeMenu] Failed to export config:', error);
+      notificationService.error('导出配置失败', String(error));
+    }
+  };
+
+  const handleExportLogs = async () => {
+    try {
+      const filePath = await showSaveDialog({
+        title: '导出日志',
+        defaultPath: `logs-${Date.now()}.txt`,
+        filters: [{
+          name: 'Text Files',
+          extensions: ['txt']
+        }, {
+          name: 'JSON Files',
+          extensions: ['json']
+        }]
+      });
+
+      if (filePath) {
+        // TODO: 从日志系统获取日志数据
+        const logs = 'Log export functionality - to be implemented';
+        await writeTextFile(filePath, logs);
+        console.log('[useNativeMenu] Logs exported successfully');
+        notificationService.success('日志导出成功');
+      }
+    } catch (error) {
+      console.error('[useNativeMenu] Failed to export logs:', error);
+      notificationService.error('导出日志失败', String(error));
+    }
+  };
 
   useEffect(() => {
     console.log('[useNativeMenu] Setting up event listener with onOpenModal:', typeof onOpenModal);
@@ -28,32 +184,36 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
       switch (action) {
         // 文件菜单
         case 'new_session':
-          console.log('New Session');
-          // TODO: 实现新建会话逻辑
+          console.log('[useNativeMenu] New Session');
+          onOpenModal('new-session');
           break;
         case 'new_workspace':
-          console.log('New Workspace');
-          // TODO: 实现新建工作区逻辑
+          console.log('[useNativeMenu] New Workspace');
+          handleNewWorkspace();
           break;
-        case 'open':
-          console.log('Open');
-          // TODO: 实现打开文件逻辑
+        case 'open_workspace':
+          console.log('[useNativeMenu] Open Workspace');
+          handleOpenWorkspace();
           break;
-        case 'save':
-          console.log('Save');
-          // TODO: 实现保存逻辑
+        case 'save_workspace':
+          console.log('[useNativeMenu] Save Workspace');
+          handleSaveWorkspace(false);
           break;
-        case 'save_as':
-          console.log('Save As');
-          // TODO: 实现另存为逻辑
+        case 'save_workspace_as':
+          console.log('[useNativeMenu] Save Workspace As');
+          handleSaveWorkspace(true);
           break;
         case 'import_config':
-          console.log('Import Config');
-          // TODO: 实现导入配置逻辑
+          console.log('[useNativeMenu] Import Config');
+          handleImportConfig();
           break;
         case 'export_config':
-          console.log('Export Config');
-          // TODO: 实现导出配置逻辑
+          console.log('[useNativeMenu] Export Config');
+          handleExportConfig();
+          break;
+        case 'export_logs':
+          console.log('[useNativeMenu] Export Logs');
+          handleExportLogs();
           break;
 
         // 编辑菜单

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/utils';
 import { MessageModal } from '@/components/Common/MessageModal';
 import { invoke } from '@tauri-apps/api/core';
+import { notificationService } from '@/services/NotificationService';
 
 interface ProtocolEditorModalProps {
   isOpen: boolean;
@@ -236,9 +237,15 @@ export const ProtocolEditorModal: React.FC<ProtocolEditorModalProps> = ({
   }, [content]);
 
   // 处理关闭确认
-  const handleClose = () => {
+  const handleClose = async () => {
     if (isModified) {
-      const result = window.confirm('协议内容已修改，是否要保存？\n\n点击"确定"保存并关闭\n点击"取消"直接关闭（不保存）');
+      const result = await notificationService.confirm({
+        title: '保存更改',
+        message: '协议内容已修改，是否要保存？',
+        confirmText: '保存并关闭',
+        cancelText: '直接关闭',
+        variant: 'warning'
+      });
       if (result) {
         handleSave();
       }
@@ -345,8 +352,14 @@ ${content}`;
   };
 
   // 重置协议到默认状态
-  const handleReset = () => {
-    const shouldReset = window.confirm('确定要重置协议到默认状态吗？\n\n当前的所有更改将丢失，此操作无法撤销。');
+  const handleReset = async () => {
+    const shouldReset = await notificationService.confirm({
+      title: '重置协议',
+      message: '确定要重置协议到默认状态吗？当前的所有更改将丢失，此操作无法撤销。',
+      confirmText: '重置',
+      cancelText: '取消',
+      variant: 'danger'
+    });
     if (shouldReset) {
       setContent(DEFAULT_PROTOCOL_TEMPLATE);
       setMeta(DEFAULT_META);

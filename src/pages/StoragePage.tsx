@@ -25,6 +25,7 @@ import { StorageMonitoring } from '@/components/Storage/StorageMonitoring';
 import { ErrorBoundary } from '@/components/Common/ErrorBoundary';
 import { useToast } from '@/components/Common/Toast';
 import { storageService } from '@/services/StorageService';
+import { notificationService } from '@/services/NotificationService';
 
 // Database types supported
 export type DatabaseType = 'mysql5' | 'mysql8' | 'influxdb' | 'redis' | 'timescaledb' | 'minio';
@@ -342,7 +343,15 @@ export const StoragePage: React.FC = () => {
     const connection = connections.find(c => c.id === connectionId);
     if (!connection) return;
 
-    if (window.confirm(`确定要删除连接 "${connection.name}" 吗？此操作无法撤销。`)) {
+    const confirmed = await notificationService.confirm({
+      title: '删除连接',
+      message: `确定要删除连接 "${connection.name}" 吗？此操作无法撤销。`,
+      confirmText: '删除',
+      cancelText: '取消',
+      variant: 'danger'
+    });
+
+    if (confirmed) {
       try {
         // Disconnect first if connected
         if (connection.status === 'connected') {
