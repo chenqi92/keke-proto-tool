@@ -114,6 +114,36 @@ function App() {
     console.log('[App] Initialized zoom level:', zoomLevel);
   }, [])
 
+  // Initialize menu states from store and localStorage
+  useEffect(() => {
+    const initMenuStates = async () => {
+      try {
+        // 等待一小段时间确保菜单已经完全创建
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // 获取当前状态
+        const { showSidebar, showInspector, showStatusBar } = useAppStore.getState();
+        const theme = localStorage.getItem('keke-proto-tool-theme') || 'system';
+        const colorTheme = localStorage.getItem('keke-proto-tool-color-theme') || 'default';
+
+        console.log('[App] Initializing menu states:', { theme, colorTheme, showSidebar, showInspector, showStatusBar });
+
+        // 更新菜单状态
+        await invoke('update_theme_menu_state', { theme });
+        await invoke('update_color_theme_menu_state', { color: colorTheme });
+        await invoke('update_sidebar_menu_state', { visible: showSidebar });
+        await invoke('update_inspector_menu_state', { visible: showInspector });
+        await invoke('update_statusbar_menu_state', { visible: showStatusBar });
+
+        console.log('[App] Menu states initialized successfully');
+      } catch (error) {
+        console.error('[App] Failed to initialize menu states:', error);
+      }
+    };
+
+    initMenuStates();
+  }, [])
+
   // Modal handling functions (defined before useNativeMenu)
   const openModal = useCallback((modalType: string) => {
     console.log('[App] openModal called with:', modalType)

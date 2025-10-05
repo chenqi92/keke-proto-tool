@@ -1495,3 +1495,34 @@ pub async fn save_file_dialog(
         }
     }
 }
+
+// 菜单状态更新命令
+#[tauri::command]
+pub fn update_theme_menu_state(app: AppHandle, theme: String) -> Result<(), String> {
+    crate::menu::update_theme_menu(&app, &theme)
+        .map_err(|e| format!("Failed to update theme menu: {}", e))
+}
+
+#[tauri::command]
+pub fn update_sidebar_menu_state(app: AppHandle, visible: bool) -> Result<(), String> {
+    crate::menu::update_sidebar_menu(&app, visible)
+        .map_err(|e| format!("Failed to update sidebar menu: {}", e))
+}
+
+#[tauri::command]
+pub fn update_inspector_menu_state(app: AppHandle, visible: bool) -> Result<(), String> {
+    crate::menu::update_inspector_menu(&app, visible)
+        .map_err(|e| format!("Failed to update inspector menu: {}", e))
+}
+
+#[tauri::command]
+pub fn update_statusbar_menu_state(app: AppHandle, visible: bool) -> Result<(), String> {
+    crate::menu::update_statusbar_menu(&app, visible)
+        .map_err(|e| format!("Failed to update statusbar menu: {}", e))
+}
+
+#[tauri::command]
+pub fn update_color_theme_menu_state(app: AppHandle, color: String) -> Result<(), String> {
+    crate::menu::update_color_theme_menu(&app, &color)
+        .map_err(|e| format!("Failed to update color theme menu: {}", e))
+}

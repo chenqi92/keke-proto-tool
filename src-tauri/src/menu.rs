@@ -1,5 +1,5 @@
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, CheckMenuItem, MenuItemKind},
     AppHandle, Emitter, Manager, Runtime,
 };
 
@@ -41,83 +41,83 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         ],
     )?;
 
-    // 主题子菜单
+    // 主题子菜单 - 使用 CheckMenuItem 显示选中状态
     let theme_submenu = Submenu::with_items(
         app,
         "主题风格",
         true,
         &[
-            &MenuItem::with_id(app, "theme_light", "浅色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "theme_dark", "深色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "theme_system", "跟随系统", true, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "theme_light", "浅色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "theme_dark", "深色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "theme_system", "跟随系统", true, true, None::<&str>)?, // 默认选中
         ],
     )?;
 
-    // 主题色子菜单
+    // 主题色子菜单 - 使用 CheckMenuItem 显示选中状态
     let color_theme_submenu = Submenu::with_items(
         app,
         "主题色",
         true,
         &[
-            &MenuItem::with_id(app, "color_default", "默认", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_slate", "石板", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_gray", "灰色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_zinc", "锌色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_neutral", "中性", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_stone", "石色", true, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_default", "默认", true, true, None::<&str>)?, // 默认选中
+            &CheckMenuItem::with_id(app, "color_slate", "石板", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_gray", "灰色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_zinc", "锌色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_neutral", "中性", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_stone", "石色", true, false, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "color_red", "红色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_orange", "橙色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_amber", "琥珀", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_yellow", "黄色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_lime", "青柠", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_green", "绿色", true, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_red", "红色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_orange", "橙色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_amber", "琥珀", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_yellow", "黄色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_lime", "青柠", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_green", "绿色", true, false, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "color_emerald", "翡翠", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_teal", "青色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_cyan", "青蓝", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_sky", "天蓝", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_blue", "蓝色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_indigo", "靛蓝", true, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_emerald", "翡翠", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_teal", "青色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_cyan", "青蓝", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_sky", "天蓝", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_blue", "蓝色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_indigo", "靛蓝", true, false, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "color_violet", "紫罗兰", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_purple", "紫色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_fuchsia", "紫红", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_pink", "粉色", true, None::<&str>)?,
-            &MenuItem::with_id(app, "color_rose", "玫瑰", true, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_violet", "紫罗兰", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_purple", "紫色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_fuchsia", "紫红", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_pink", "粉色", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "color_rose", "玫瑰", true, false, None::<&str>)?,
         ],
     )?;
 
-    // 侧边栏子菜单
+    // 侧边栏子菜单 - 使用 CheckMenuItem 显示选中状态
     let sidebar_submenu = Submenu::with_items(
         app,
         "侧边栏",
         true,
         &[
-            &MenuItem::with_id(app, "sidebar_show", "显示", true, None::<&str>)?,
-            &MenuItem::with_id(app, "sidebar_hide", "隐藏", true, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "sidebar_show", "显示", true, true, None::<&str>)?, // 默认显示
+            &CheckMenuItem::with_id(app, "sidebar_hide", "隐藏", true, false, None::<&str>)?,
         ],
     )?;
 
-    // 检视器子菜单
+    // 检视器子菜单 - 使用 CheckMenuItem 显示选中状态
     let inspector_submenu = Submenu::with_items(
         app,
         "检视器",
         true,
         &[
-            &MenuItem::with_id(app, "inspector_show", "显示", true, None::<&str>)?,
-            &MenuItem::with_id(app, "inspector_hide", "隐藏", true, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "inspector_show", "显示", true, false, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "inspector_hide", "隐藏", true, true, None::<&str>)?, // 默认隐藏
         ],
     )?;
 
-    // 状态栏子菜单
+    // 状态栏子菜单 - 使用 CheckMenuItem 显示选中状态
     let statusbar_submenu = Submenu::with_items(
         app,
         "状态栏",
         true,
         &[
-            &MenuItem::with_id(app, "statusbar_show", "显示", true, None::<&str>)?,
-            &MenuItem::with_id(app, "statusbar_hide", "隐藏", true, None::<&str>)?,
+            &CheckMenuItem::with_id(app, "statusbar_show", "显示", true, true, None::<&str>)?, // 默认显示
+            &CheckMenuItem::with_id(app, "statusbar_hide", "隐藏", true, false, None::<&str>)?,
         ],
     )?;
 
@@ -486,4 +486,106 @@ pub fn handle_menu_event(app: &AppHandle, event: &str) {
             println!("Unhandled menu event: {}", event);
         }
     }
+}
+
+// 递归搜索并更新菜单项选中状态的辅助函数
+fn find_and_update_check_item<R: Runtime>(
+    item: &MenuItemKind<R>,
+    item_id: &str,
+    checked: bool,
+) -> bool {
+    match item {
+        MenuItemKind::Check(check_item) => {
+            if check_item.id().as_ref() == item_id {
+                if let Err(e) = check_item.set_checked(checked) {
+                    println!("Error setting checked state for '{}': {}", item_id, e);
+                } else {
+                    println!("Updated menu item '{}' checked state to: {}", item_id, checked);
+                }
+                return true;
+            }
+            false
+        }
+        MenuItemKind::Submenu(submenu) => {
+            // 递归搜索子菜单中的项
+            if let Ok(items) = submenu.items() {
+                for sub_item in items {
+                    if find_and_update_check_item(&sub_item, item_id, checked) {
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+        _ => false,
+    }
+}
+
+// 更新菜单项选中状态的辅助函数
+pub fn update_menu_check_state<R: Runtime>(
+    app: &AppHandle<R>,
+    item_id: &str,
+    checked: bool,
+) -> tauri::Result<()> {
+    if let Some(menu) = app.menu() {
+        // 遍历所有顶级菜单项
+        for item in menu.items()? {
+            if find_and_update_check_item(&item, item_id, checked) {
+                return Ok(());
+            }
+        }
+        println!("Warning: Menu item '{}' not found", item_id);
+    } else {
+        println!("Warning: Menu not found");
+    }
+    Ok(())
+}
+
+// 更新主题风格菜单的选中状态
+pub fn update_theme_menu<R: Runtime>(app: &AppHandle<R>, theme: &str) -> tauri::Result<()> {
+    println!("Updating theme menu to: {}", theme);
+    update_menu_check_state(app, "theme_light", theme == "light")?;
+    update_menu_check_state(app, "theme_dark", theme == "dark")?;
+    update_menu_check_state(app, "theme_system", theme == "system")?;
+    Ok(())
+}
+
+// 更新侧边栏菜单的选中状态
+pub fn update_sidebar_menu<R: Runtime>(app: &AppHandle<R>, visible: bool) -> tauri::Result<()> {
+    update_menu_check_state(app, "sidebar_show", visible)?;
+    update_menu_check_state(app, "sidebar_hide", !visible)?;
+    Ok(())
+}
+
+// 更新检视器菜单的选中状态
+pub fn update_inspector_menu<R: Runtime>(app: &AppHandle<R>, visible: bool) -> tauri::Result<()> {
+    update_menu_check_state(app, "inspector_show", visible)?;
+    update_menu_check_state(app, "inspector_hide", !visible)?;
+    Ok(())
+}
+
+// 更新状态栏菜单的选中状态
+pub fn update_statusbar_menu<R: Runtime>(app: &AppHandle<R>, visible: bool) -> tauri::Result<()> {
+    update_menu_check_state(app, "statusbar_show", visible)?;
+    update_menu_check_state(app, "statusbar_hide", !visible)?;
+    Ok(())
+}
+
+// 更新主题色菜单的选中状态
+pub fn update_color_theme_menu<R: Runtime>(app: &AppHandle<R>, color: &str) -> tauri::Result<()> {
+    println!("Updating color theme menu to: {}", color);
+    // 所有主题色选项
+    let colors = [
+        "default", "slate", "gray", "zinc", "neutral", "stone",
+        "red", "orange", "amber", "yellow", "lime", "green",
+        "emerald", "teal", "cyan", "sky", "blue", "indigo",
+        "violet", "purple", "fuchsia", "pink", "rose"
+    ];
+
+    // 取消所有选中，然后选中当前主题色
+    for c in colors.iter() {
+        let should_check = *c == color;
+        update_menu_check_state(app, &format!("color_{}", c), should_check)?;
+    }
+    Ok(())
 }

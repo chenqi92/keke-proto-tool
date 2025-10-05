@@ -51,11 +51,15 @@ export const useTheme = () => {
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    // 更新菜单状态
+    invoke('update_theme_menu_state', { theme: newTheme }).catch(console.error);
   };
 
   const setColorTheme = (newColorTheme: ColorTheme) => {
     setColorThemeState(newColorTheme);
     localStorage.setItem(COLOR_THEME_STORAGE_KEY, newColorTheme);
+    // 更新菜单状态
+    invoke('update_color_theme_menu_state', { color: newColorTheme }).catch(console.error);
   };
 
   const toggleTheme = () => {

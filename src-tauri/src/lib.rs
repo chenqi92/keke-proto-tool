@@ -48,6 +48,12 @@ pub fn run() {
             list_serial_ports,
             // Parsing commands
             load_protocol_rule,
+            // Menu state commands
+            update_theme_menu_state,
+            update_color_theme_menu_state,
+            update_sidebar_menu_state,
+            update_inspector_menu_state,
+            update_statusbar_menu_state,
             load_protocol_rule_from_string,
             parse_data_with_rule,
             parse_data_auto,

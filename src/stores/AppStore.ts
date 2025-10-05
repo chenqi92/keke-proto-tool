@@ -930,6 +930,10 @@ export const useAppStore = create<AppStore>()(
       set((state) => {
         const newValue = !state.showSidebar;
         console.log('[AppStore] Toggle sidebar:', newValue);
+        // 更新菜单状态
+        import('@tauri-apps/api/core').then(({ invoke }) => {
+          invoke('update_sidebar_menu_state', { visible: newValue }).catch(console.error);
+        });
         return { showSidebar: newValue };
       });
     },
@@ -938,6 +942,10 @@ export const useAppStore = create<AppStore>()(
       set((state) => {
         const newValue = !state.showInspector;
         console.log('[AppStore] Toggle inspector:', newValue);
+        // 更新菜单状态
+        import('@tauri-apps/api/core').then(({ invoke }) => {
+          invoke('update_inspector_menu_state', { visible: newValue }).catch(console.error);
+        });
         return { showInspector: newValue };
       });
     },
@@ -946,6 +954,10 @@ export const useAppStore = create<AppStore>()(
       set((state) => {
         const newValue = !state.showStatusBar;
         console.log('[AppStore] Toggle status bar:', newValue);
+        // 更新菜单状态
+        import('@tauri-apps/api/core').then(({ invoke }) => {
+          invoke('update_statusbar_menu_state', { visible: newValue }).catch(console.error);
+        });
         return { showStatusBar: newValue };
       });
     },
@@ -953,16 +965,28 @@ export const useAppStore = create<AppStore>()(
     setSidebarVisible: (visible: boolean) => {
       console.log('[AppStore] Set sidebar visible:', visible);
       set({ showSidebar: visible });
+      // 更新菜单状态
+      import('@tauri-apps/api/core').then(({ invoke }) => {
+        invoke('update_sidebar_menu_state', { visible }).catch(console.error);
+      });
     },
 
     setInspectorVisible: (visible: boolean) => {
       console.log('[AppStore] Set inspector visible:', visible);
       set({ showInspector: visible });
+      // 更新菜单状态
+      import('@tauri-apps/api/core').then(({ invoke }) => {
+        invoke('update_inspector_menu_state', { visible }).catch(console.error);
+      });
     },
 
     setStatusBarVisible: (visible: boolean) => {
       console.log('[AppStore] Set status bar visible:', visible);
       set({ showStatusBar: visible });
+      // 更新菜单状态
+      import('@tauri-apps/api/core').then(({ invoke }) => {
+        invoke('update_statusbar_menu_state', { visible }).catch(console.error);
+      });
     },
 
     setZoomLevel: (level: number) => {
