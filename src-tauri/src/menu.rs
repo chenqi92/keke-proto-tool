@@ -88,6 +88,39 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         ],
     )?;
 
+    // 侧边栏子菜单
+    let sidebar_submenu = Submenu::with_items(
+        app,
+        "侧边栏",
+        true,
+        &[
+            &MenuItem::with_id(app, "sidebar_show", "显示", true, None::<&str>)?,
+            &MenuItem::with_id(app, "sidebar_hide", "隐藏", true, None::<&str>)?,
+        ],
+    )?;
+
+    // 检视器子菜单
+    let inspector_submenu = Submenu::with_items(
+        app,
+        "检视器",
+        true,
+        &[
+            &MenuItem::with_id(app, "inspector_show", "显示", true, None::<&str>)?,
+            &MenuItem::with_id(app, "inspector_hide", "隐藏", true, None::<&str>)?,
+        ],
+    )?;
+
+    // 状态栏子菜单
+    let statusbar_submenu = Submenu::with_items(
+        app,
+        "状态栏",
+        true,
+        &[
+            &MenuItem::with_id(app, "statusbar_show", "显示", true, None::<&str>)?,
+            &MenuItem::with_id(app, "statusbar_hide", "隐藏", true, None::<&str>)?,
+        ],
+    )?;
+
     // 视图菜单
     let view_menu = Submenu::with_items(
         app,
@@ -99,9 +132,9 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
             &theme_submenu,
             &color_theme_submenu,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "show_sidebar", "显示侧边栏", true, None::<&str>)?,
-            &MenuItem::with_id(app, "show_inspector", "显示检视器", true, None::<&str>)?,
-            &MenuItem::with_id(app, "show_status_bar", "显示状态栏", true, None::<&str>)?,
+            &sidebar_submenu,
+            &inspector_submenu,
+            &statusbar_submenu,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "zoom_in", "放大", true, Some("CmdOrCtrl+Plus"))?,
             &MenuItem::with_id(app, "zoom_out", "缩小", true, Some("CmdOrCtrl+-"))?,
@@ -318,15 +351,30 @@ pub fn handle_menu_event(app: &AppHandle, event: &str) {
             let _ = app.emit("menu-action", "color_rose");
         }
 
-        "show_sidebar" => {
-            let _ = app.emit("menu-action", "show_sidebar");
+        // 侧边栏子菜单
+        "sidebar_show" => {
+            let _ = app.emit("menu-action", "sidebar_show");
         }
-        "show_inspector" => {
-            let _ = app.emit("menu-action", "show_inspector");
+        "sidebar_hide" => {
+            let _ = app.emit("menu-action", "sidebar_hide");
         }
-        "show_status_bar" => {
-            let _ = app.emit("menu-action", "show_status_bar");
+
+        // 检视器子菜单
+        "inspector_show" => {
+            let _ = app.emit("menu-action", "inspector_show");
         }
+        "inspector_hide" => {
+            let _ = app.emit("menu-action", "inspector_hide");
+        }
+
+        // 状态栏子菜单
+        "statusbar_show" => {
+            let _ = app.emit("menu-action", "statusbar_show");
+        }
+        "statusbar_hide" => {
+            let _ = app.emit("menu-action", "statusbar_hide");
+        }
+
         "zoom_in" => {
             let _ = app.emit("menu-action", "zoom_in");
         }

@@ -78,6 +78,9 @@ interface AppStore extends WorkspaceState {
   toggleSidebar: () => void;
   toggleInspector: () => void;
   toggleStatusBar: () => void;
+  setSidebarVisible: (visible: boolean) => void;
+  setInspectorVisible: (visible: boolean) => void;
+  setStatusBarVisible: (visible: boolean) => void;
   setZoomLevel: (level: number) => void;
   zoomIn: () => void;
   zoomOut: () => void;
@@ -945,6 +948,21 @@ export const useAppStore = create<AppStore>()(
         console.log('[AppStore] Toggle status bar:', newValue);
         return { showStatusBar: newValue };
       });
+    },
+
+    setSidebarVisible: (visible: boolean) => {
+      console.log('[AppStore] Set sidebar visible:', visible);
+      set({ showSidebar: visible });
+    },
+
+    setInspectorVisible: (visible: boolean) => {
+      console.log('[AppStore] Set inspector visible:', visible);
+      set({ showInspector: visible });
+    },
+
+    setStatusBarVisible: (visible: boolean) => {
+      console.log('[AppStore] Set status bar visible:', visible);
+      set({ showStatusBar: visible });
     },
 
     setZoomLevel: (level: number) => {

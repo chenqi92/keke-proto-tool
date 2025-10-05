@@ -28,6 +28,9 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
   const toggleSidebar = useAppStore(state => state.toggleSidebar);
   const toggleInspector = useAppStore(state => state.toggleInspector);
   const toggleStatusBar = useAppStore(state => state.toggleStatusBar);
+  const setSidebarVisible = useAppStore(state => state.setSidebarVisible);
+  const setInspectorVisible = useAppStore(state => state.setInspectorVisible);
+  const setStatusBarVisible = useAppStore(state => state.setStatusBarVisible);
   const zoomIn = useAppStore(state => state.zoomIn);
   const zoomOut = useAppStore(state => state.zoomOut);
   const resetZoom = useAppStore(state => state.resetZoom);
@@ -329,17 +332,40 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
         case 'color_rose':
           setColorTheme('rose');
           break;
-        case 'show_sidebar':
-          console.log('[useNativeMenu] Toggle Sidebar');
-          toggleSidebar();
+        // 侧边栏子菜单
+        case 'sidebar_show':
+          console.log('[useNativeMenu] Show Sidebar');
+          setSidebarVisible(true);
+          notificationService.success('侧边栏', '已显示侧边栏');
           break;
-        case 'show_inspector':
-          console.log('[useNativeMenu] Toggle Inspector');
-          toggleInspector();
+        case 'sidebar_hide':
+          console.log('[useNativeMenu] Hide Sidebar');
+          setSidebarVisible(false);
+          notificationService.success('侧边栏', '已隐藏侧边栏');
           break;
-        case 'show_status_bar':
-          console.log('[useNativeMenu] Toggle Status Bar');
-          toggleStatusBar();
+
+        // 检视器子菜单
+        case 'inspector_show':
+          console.log('[useNativeMenu] Show Inspector');
+          setInspectorVisible(true);
+          notificationService.success('检视器', '已显示检视器');
+          break;
+        case 'inspector_hide':
+          console.log('[useNativeMenu] Hide Inspector');
+          setInspectorVisible(false);
+          notificationService.success('检视器', '已隐藏检视器');
+          break;
+
+        // 状态栏子菜单
+        case 'statusbar_show':
+          console.log('[useNativeMenu] Show Status Bar');
+          setStatusBarVisible(true);
+          notificationService.success('状态栏', '已显示状态栏');
+          break;
+        case 'statusbar_hide':
+          console.log('[useNativeMenu] Hide Status Bar');
+          setStatusBarVisible(false);
+          notificationService.success('状态栏', '已隐藏状态栏');
           break;
         case 'zoom_in':
           console.log('[useNativeMenu] Zoom In');
@@ -536,6 +562,9 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
     toggleSidebar,
     toggleInspector,
     toggleStatusBar,
+    setSidebarVisible,
+    setInspectorVisible,
+    setStatusBarVisible,
     zoomIn,
     zoomOut,
     resetZoom
