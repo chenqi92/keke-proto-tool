@@ -216,16 +216,6 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
           handleExportLogs();
           break;
 
-        // 编辑菜单
-        case 'find':
-          console.log('Find');
-          // TODO: 实现查找逻辑
-          break;
-        case 'replace':
-          console.log('Replace');
-          // TODO: 实现替换逻辑
-          break;
-
         // 视图菜单
         case 'command_palette':
           console.log('Command Palette');

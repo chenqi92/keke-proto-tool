@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, Download, Upload, Info, HelpCircle, AlertTriangle, Edit3, RotateCcw } from 'lucide-react';
+import { X, Save, Download, Upload, Info, HelpCircle, AlertTriangle, Edit3, RotateCcw, Search, Replace, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/utils';
 import { MessageModal } from '@/components/Common/MessageModal';
@@ -224,6 +224,7 @@ export const ProtocolEditorModal: React.FC<ProtocolEditorModalProps> = ({
   const [showHints, setShowHints] = useState(true);
   const [activeHint, setActiveHint] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const originalContentRef = useRef(DEFAULT_PROTOCOL_TEMPLATE);
 
   // Dialog states
@@ -231,10 +232,133 @@ export const ProtocolEditorModal: React.FC<ProtocolEditorModalProps> = ({
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [dialogContent, setDialogContent] = useState<{ title: string; message: string; type: 'info' | 'success' | 'error' }>({ title: '', message: '', type: 'info' });
 
+  // Find/Replace states
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findText, setFindText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
+  const [totalMatches, setTotalMatches] = useState(0);
+
   // 检测内容是否被修改
   useEffect(() => {
     setIsModified(content !== originalContentRef.current);
   }, [content]);
+
+  // 查找匹配项
+  useEffect(() => {
+    if (!findText) {
+      setTotalMatches(0);
+      setCurrentMatchIndex(-1);
+      return;
+    }
+
+    const flags = caseSensitive ? 'g' : 'gi';
+    const regex = new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+    const matches = content.match(regex);
+    setTotalMatches(matches ? matches.length : 0);
+
+    if (!matches || matches.length === 0) {
+      setCurrentMatchIndex(-1);
+    } else if (currentMatchIndex === -1) {
+      setCurrentMatchIndex(0);
+    } else if (currentMatchIndex >= matches.length) {
+      setCurrentMatchIndex(matches.length - 1);
+    }
+  }, [findText, content, caseSensitive]);
+
+  // 快捷键处理
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F 或 Cmd+F 打开查找
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setShowFindReplace(true);
+      }
+      // Ctrl+H 或 Cmd+H 打开替换
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        setShowFindReplace(true);
+      }
+      // Esc 关闭查找/替换
+      if (e.key === 'Escape' && showFindReplace) {
+        setShowFindReplace(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showFindReplace]);
+
+  // 查找下一个
+  const handleFindNext = () => {
+    if (totalMatches === 0) return;
+    const nextIndex = (currentMatchIndex + 1) % totalMatches;
+    setCurrentMatchIndex(nextIndex);
+    highlightMatch(nextIndex);
+  };
+
+  // 查找上一个
+  const handleFindPrevious = () => {
+    if (totalMatches === 0) return;
+    const prevIndex = currentMatchIndex <= 0 ? totalMatches - 1 : currentMatchIndex - 1;
+    setCurrentMatchIndex(prevIndex);
+    highlightMatch(prevIndex);
+  };
+
+  // 高亮当前匹配项
+  const highlightMatch = (matchIndex: number) => {
+    if (!textareaRef.current || !findText || totalMatches === 0) return;
+
+    const flags = caseSensitive ? 'g' : 'gi';
+    const regex = new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+    const matches = [...content.matchAll(regex)];
+
+    if (matchIndex >= 0 && matchIndex < matches.length) {
+      const match = matches[matchIndex];
+      const start = match.index!;
+      const end = start + match[0].length;
+
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(start, end);
+      textareaRef.current.scrollTop = textareaRef.current.scrollHeight * (start / content.length);
+    }
+  };
+
+  // 替换当前匹配项
+  const handleReplaceCurrent = () => {
+    if (!findText || totalMatches === 0 || currentMatchIndex === -1) return;
+
+    const flags = caseSensitive ? 'g' : 'gi';
+    const regex = new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+    const matches = [...content.matchAll(regex)];
+
+    if (currentMatchIndex >= 0 && currentMatchIndex < matches.length) {
+      const match = matches[currentMatchIndex];
+      const start = match.index!;
+      const end = start + match[0].length;
+
+      const newContent = content.substring(0, start) + replaceText + content.substring(end);
+      setContent(newContent);
+
+      // 查找下一个
+      setTimeout(() => handleFindNext(), 0);
+    }
+  };
+
+  // 替换全部
+  const handleReplaceAll = () => {
+    if (!findText) return;
+
+    const flags = caseSensitive ? 'g' : 'gi';
+    const regex = new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+    const newContent = content.replace(regex, replaceText);
+
+    if (newContent !== content) {
+      setContent(newContent);
+      notificationService.success('替换完成', `已替换 ${totalMatches} 处`);
+    }
+  };
 
   // 处理关闭确认
   const handleClose = async () => {
@@ -443,6 +567,15 @@ ${content}`;
           </div>
           
           <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFindReplace(!showFindReplace)}
+              className={cn(showFindReplace && "bg-accent")}
+            >
+              <Search className="w-4 h-4 mr-1" />
+              查找
+            </Button>
             <Button variant="outline" size="sm" onClick={handleImport}>
               <Upload className="w-4 h-4 mr-1" />
               导入
@@ -540,9 +673,79 @@ ${content}`;
 
           {/* Center Panel - Editor */}
           <div className="flex-1 flex flex-col">
+            {/* Find/Replace Panel */}
+            {showFindReplace && (
+              <div className="border-b border-border bg-muted/30 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <Search className="w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={findText}
+                      onChange={(e) => setFindText(e.target.value)}
+                      placeholder="查找..."
+                      className="flex-1 px-2 py-1 text-sm border border-border rounded bg-background"
+                      autoFocus
+                    />
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {totalMatches > 0 ? `${currentMatchIndex + 1}/${totalMatches}` : '无匹配'}
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={handleFindPrevious} disabled={totalMatches === 0}>
+                      <ChevronUp className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleFindNext} disabled={totalMatches === 0}>
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setShowFindReplace(false)}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <Replace className="w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={replaceText}
+                      onChange={(e) => setReplaceText(e.target.value)}
+                      placeholder="替换为..."
+                      className="flex-1 px-2 py-1 text-sm border border-border rounded bg-background"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReplaceCurrent}
+                      disabled={totalMatches === 0}
+                    >
+                      替换
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReplaceAll}
+                      disabled={totalMatches === 0}
+                    >
+                      全部替换
+                    </Button>
+                    <label className="flex items-center gap-1 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={caseSensitive}
+                        onChange={(e) => setCaseSensitive(e.target.checked)}
+                        className="rounded"
+                      />
+                      区分大小写
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex-1 p-4">
               <div className="relative w-full h-full">
                 <textarea
+                  ref={textareaRef}
                   value={content}
                   onChange={handleContentChange}
                   className="w-full h-full font-mono text-sm border border-border rounded-md p-4 bg-slate-50 dark:bg-slate-900 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"

@@ -25,7 +25,7 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         ],
     )?;
 
-    // 编辑菜单
+    // 编辑菜单 - 只保留基础编辑功能（查找/替换已集成到协议编辑器中）
     let edit_menu = Submenu::with_items(
         app,
         "编辑",
@@ -38,9 +38,6 @@ pub fn create_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
             &PredefinedMenuItem::copy(app, Some("复制"))?,
             &PredefinedMenuItem::paste(app, Some("粘贴"))?,
             &PredefinedMenuItem::select_all(app, Some("全选"))?,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "find", "查找", true, Some("CmdOrCtrl+F"))?,
-            &MenuItem::with_id(app, "replace", "替换", true, Some("CmdOrCtrl+H"))?,
         ],
     )?;
 
@@ -232,14 +229,6 @@ pub fn handle_menu_event(app: &AppHandle, event: &str) {
         }
         "export_logs" => {
             let _ = app.emit("menu-action", "export_logs");
-        }
-
-        // 编辑菜单
-        "find" => {
-            let _ = app.emit("menu-action", "find");
-        }
-        "replace" => {
-            let _ = app.emit("menu-action", "replace");
         }
 
         // 视图菜单
