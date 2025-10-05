@@ -1,8 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import { X, ExternalLink, Github, Mail, BookOpen } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, BookOpen, ChevronRight } from 'lucide-react';
 import { cn } from '@/utils';
 import { openPath } from '@tauri-apps/plugin-opener';
 
@@ -10,295 +7,528 @@ interface UserGuidePageProps {
   onClose?: () => void;
 }
 
+interface GuideSection {
+  id: string;
+  title: string;
+  content: React.ReactNode;
+}
+
 export const UserGuidePage: React.FC<UserGuidePageProps> = ({ onClose }) => {
-  const [markdownContent, setMarkdownContent] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadMarkdownContent = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // 在开发环境中，直接从 public 目录加载
-        // 在生产环境中，需要确保文件被正确打包
-        const response = await fetch('/docs/user-guide.md');
-        
-        if (!response.ok) {
-          throw new Error(`Failed to load user-guide.md: ${response.status} ${response.statusText}`);
-        }
-        
-        const content = await response.text();
-        setMarkdownContent(content);
-      } catch (err) {
-        console.error('Error loading user-guide.md:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load content');
-        
-        // 提供备用内容
-        setMarkdownContent(`
-# ProtoTool 用户指南
-
-欢迎使用 **ProtoTool**！本指南将帮助您快速上手并充分利用这款强大的网络协议分析工具。
-
-## 🚀 快速开始
-
-### 创建第一个会话
-1. 点击"新建会话"按钮
-2. 选择协议类型（TCP、UDP、WebSocket等）
-3. 配置连接参数
-4. 建立连接并开始分析
-
-## 📡 支持的协议
-
-- **TCP**：可靠的面向连接协议
-- **UDP**：快速的无连接协议  
-- **WebSocket**：实时双向通信
-- **MQTT**：轻量级消息队列协议
-- **SSE**：服务器推送事件
-
-## 🛠️ 工具箱功能
-
-- **报文生成器**：创建和发送自定义数据包
-- **协议解析器**：自动识别和解析协议数据
-- **数据转换器**：各种格式转换工具
-- **CRC 校验**：数据完整性验证
-- **时间戳转换**：时间格式转换工具
-
-## 📊 分析功能
-
-- **实时监控**：实时捕获和显示网络数据
-- **历史记录**：完整的通信记录保存
-- **数据过滤**：按条件筛选显示内容
-- **协议解析**：结构化显示协议内容
-
-## 🔧 故障排除
-
-如果遇到问题，请检查：
-1. 网络连接是否正常
-2. 目标地址和端口是否正确
-3. 防火墙设置是否允许连接
-4. 查看应用程序日志获取详细错误信息
-
-## 📞 获取帮助
-
-- 查看在线文档
-- 访问 GitHub 仓库
-- 联系技术支持：hi@kkape.com
-
----
-
-**注意**：由于无法加载完整的用户指南文档，这里显示的是简化版本。请确保 user-guide.md 文件存在于 public/docs/ 目录中。
-        `);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadMarkdownContent();
-  }, []);
+  const [activeSection, setActiveSection] = useState<string>('quick-start');
 
   const handleLinkClick = async (href: string) => {
+    console.log('[UserGuidePage] Attempting to open link:', href);
+    alert(`Attempting to open: ${href}`);
     try {
-      // 检查是否在 Tauri 环境中
-      if (typeof window !== 'undefined' && window.__TAURI__) {
-        // 在 Tauri 应用中打开外部链接
-        if (href.startsWith('http')) {
-          await openPath(href);
-        } else if (href.startsWith('mailto:')) {
-          await openPath(href);
-        } else if (href.includes('@') && !href.startsWith('http')) {
-          // 处理纯邮箱地址
-          await openPath(`mailto:${href}`);
-        }
-      } else {
-        // 在浏览器环境中直接使用 window.open
-        if (href.startsWith('http')) {
-          window.open(href, '_blank');
-        } else if (href.startsWith('mailto:')) {
-          window.open(href);
-        } else if (href.includes('@') && !href.startsWith('http')) {
-          window.open(`mailto:${href}`);
-        }
-      }
+      console.log('[UserGuidePage] Calling openPath...');
+      await openPath(href);
+      console.log('[UserGuidePage] Successfully opened link');
+      alert('Successfully opened link');
     } catch (error) {
-      console.error('Failed to open link:', error);
-      // 作为最后的回退，尝试使用 window.open
-      if (typeof window !== 'undefined') {
-        try {
-          if (href.startsWith('http')) {
-            window.open(href, '_blank');
-          } else if (href.startsWith('mailto:')) {
-            window.open(href);
-          } else if (href.includes('@') && !href.startsWith('http')) {
-            window.open(`mailto:${href}`);
-          }
-        } catch (fallbackError) {
-          console.error('Fallback link opening also failed:', fallbackError);
-          // 显示用户友好的错误消息
-          console.error(`无法打开链接: ${href}`);
-        }
+      console.error('[UserGuidePage] Failed to open link:', error);
+      alert(`Failed to open link: ${error}`);
+      // Fallback to window.open
+      try {
+        console.log('[UserGuidePage] Trying window.open fallback...');
+        window.open(href, '_blank');
+        alert('Opened with window.open');
+      } catch (fallbackError) {
+        console.error('[UserGuidePage] Fallback also failed:', fallbackError);
+        alert(`Fallback also failed: ${fallbackError}`);
       }
     }
   };
 
+  const guideSections: GuideSection[] = [
+    {
+      id: 'quick-start',
+      title: '快速开始',
+      content: (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground mb-4">快速开始</h2>
+          <p className="text-foreground leading-relaxed">
+            欢迎使用 ProtoTool！这是一款功能强大的网络协议分析和测试工具，支持多种网络协议的连接、数据收发和分析。
+          </p>
+
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-3">创建第一个会话</h3>
+          <ol className="list-decimal list-inside space-y-2 text-foreground">
+            <li>点击左侧工作区的"新建会话"按钮</li>
+            <li>选择协议类型（TCP、UDP、WebSocket、MQTT、SSE 或 Modbus）</li>
+            <li>选择连接类型（客户端或服务端）</li>
+            <li>配置连接参数（地址、端口等）</li>
+            <li>点击"创建"按钮</li>
+            <li>在会话列表中找到新创建的会话，点击"连接"按钮</li>
+          </ol>
+
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-3">发送和接收数据</h3>
+          <ol className="list-decimal list-inside space-y-2 text-foreground">
+            <li>连接成功后，在右侧数据面板的发送区域输入数据</li>
+            <li>选择数据格式（文本、十六进制、Base64 等）</li>
+            <li>点击"发送"按钮</li>
+            <li>接收到的数据会实时显示在接收区域</li>
+          </ol>
+        </div>
+      ),
+    },
+    {
+      id: 'protocols',
+      title: '支持的协议',
+      content: (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground mb-4">支持的协议</h2>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">TCP (Transmission Control Protocol)</h3>
+              <p className="text-foreground leading-relaxed mb-2">
+                可靠的、面向连接的传输层协议。适用于需要保证数据完整性和顺序的场景。
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
+                <li>支持客户端和服务端模式</li>
+                <li>自动重连功能</li>
+                <li>支持多客户端连接（服务端模式）</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">UDP (User Datagram Protocol)</h3>
+              <p className="text-foreground leading-relaxed mb-2">
+                快速的、无连接的传输层协议。适用于对实时性要求高、可以容忍少量数据丢失的场景。
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
+                <li>支持客户端和服务端模式</li>
+                <li>低延迟数据传输</li>
+                <li>支持广播和组播</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">WebSocket</h3>
+              <p className="text-foreground leading-relaxed mb-2">
+                基于 TCP 的全双工通信协议。适用于需要实时双向通信的 Web 应用。
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
+                <li>支持客户端和服务端模式</li>
+                <li>支持文本和二进制消息</li>
+                <li>自动心跳保活</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">MQTT (Message Queuing Telemetry Transport)</h3>
+              <p className="text-foreground leading-relaxed mb-2">
+                轻量级的发布/订阅消息传输协议。适用于物联网和低带宽场景。
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
+                <li>支持 QoS 0、1、2 三种服务质量等级</li>
+                <li>支持主题订阅和发布</li>
+                <li>支持遗嘱消息和保留消息</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">SSE (Server-Sent Events)</h3>
+              <p className="text-foreground leading-relaxed mb-2">
+                服务器向客户端推送事件的单向通信协议。适用于服务器主动推送数据的场景。
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
+                <li>支持事件流接收</li>
+                <li>自动重连机制</li>
+                <li>支持事件过滤</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">Modbus</h3>
+              <p className="text-foreground leading-relaxed mb-2">
+                工业自动化领域广泛使用的通信协议。支持 Modbus TCP 和 Modbus RTU。
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
+                <li>支持读写线圈、离散输入、保持寄存器、输入寄存器</li>
+                <li>支持多种功能码</li>
+                <li>支持从站模拟</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'session-management',
+      title: '会话管理',
+      content: (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground mb-4">会话管理</h2>
+
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-3">创建会话</h3>
+          <p className="text-foreground leading-relaxed">
+            在工作区页面点击"新建会话"按钮，填写会话配置信息后创建。每个会话都有唯一的 ID 和名称。
+          </p>
+
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-3">连接和断开</h3>
+          <ul className="list-disc list-inside space-y-2 text-foreground ml-4">
+            <li>点击会话卡片上的"连接"按钮建立连接</li>
+            <li>连接成功后按钮变为"断开"</li>
+            <li>会话状态会实时更新（已连接/已断开/连接中/错误）</li>
+          </ul>
+
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-3">会话操作</h3>
+          <ul className="list-disc list-inside space-y-2 text-foreground ml-4">
+            <li><strong>复制</strong>：快速创建相同配置的新会话</li>
+            <li><strong>编辑</strong>：修改会话配置（需要先断开连接）</li>
+            <li><strong>删除</strong>：删除不需要的会话</li>
+            <li><strong>导出</strong>：导出会话配置和数据</li>
+          </ul>
+
+          <h3 className="text-xl font-semibold text-foreground mt-6 mb-3">会话筛选</h3>
+          <p className="text-foreground leading-relaxed">
+            使用顶部的筛选器可以按协议类型、连接状态等条件筛选会话列表。
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: 'toolbox',
+      title: '工具箱',
+      content: (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground mb-4">工具箱功能</h2>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">报文生成器</h3>
+              <p className="text-foreground leading-relaxed">
+                根据协议规则生成标准格式的数据包，支持自定义字段值和自动计算校验和。
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">协议解析器</h3>
+              <p className="text-foreground leading-relaxed">
+                自动识别和解析接收到的协议数据，将原始字节流转换为结构化的字段信息。支持自定义解析规则。
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">数据转换器</h3>
+              <p className="text-foreground leading-relaxed">
+                提供多种数据格式转换功能：
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
+                <li>文本 ↔ 十六进制</li>
+                <li>Base64 编码/解码</li>
+                <li>URL 编码/解码</li>
+                <li>JSON 格式化</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">CRC 校验计算器</h3>
+              <p className="text-foreground leading-relaxed">
+                支持多种 CRC 算法（CRC8、CRC16、CRC32 等），可用于数据完整性验证。
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">时间戳转换器</h3>
+              <p className="text-foreground leading-relaxed">
+                Unix 时间戳与人类可读时间格式之间的相互转换，支持毫秒和秒级精度。
+              </p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'data-formats',
+      title: '数据格式',
+      content: (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground mb-4">数据格式</h2>
+
+          <p className="text-foreground leading-relaxed">
+            ProtoTool 支持多种数据格式的发送和显示：
+          </p>
+
+          <div className="space-y-4 mt-4">
+            <div className="border border-border rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-foreground mb-2">文本 (Text)</h3>
+              <p className="text-muted-foreground text-sm">
+                UTF-8 编码的文本数据，适用于可读的字符串内容。
+              </p>
+              <code className="block mt-2 bg-muted p-2 rounded text-sm">
+                Hello, ProtoTool!
+              </code>
+            </div>
+
+            <div className="border border-border rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-foreground mb-2">十六进制 (Hex)</h3>
+              <p className="text-muted-foreground text-sm">
+                以十六进制格式显示的字节数据，每个字节用两位十六进制数表示。
+              </p>
+              <code className="block mt-2 bg-muted p-2 rounded text-sm">
+                48 65 6C 6C 6F 2C 20 50 72 6F 74 6F 54 6F 6F 6C 21
+              </code>
+            </div>
+
+            <div className="border border-border rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Base64</h3>
+              <p className="text-muted-foreground text-sm">
+                Base64 编码的数据，常用于在文本协议中传输二进制数据。
+              </p>
+              <code className="block mt-2 bg-muted p-2 rounded text-sm">
+                SGVsbG8sIFByb3RvVG9vbCE=
+              </code>
+            </div>
+
+            <div className="border border-border rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-foreground mb-2">JSON</h3>
+              <p className="text-muted-foreground text-sm">
+                结构化的 JSON 数据，支持语法高亮和格式化显示。
+              </p>
+              <code className="block mt-2 bg-muted p-2 rounded text-sm">
+                {`{"message": "Hello", "tool": "ProtoTool"}`}
+              </code>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'shortcuts',
+      title: '快捷键',
+      content: (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground mb-4">快捷键</h2>
+
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-3">全局快捷键</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                  <span className="text-foreground">新建会话</span>
+                  <kbd className="px-2 py-1 bg-muted border border-border rounded text-sm">Ctrl+N</kbd>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                  <span className="text-foreground">打开工具箱</span>
+                  <kbd className="px-2 py-1 bg-muted border border-border rounded text-sm">Ctrl+T</kbd>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                  <span className="text-foreground">搜索</span>
+                  <kbd className="px-2 py-1 bg-muted border border-border rounded text-sm">Ctrl+F</kbd>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                  <span className="text-foreground">设置</span>
+                  <kbd className="px-2 py-1 bg-muted border border-border rounded text-sm">Ctrl+,</kbd>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-3">会话操作</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                  <span className="text-foreground">连接/断开</span>
+                  <kbd className="px-2 py-1 bg-muted border border-border rounded text-sm">Ctrl+Enter</kbd>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                  <span className="text-foreground">发送数据</span>
+                  <kbd className="px-2 py-1 bg-muted border border-border rounded text-sm">Ctrl+S</kbd>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                  <span className="text-foreground">清空接收区</span>
+                  <kbd className="px-2 py-1 bg-muted border border-border rounded text-sm">Ctrl+L</kbd>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'troubleshooting',
+      title: '故障排除',
+      content: (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground mb-4">故障排除</h2>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">无法建立连接</h3>
+              <ul className="list-disc list-inside space-y-2 text-foreground ml-4">
+                <li>检查目标地址和端口是否正确</li>
+                <li>确认目标服务是否正在运行</li>
+                <li>检查防火墙设置是否阻止了连接</li>
+                <li>对于服务端模式，确认端口未被其他程序占用</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">数据发送失败</h3>
+              <ul className="list-disc list-inside space-y-2 text-foreground ml-4">
+                <li>确认连接状态为"已连接"</li>
+                <li>检查数据格式是否正确</li>
+                <li>对于 MQTT，确认已成功连接到 Broker</li>
+                <li>查看应用日志获取详细错误信息</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">协议解析错误</h3>
+              <ul className="list-disc list-inside space-y-2 text-foreground ml-4">
+                <li>确认选择了正确的协议解析器</li>
+                <li>检查接收到的数据格式是否符合协议规范</li>
+                <li>尝试使用十六进制格式查看原始数据</li>
+                <li>检查协议解析规则配置是否正确</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">性能问题</h3>
+              <ul className="list-disc list-inside space-y-2 text-foreground ml-4">
+                <li>限制接收区显示的消息数量</li>
+                <li>定期清空历史数据</li>
+                <li>关闭不需要的会话</li>
+                <li>减少日志记录级别</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'faq',
+      title: '常见问题',
+      content: (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground mb-4">常见问题</h2>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Q: ProtoTool 支持哪些操作系统？</h3>
+              <p className="text-muted-foreground ml-4">
+                A: ProtoTool 基于 Tauri 框架开发，支持 Windows、macOS 和 Linux 操作系统。
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Q: 如何保存会话配置？</h3>
+              <p className="text-muted-foreground ml-4">
+                A: 会话配置会自动保存到本地。您也可以使用"导出"功能将配置导出为文件，方便在其他设备上导入使用。
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Q: 可以同时连接多个会话吗？</h3>
+              <p className="text-muted-foreground ml-4">
+                A: 可以。ProtoTool 支持同时管理和连接多个会话，每个会话独立运行，互不干扰。
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Q: 如何添加自定义协议解析器？</h3>
+              <p className="text-muted-foreground ml-4">
+                A: 在"协议仓库"页面可以导入自定义的协议解析规则文件（.kpt 或 .yaml 格式）。
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Q: 数据存储在哪里？</h3>
+              <p className="text-muted-foreground ml-4">
+                A: 会话数据和配置存储在应用的本地数据目录中。您可以在"存储方法"页面配置外部数据库存储。
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Q: 如何报告 Bug 或提出功能建议？</h3>
+              <p className="text-muted-foreground ml-4">
+                A: 请访问 GitHub 仓库提交 Issue，或通过"帮助 → 报告问题"菜单联系我们。
+              </p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-background border border-border rounded-lg shadow-lg w-full max-w-4xl h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-background border border-border rounded-lg shadow-lg w-full max-w-6xl h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center space-x-3">
-            <img 
-              src="../icons/windows-icon.png" 
-              alt="ProtoTool Logo" 
-              className="w-12 h-12 object-contain"
-            />
-            <h2 className="text-xl font-semibold text-foreground">ProtoTool 用户指南</h2>
+            <BookOpen className="w-8 h-8 text-primary" />
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">ProtoTool 用户指南</h2>
+              <p className="text-sm text-muted-foreground">User Guide</p>
+            </div>
           </div>
           {onClose && (
             <button
               onClick={onClose}
               className="p-2 hover:bg-accent rounded-md transition-colors"
+              aria-label="关闭"
             >
               <X className="w-5 h-5" />
             </button>
           )}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-3 text-muted-foreground">加载中...</span>
+        {/* Content - Split Layout */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Sidebar - Table of Contents */}
+          <div className="w-64 border-r border-border overflow-y-auto bg-muted/20">
+            <div className="p-4">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase mb-3">目录</h3>
+              <nav className="space-y-1">
+                {guideSections.map((section) => (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-between group",
+                      activeSection === section.id
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "text-foreground hover:bg-accent"
+                    )}
+                  >
+                    <span>{section.title}</span>
+                    {activeSection === section.id && (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </button>
+                ))}
+              </nav>
             </div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <div className="text-destructive mb-2">加载失败</div>
-              <div className="text-sm text-muted-foreground">{error}</div>
-            </div>
-          ) : (
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight]}
-                components={{
-                  // 自定义链接组件
-                  a: ({ href, children, ...props }) => (
-                    <a
-                      {...props}
-                      href={href}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (href) handleLinkClick(href);
-                      }}
-                      className="text-primary hover:text-primary/80 underline cursor-pointer inline-flex items-center gap-1"
-                    >
-                      {children}
-                      {href?.startsWith('http') && <ExternalLink className="w-3 h-3" />}
-                      {href?.startsWith('mailto:') && <Mail className="w-3 h-3" />}
-                    </a>
-                  ),
-                  // 自定义标题样式 - 隐藏 h1 标题
-                  h1: ({ children, ...props }) => null,
-                  h2: ({ children, ...props }) => (
-                    <h2 {...props} className="text-2xl font-bold text-foreground mt-8 mb-4 pb-2 border-b border-border">
-                      {children}
-                    </h2>
-                  ),
-                  h3: ({ children, ...props }) => (
-                    <h3 {...props} className="text-xl font-semibold text-foreground mt-6 mb-3">
-                      {children}
-                    </h3>
-                  ),
-                  h4: ({ children, ...props }) => (
-                    <h4 {...props} className="text-lg font-medium text-foreground mt-4 mb-2">
-                      {children}
-                    </h4>
-                  ),
-                  // 自定义段落样式
-                  p: ({ children, ...props }) => (
-                    <p {...props} className="text-foreground mb-4 leading-relaxed">
-                      {children}
-                    </p>
-                  ),
-                  // 自定义列表样式
-                  ul: ({ children, ...props }) => (
-                    <ul {...props} className="list-disc list-inside text-foreground mb-4 space-y-1">
-                      {children}
-                    </ul>
-                  ),
-                  ol: ({ children, ...props }) => (
-                    <ol {...props} className="list-decimal list-inside text-foreground mb-4 space-y-1">
-                      {children}
-                    </ol>
-                  ),
-                  li: ({ children, ...props }) => (
-                    <li {...props} className="text-foreground">
-                      {children}
-                    </li>
-                  ),
-                  // 自定义代码样式
-                  code: ({ children, className, ...props }) => {
-                    const isInline = !className;
-                    return isInline ? (
-                      <code {...props} className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground">
-                        {children}
-                      </code>
-                    ) : (
-                      <code {...props} className={className}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  pre: ({ children, ...props }) => (
-                    <pre {...props} className="bg-muted p-4 rounded-md overflow-x-auto mb-4">
-                      {children}
-                    </pre>
-                  ),
-                  // 自定义引用样式
-                  blockquote: ({ children, ...props }) => (
-                    <blockquote {...props} className="border-l-4 border-primary pl-4 italic text-muted-foreground mb-4">
-                      {children}
-                    </blockquote>
-                  ),
-                  // 自定义图片样式
-                  img: ({ src, alt, ...props }) => (
-                    <img
-                      {...props}
-                      src={src}
-                      alt={alt}
-                      className="max-w-16 max-h-16 w-auto h-auto object-contain mx-auto mb-4 rounded"
-                    />
-                  ),
-                  // 自定义表格样式
-                  table: ({ children, ...props }) => (
-                    <div className="overflow-x-auto mb-4">
-                      <table {...props} className="min-w-full border-collapse border border-border">
-                        {children}
-                      </table>
-                    </div>
-                  ),
-                  th: ({ children, ...props }) => (
-                    <th {...props} className="border border-border bg-muted px-4 py-2 text-left font-medium">
-                      {children}
-                    </th>
-                  ),
-                  td: ({ children, ...props }) => (
-                    <td {...props} className="border border-border px-4 py-2">
-                      {children}
-                    </td>
-                  ),
-                  // 自定义分隔线样式
-                  hr: ({ ...props }) => (
-                    <hr {...props} className="border-border my-8" />
-                  ),
-                }}
+          </div>
+
+          {/* Right Content Area */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {guideSections.find(s => s.id === activeSection)?.content}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-border p-4">
+          <div className="flex items-center justify-between text-sm">
+            <p className="text-muted-foreground">
+              需要更多帮助？访问{' '}
+              <button
+                onClick={() => handleLinkClick('https://github.com/chenqi92/keke-proto-tool')}
+                className="text-primary hover:underline cursor-pointer"
               >
-                {markdownContent}
-              </ReactMarkdown>
-            </div>
-          )}
+                GitHub 仓库
+              </button>
+            </p>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                关闭
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

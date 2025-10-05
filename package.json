@@ -29,6 +29,8 @@
     "desktop-app"
   ],
   "scripts": {
+    "copy:release-notes": "node -e \"require('fs').cpSync('release-notes', 'public/release-notes', {recursive: true, force: true})\"",
+    "predev": "npm run copy:release-notes",
     "dev": "vite",
     "dev:tauri": "tauri dev",
     "build": "vite build",

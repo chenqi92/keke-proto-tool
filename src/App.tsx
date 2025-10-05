@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import React from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import './styles/globals.css'
@@ -12,6 +12,8 @@ import { PlaybackPage } from '@/pages/PlaybackPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { AboutPage } from '@/pages/AboutPage'
 import { UserGuidePage } from '@/pages/UserGuidePage'
+import { ReleaseNotesPage } from '@/pages/ReleaseNotesPage'
+import { ReportIssuePage } from '@/pages/ReportIssuePage'
 
 // Layout Components
 import { MainContent } from '@/components/Layout/MainContent'
@@ -94,19 +96,28 @@ function App() {
   }, [])
 
   // Modal handling functions (defined before useNativeMenu)
-  const openModal = (modalType: string) => {
-    setActiveModal(modalType)
-  }
+  const openModal = useCallback((modalType: string) => {
+    console.log('[App] openModal called with:', modalType)
+    // Handle keyboard shortcuts modal specially since it uses useShortcutHelp
+    if (modalType === 'keyboard-shortcuts') {
+      console.log('[App] Opening keyboard shortcuts via shortcutHelp.open()')
+      shortcutHelp.open()
+    } else {
+      console.log('[App] Setting activeModal to:', modalType)
+      setActiveModal(modalType)
+    }
+  }, [shortcutHelp])
 
   const closeModal = () => {
     setActiveModal(null)
   }
 
   // Handle menu-triggered update check
-  const handleMenuUpdateCheck = async () => {
+  const handleMenuUpdateCheck = useCallback(async () => {
+    console.log('[App] handleMenuUpdateCheck called')
     setShowMenuUpdateNotification(true)
     await updateCheck.checkForUpdates()
-  }
+  }, [updateCheck])
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -241,6 +252,10 @@ function App() {
         return <AboutPage onClose={closeModal} />
       case 'user-guide':
         return <UserGuidePage onClose={closeModal} />
+      case 'release-notes':
+        return <ReleaseNotesPage onClose={closeModal} />
+      case 'report-issue':
+        return <ReportIssuePage onClose={closeModal} />
       case 'update-modal':
         return (
           <UpdateModal

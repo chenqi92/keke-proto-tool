@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppStore } from '@/stores/AppStore';
 import { useSession } from '@/contexts/SessionContext';
@@ -19,43 +20,10 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
   );
 
   useEffect(() => {
-    // 安全的事件监听器设置
-    const setupEventListener = async () => {
-      try {
-        // 尝试使用 Tauri v2 API
-        if (typeof window !== 'undefined' && (window as any).__TAURI__?.event) {
-          const { listen } = (window as any).__TAURI__.event;
-          return await listen('menu-action', (event: any) => {
-            const action = event.payload;
-            console.log('Native menu action:', action);
-            handleMenuAction(action);
-          });
-        }
-
-        // 后备方案：尝试动态导入
-        try {
-          const modulePath = '@tauri-apps/api/' + 'event';
-          const eventApi = await import(/* @vite-ignore */ modulePath);
-          if (eventApi?.listen) {
-            return await eventApi.listen('menu-action', (event: any) => {
-              const action = event.payload;
-              console.log('Native menu action:', action);
-              handleMenuAction(action);
-            });
-          }
-        } catch (importError) {
-          console.warn('Failed to import @tauri-apps/api/event:', importError);
-        }
-
-        console.warn('Tauri event API not available');
-        return null;
-      } catch (error) {
-        console.error('Failed to setup event listener:', error);
-        return null;
-      }
-    };
+    console.log('[useNativeMenu] Setting up event listener with onOpenModal:', typeof onOpenModal);
 
     const handleMenuAction = (action: string) => {
+      console.log('[useNativeMenu] Native menu action received:', action);
       
       switch (action) {
         // 文件菜单
@@ -315,15 +283,15 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
           break;
         case 'keyboard_shortcuts':
           console.log('Keyboard Shortcuts');
-          // TODO: 实现键盘快捷键逻辑
+          onOpenModal('keyboard-shortcuts');
           break;
         case 'release_notes':
           console.log('Release Notes');
-          // TODO: 实现版本说明逻辑
+          onOpenModal('release-notes');
           break;
         case 'report_issue':
           console.log('Report Issue');
-          // TODO: 实现报告问题逻辑
+          onOpenModal('report-issue');
           break;
         case 'check_updates':
           console.log('Check Updates');
@@ -342,16 +310,24 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
       }
     };
 
-    let unlisten: (() => void) | null = null;
+    // 设置事件监听器
+    let unlisten: (() => void) | undefined;
 
-    setupEventListener().then((unlistenFn) => {
+    listen('menu-action', (event: any) => {
+      const action = event.payload;
+      handleMenuAction(action);
+    }).then((unlistenFn) => {
       unlisten = unlistenFn;
+      console.log('[useNativeMenu] Event listener successfully set up');
+    }).catch((error) => {
+      console.error('[useNativeMenu] Failed to set up event listener:', error);
     });
 
     return () => {
+      console.log('[useNativeMenu] Cleaning up event listener');
       if (unlisten) {
         unlisten();
       }
     };
-  }, [onOpenModal, onCheckUpdates, setTheme, setColorTheme]);
+  }, [onOpenModal, onCheckUpdates, onOpenSearch, setTheme, setColorTheme, selectedNode, currentSession, startRecording, stopRecording]);
 };

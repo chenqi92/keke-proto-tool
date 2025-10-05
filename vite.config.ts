@@ -1,10 +1,42 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { copyFileSync, mkdirSync, readdirSync, statSync } from 'fs'
+
+// Plugin to copy release-notes to dist
+const copyReleaseNotesPlugin = () => {
+  return {
+    name: 'copy-release-notes',
+    closeBundle() {
+      const srcDir = path.resolve(__dirname, 'release-notes')
+      const destDir = path.resolve(__dirname, 'dist/release-notes')
+
+      try {
+        // Create destination directory
+        mkdirSync(destDir, { recursive: true })
+
+        // Copy all files from release-notes to dist/release-notes
+        const files = readdirSync(srcDir)
+        files.forEach(file => {
+          const srcFile = path.join(srcDir, file)
+          const destFile = path.join(destDir, file)
+
+          // Only copy files, not directories
+          if (statSync(srcFile).isFile()) {
+            copyFileSync(srcFile, destFile)
+            console.log(`Copied ${file} to dist/release-notes`)
+          }
+        })
+      } catch (error) {
+        console.error('Error copying release notes:', error)
+      }
+    }
+  }
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), copyReleaseNotesPlugin()],
   
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

@@ -7,7 +7,6 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession, getDefaultSessionConfig, SelectedNode } from '@/contexts/SessionContext';
 import { useAppStore } from '@/stores/AppStore';
-import { useNativeMenu } from '@/hooks/useNativeMenu';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -23,9 +22,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true); // 默认隐藏检视器
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // 监听原生菜单事件
-  useNativeMenu({ onOpenModal });
 
   // 响应式处理：在移动端自动折叠侧边栏
   useEffect(() => {

@@ -358,6 +358,9 @@ benchmark-results/
 docs/build/
 docs/dist/
 
+# Release notes copy (source is in /release-notes)
+public/release-notes/
+
 # Localization
 *.pot
 *.po~
