@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { cn } from '@/utils';
 import { ProtocolPlugin } from '@/types/plugins';
 import { ProtocolPluginManager } from '@/components/plugins/ProtocolPluginManager';
+import { ProtocolStore } from '@/components/plugins/ProtocolStore';
 import FactorTranslationDemo from '@/components/plugins/FactorTranslationDemo';
 import {
   Puzzle,
@@ -53,13 +54,11 @@ export const PluginsPage: React.FC = () => {
         );
       case 'store':
         return (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <Store className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">协议商店</h3>
-              <p>即将推出...</p>
-            </div>
-          </div>
+          <ProtocolStore
+            onProtocolInstalled={(protocolId) => {
+              console.log(`Protocol installed: ${protocolId}`);
+            }}
+          />
         );
       case 'settings':
         return (

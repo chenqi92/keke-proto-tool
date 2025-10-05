@@ -136,10 +136,10 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
     try {
       const success = await networkService.unsubscribeMQTTTopic(sessionId, topic);
       if (!success) {
-        setFormatError('取消订阅失败：MQTT协议错误或连接已断开');
+        toast.error('取消订阅失败', 'MQTT协议错误或连接已断开');
       }
     } catch (error) {
-      setFormatError(`取消订阅失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast.error('取消订阅失败', error instanceof Error ? error.message : '未知错误');
     }
   };
 

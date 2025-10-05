@@ -445,7 +445,7 @@ examples:
             <Network className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-semibold">协议插件</h2>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <button
               onClick={loadProtocols}
@@ -475,7 +475,7 @@ examples:
             </label>
           </div>
         </div>
-        
+
         {/* Filters */}
         <div className="flex items-center space-x-4">
           <div className="relative flex-1 max-w-md">
@@ -488,7 +488,7 @@ examples:
               className="w-full pl-9 pr-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          
+
           <select
             value={selectedProtocol || ''}
             onChange={(e) => setSelectedProtocol(e.target.value || null)}
@@ -709,9 +709,9 @@ examples:
           )}
         </div>
 
-        {/* Plugin Details */}
+        {/* Plugin Details Sidebar */}
         {selectedPlugin && (
-          <div className="w-96 border-l border-border bg-card">
+        <div className="w-96 border-l border-border bg-card">
             <div className="p-4 border-b border-border">
               <h3 className="font-semibold">协议插件详情</h3>
             </div>
@@ -805,9 +805,9 @@ examples:
                 <p className="text-xs text-muted-foreground mt-1">
                   基于 {selectedPlugin.downloads} 次下载
                 </p>
-              </div>
             </div>
           </div>
+        </div>
         )}
 
         {/* Configuration Dialog */}
@@ -858,9 +858,9 @@ examples:
                     取消
                   </Button>
                 </div>
-              </div>
             </div>
           </div>
+        </div>
         )}
       </div>
     </div>

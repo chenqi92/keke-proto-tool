@@ -102,6 +102,27 @@ export class ProtocolRepositoryService {
   }
 
   /**
+   * Validate protocol content has required fields
+   */
+  private validateProtocolContent(content: string): { valid: boolean; error?: string } {
+    // Check for framing configuration
+    const hasFraming = content.includes('framing:') ||
+                       content.includes('frame {') ||
+                       content.includes('delimiters:') ||
+                       content.includes('length:') ||
+                       content.includes('fixed_size:');
+
+    if (!hasFraming) {
+      return {
+        valid: false,
+        error: '协议定义不完整：缺少帧定义（framing）配置。协议必须指定分隔符、长度字段或固定大小中的至少一种帧定义方式。'
+      };
+    }
+
+    return { valid: true };
+  }
+
+  /**
    * Import a protocol from KPT content
    */
   public async importProtocol(request: ProtocolImportRequest): Promise<string> {
@@ -115,6 +136,12 @@ export class ProtocolRepositoryService {
         content = convertKptToYaml(content);
       }
 
+      // Validate protocol content
+      const validation = this.validateProtocolContent(content);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+
       const protocolId = await invoke<string>('import_protocol', {
         content,
         custom_name: request.name,
@@ -126,7 +153,18 @@ export class ProtocolRepositoryService {
       return protocolId;
     } catch (error) {
       console.error('Failed to import protocol:', error);
-      throw new Error(`Failed to import protocol: ${error}`);
+      // Extract meaningful error message
+      let errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Clean up error message
+      if (errorMessage.includes('Parse error:')) {
+        const match = errorMessage.match(/Parse error: (.+)/);
+        if (match) {
+          errorMessage = match[1];
+        }
+      }
+
+      throw new Error(errorMessage);
     }
   }
 

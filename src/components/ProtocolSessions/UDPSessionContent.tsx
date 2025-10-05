@@ -377,12 +377,12 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
   const handleSaveConnection = () => {
     const port = parseInt(editPort);
     if (isNaN(port) || port < 1 || port > 65535) {
-      setFormatError('端口号必须在1-65535之间');
+      toast.error('验证失败', '端口号必须在1-65535之间');
       return;
     }
 
     if (!editHost.trim()) {
-      setFormatError('主机地址不能为空');
+      toast.error('验证失败', '主机地址不能为空');
       return;
     }
 
