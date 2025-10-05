@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export type Theme = 'light' | 'dark' | 'system';
 
-export type ColorTheme = 
+export type ColorTheme =
   | 'default'
-  | 'slate' 
+  | 'slate'
   | 'gray'
   | 'zinc'
   | 'neutral'
@@ -31,41 +33,60 @@ export type ColorTheme =
 const THEME_STORAGE_KEY = 'keke-proto-tool-theme';
 const COLOR_THEME_STORAGE_KEY = 'keke-proto-tool-color-theme';
 
+// 使用 Zustand 创建全局主题状态
+interface ThemeStore {
+  theme: Theme;
+  colorTheme: ColorTheme;
+  setThemeState: (theme: Theme) => void;
+  setColorThemeState: (colorTheme: ColorTheme) => void;
+}
+
+const useThemeStore = create<ThemeStore>()(
+  persist(
+    (set) => ({
+      theme: 'system',
+      colorTheme: 'default',
+      setThemeState: (theme) => {
+        console.log('[useThemeStore] setThemeState called with:', theme);
+        set({ theme });
+      },
+      setColorThemeState: (colorTheme) => {
+        console.log('[useThemeStore] setColorThemeState called with:', colorTheme);
+        set({ colorTheme });
+      },
+    }),
+    {
+      name: 'keke-proto-tool-theme-storage',
+    }
+  )
+);
+
 export const useTheme = () => {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme;
-      return savedTheme || 'system';
-    }
-    return 'system';
-  });
+  const theme = useThemeStore((state) => state.theme);
+  const colorTheme = useThemeStore((state) => state.colorTheme);
+  const setThemeState = useThemeStore((state) => state.setThemeState);
+  const setColorThemeState = useThemeStore((state) => state.setColorThemeState);
 
-  const [colorTheme, setColorThemeState] = useState<ColorTheme>(() => {
-    if (typeof window !== 'undefined') {
-      const savedColorTheme = localStorage.getItem(COLOR_THEME_STORAGE_KEY) as ColorTheme;
-      return savedColorTheme || 'default';
-    }
-    return 'default';
-  });
-
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = useCallback((newTheme: Theme) => {
+    console.log('[useTheme] setTheme called with:', newTheme, 'current theme:', theme);
     setThemeState(newTheme);
-    localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    console.log('[useTheme] Theme state updated');
     // 更新菜单状态
     invoke('update_theme_menu_state', { theme: newTheme }).catch(console.error);
-  };
+  }, [theme, setThemeState]);
 
-  const setColorTheme = (newColorTheme: ColorTheme) => {
+  const setColorTheme = useCallback((newColorTheme: ColorTheme) => {
+    console.log('[useTheme] setColorTheme called with:', newColorTheme, 'current colorTheme:', colorTheme);
     setColorThemeState(newColorTheme);
-    localStorage.setItem(COLOR_THEME_STORAGE_KEY, newColorTheme);
+    console.log('[useTheme] Color theme state updated');
     // 更新菜单状态
     invoke('update_color_theme_menu_state', { color: newColorTheme }).catch(console.error);
-  };
+  }, [colorTheme, setColorThemeState]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     const nextTheme = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
     setTheme(nextTheme);
-  };
+  }, [theme, setTheme]);
 
   // Note: Removed duplicate initial theme application - now handled by main useEffect below
 

@@ -64,6 +64,17 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className, compact = f
   const ThemeIcon = themeIcons[theme];
   const currentColorTheme = colorThemes.find(ct => ct.value === colorTheme) || colorThemes[0];
 
+  console.log('[ThemeToggle] Rendering with theme:', theme, 'colorTheme:', colorTheme);
+
+  // Debug: Log when theme or colorTheme changes
+  useEffect(() => {
+    console.log('[ThemeToggle] Theme changed to:', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    console.log('[ThemeToggle] Color theme changed to:', colorTheme);
+  }, [colorTheme]);
+
   // Click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

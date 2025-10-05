@@ -253,21 +253,31 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
 
         // 主题风格
         case 'theme_light':
+          console.log('[useNativeMenu] Calling setTheme("light")');
           setTheme('light');
+          console.log('[useNativeMenu] setTheme("light") called');
           break;
         case 'theme_dark':
+          console.log('[useNativeMenu] Calling setTheme("dark")');
           setTheme('dark');
+          console.log('[useNativeMenu] setTheme("dark") called');
           break;
         case 'theme_system':
+          console.log('[useNativeMenu] Calling setTheme("system")');
           setTheme('system');
+          console.log('[useNativeMenu] setTheme("system") called');
           break;
 
         // 主题色
         case 'color_default':
+          console.log('[useNativeMenu] Calling setColorTheme("default")');
           setColorTheme('default');
+          console.log('[useNativeMenu] setColorTheme("default") called');
           break;
         case 'color_slate':
+          console.log('[useNativeMenu] Calling setColorTheme("slate")');
           setColorTheme('slate');
+          console.log('[useNativeMenu] setColorTheme("slate") called');
           break;
         case 'color_gray':
           setColorTheme('gray');
