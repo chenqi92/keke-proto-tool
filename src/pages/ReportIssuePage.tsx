@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Github, Mail, Bug, MessageSquare, ExternalLink } from 'lucide-react';
-import { openPath } from '@tauri-apps/plugin-opener';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 interface ReportIssuePageProps {
   onClose?: () => void;
@@ -9,27 +9,20 @@ interface ReportIssuePageProps {
 export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onClose }) => {
   const handleLinkClick = async (href: string) => {
     console.log('[ReportIssuePage] Attempting to open link:', href);
-    alert(`Attempting to open: ${href}`);
     try {
-      console.log('[ReportIssuePage] Calling openPath...');
-      await openPath(href);
+      await openUrl(href);
       console.log('[ReportIssuePage] Successfully opened link');
-      alert('Successfully opened link');
     } catch (error) {
       console.error('[ReportIssuePage] Failed to open link:', error);
-      alert(`Failed to open link: ${error}`);
       // Fallback to window.open
       try {
-        console.log('[ReportIssuePage] Trying window.open fallback...');
         if (href.startsWith('http')) {
           window.open(href, '_blank');
         } else if (href.startsWith('mailto:')) {
           window.open(href);
         }
-        alert('Opened with window.open');
       } catch (fallbackError) {
         console.error('[ReportIssuePage] Fallback also failed:', fallbackError);
-        alert(`Fallback also failed: ${fallbackError}`);
       }
     }
   };

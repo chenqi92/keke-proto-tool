@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, BookOpen, ChevronRight } from 'lucide-react';
 import { cn } from '@/utils';
-import { openPath } from '@tauri-apps/plugin-opener';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 interface UserGuidePageProps {
   onClose?: () => void;
@@ -18,23 +18,16 @@ export const UserGuidePage: React.FC<UserGuidePageProps> = ({ onClose }) => {
 
   const handleLinkClick = async (href: string) => {
     console.log('[UserGuidePage] Attempting to open link:', href);
-    alert(`Attempting to open: ${href}`);
     try {
-      console.log('[UserGuidePage] Calling openPath...');
-      await openPath(href);
+      await openUrl(href);
       console.log('[UserGuidePage] Successfully opened link');
-      alert('Successfully opened link');
     } catch (error) {
       console.error('[UserGuidePage] Failed to open link:', error);
-      alert(`Failed to open link: ${error}`);
       // Fallback to window.open
       try {
-        console.log('[UserGuidePage] Trying window.open fallback...');
         window.open(href, '_blank');
-        alert('Opened with window.open');
       } catch (fallbackError) {
         console.error('[UserGuidePage] Fallback also failed:', fallbackError);
-        alert(`Fallback also failed: ${fallbackError}`);
       }
     }
   };

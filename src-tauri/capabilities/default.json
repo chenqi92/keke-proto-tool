@@ -19,6 +19,23 @@
     "core:window:allow-set-skip-taskbar",
     "core:window:allow-set-minimizable",
     "opener:default",
-    "opener:allow-open-path"
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://github.com/*"
+        },
+        {
+          "url": "https://*"
+        },
+        {
+          "url": "http://*"
+        },
+        {
+          "url": "mailto:*"
+        }
+      ]
+    }
   ]
 }
+

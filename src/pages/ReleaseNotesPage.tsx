@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { X, ExternalLink, Github, Mail, FileText, ChevronDown } from 'lucide-react';
 import { cn } from '@/utils';
-import { openPath } from '@tauri-apps/plugin-opener';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 interface ReleaseNotesPageProps {
   onClose?: () => void;
@@ -80,27 +80,20 @@ export const ReleaseNotesPage: React.FC<ReleaseNotesPageProps> = ({ onClose }) =
 
   const handleLinkClick = async (href: string) => {
     console.log('[ReleaseNotesPage] Attempting to open link:', href);
-    alert(`Attempting to open: ${href}`);
     try {
-      console.log('[ReleaseNotesPage] Calling openPath...');
-      await openPath(href);
+      await openUrl(href);
       console.log('[ReleaseNotesPage] Successfully opened link');
-      alert('Successfully opened link');
     } catch (error) {
       console.error('[ReleaseNotesPage] Failed to open link:', error);
-      alert(`Failed to open link: ${error}`);
       // Fallback to window.open
       try {
-        console.log('[ReleaseNotesPage] Trying window.open fallback...');
         if (href.startsWith('http')) {
           window.open(href, '_blank');
         } else if (href.startsWith('mailto:')) {
           window.open(href);
         }
-        alert('Opened with window.open');
       } catch (fallbackError) {
         console.error('[ReleaseNotesPage] Fallback also failed:', fallbackError);
-        alert(`Fallback also failed: ${fallbackError}`);
       }
     }
   };
