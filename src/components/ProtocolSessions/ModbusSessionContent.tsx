@@ -518,8 +518,8 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             "bg-gray-400"
           )} />
           <div>
-            <h2 className="text-lg font-semibold">{session.config.name}</h2>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <h2 className="text-sm font-medium">{session.config.name}</h2>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{session.config.protocol}</span>
               {session.config.modbusSerialPort && (
                 <>
@@ -548,7 +548,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsEditConfigOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-md hover:bg-accent transition-colors text-sm"
+            className="flex items-center gap-2 px-2 py-1 border border-border rounded-md hover:bg-accent transition-colors text-xs"
             title="编辑配置"
           >
             <Settings className="w-4 h-4" />
@@ -557,7 +557,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
           {session.status === 'connected' ? (
             <button
               onClick={handleDisconnect}
-              className="flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-sm"
+              className="flex items-center gap-2 px-2 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-xs"
             >
               <WifiOff className="w-4 h-4" />
               断开连接
@@ -566,7 +566,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             <button
               onClick={handleConnect}
               disabled={session.status === 'connecting'}
-              className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm"
+              className="flex items-center gap-2 px-2 py-1 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 text-xs"
             >
               {session.status === 'connecting' ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -584,15 +584,15 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Global Settings */}
           <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="text-sm font-semibold mb-3">全局设置</h3>
+            <h3 className="text-sm font-medium mb-3">全局设置</h3>
             <div className="grid grid-cols-3 gap-3">
               {/* Address Base */}
               <div>
-                <label className="block text-xs font-medium mb-1.5 text-muted-foreground">地址基址</label>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">地址基址</label>
                 <select
                   value={addressBase}
                   onChange={(e) => setAddressBase(Number(e.target.value) as 0 | 1)}
-                  className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
+                  className="w-full px-2 py-1 text-xs border border-border rounded-md bg-background"
                 >
                   <option value={0}>0 基址</option>
                   <option value={1}>1 基址</option>
@@ -601,11 +601,11 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
 
               {/* Data Type */}
               <div>
-                <label className="block text-xs font-medium mb-1.5 text-muted-foreground">数据类型</label>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">数据类型</label>
                 <select
                   value={dataType}
                   onChange={(e) => setDataType(e.target.value as any)}
-                  className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
+                  className="w-full px-2 py-1 text-xs border border-border rounded-md bg-background"
                 >
                   <option value="uint16">UInt16</option>
                   <option value="int16">Int16</option>
@@ -620,11 +620,11 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
 
               {/* Byte Order */}
               <div>
-                <label className="block text-xs font-medium mb-1.5 text-muted-foreground">字节序</label>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">字节序</label>
                 <select
                   value={byteOrder}
                   onChange={(e) => setByteOrder(e.target.value as any)}
-                  className="w-full px-2 py-1.5 text-sm border border-border rounded-md bg-background"
+                  className="w-full px-2 py-1 text-xs border border-border rounded-md bg-background"
                 >
                   <option value="ABCD">ABCD (Big-Big)</option>
                   <option value="BADC">BADC (Big-Little)</option>
@@ -637,20 +637,20 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
 
           {/* Function Code Selector */}
           <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="text-sm font-semibold mb-3">功能码选择</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <h3 className="text-sm font-medium mb-3">功能码选择</h3>
+            <div className="grid grid-cols-4 gap-2">
               {FUNCTION_CODES.map((func) => (
                 <button
                   key={func.code}
                   onClick={() => setSelectedFunctionCode(func.code)}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-left",
+                    "flex items-center gap-2 px-2 py-1 rounded-md text-xs transition-colors text-left",
                     selectedFunctionCode === func.code
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted hover:bg-muted/80"
                   )}
                 >
-                  {func.type === 'read' ? <Download className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                  {func.type === 'read' ? <Download className="w-3.5 h-3.5" /> : <Upload className="w-3.5 h-3.5" />}
                   <span>{func.name}</span>
                 </button>
               ))}
@@ -661,7 +661,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
           {addressBook.length > 0 && (
             <div className="bg-card border border-border rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">地址簿快捷访问</h3>
+                <h3 className="text-sm font-medium">地址簿快捷访问</h3>
                 <button
                   onClick={() => setShowAddressBook(!showAddressBook)}
                   className="text-xs px-2 py-1 bg-accent hover:bg-accent/80 rounded transition-colors"
@@ -679,7 +679,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                       className="flex items-center justify-between p-2 bg-muted hover:bg-muted/80 rounded-md text-left transition-colors group"
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{entry.name}</div>
+                        <div className="text-xs font-medium truncate">{entry.name}</div>
                         <div className="text-xs text-muted-foreground">
                           地址: {entry.address} | 数量: {entry.quantity}
                         </div>
@@ -703,7 +703,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
           {/* Operation Parameters */}
           <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">操作参数</h3>
+              <h3 className="text-sm font-medium">操作参数</h3>
               <button
                 onClick={() => setIsAddingAddress(!isAddingAddress)}
                 className="text-xs px-2 py-1 bg-primary text-primary-foreground hover:bg-primary/90 rounded transition-colors"
@@ -719,18 +719,18 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                   value={newAddressName}
                   onChange={(e) => setNewAddressName(e.target.value)}
                   placeholder="地址名称（必填）"
-                  className="w-full px-3 py-2 border border-border rounded-md text-sm"
+                  className="w-full px-2 py-1 border border-border rounded-md text-xs"
                 />
                 <input
                   type="text"
                   value={newAddressDescription}
                   onChange={(e) => setNewAddressDescription(e.target.value)}
                   placeholder="描述（可选）"
-                  className="w-full px-3 py-2 border border-border rounded-md text-sm"
+                  className="w-full px-2 py-1 border border-border rounded-md text-xs"
                 />
                 <button
                   onClick={handleSaveToAddressBook}
-                  className="w-full px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+                  className="w-full px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs"
                 >
                   保存
                 </button>
@@ -740,7 +740,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="block text-xs font-medium mb-1">
                     起始地址 {addressBase === 1 && <span className="text-xs text-muted-foreground">(1-based)</span>}
                   </label>
                   <input
@@ -749,21 +749,21 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                     max={65535 + addressBase}
                     value={startAddress + addressBase}
                     onChange={(e) => setStartAddress((parseInt(e.target.value) || addressBase) - addressBase)}
-                    className="w-full px-3 py-2 border border-border rounded-md text-sm"
+                    className="w-full px-2 py-1 border border-border rounded-md text-xs"
                     placeholder={addressBase === 0 ? "0-65535" : "1-65536"}
                   />
                 </div>
 
                 {isReadOperation && (
                   <div>
-                    <label className="block text-sm font-medium mb-1">数量</label>
+                    <label className="block text-xs font-medium mb-1">数量</label>
                     <input
                       type="number"
                       min="1"
                       max="125"
                       value={quantity}
                       onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                      className="w-full px-3 py-2 border border-border rounded-md text-sm"
+                      className="w-full px-2 py-1 border border-border rounded-md text-xs"
                       placeholder="1-125"
                     />
                   </div>
@@ -771,14 +771,14 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
 
                 {!isReadOperation && !isMultipleOperation && (
                   <div>
-                    <label className="block text-sm font-medium mb-1">写入值</label>
+                    <label className="block text-xs font-medium mb-1">写入值</label>
                     <input
                       type="number"
                       min="0"
                       max="65535"
                       value={writeValue}
                       onChange={(e) => setWriteValue(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-border rounded-md text-sm"
+                      className="w-full px-2 py-1 border border-border rounded-md text-xs"
                       placeholder="0-65535"
                     />
                   </div>
@@ -787,12 +787,12 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
 
               {isMultipleOperation && (
                 <div>
-                  <label className="block text-sm font-medium mb-1">写入值 (逗号分隔)</label>
+                  <label className="block text-xs font-medium mb-1">写入值 (逗号分隔)</label>
                   <input
                     type="text"
                     value={writeValues}
                     onChange={(e) => setWriteValues(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-md text-sm"
+                    className="w-full px-2 py-1 border border-border rounded-md text-xs"
                     placeholder="例如: 100, 200, 300"
                   />
                 </div>
@@ -804,7 +804,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                   {/* Polling Controls - Only for read operations */}
                   {isReadOperation && (
                     <>
-                      <label className="text-sm font-medium whitespace-nowrap">轮询间隔</label>
+                      <label className="text-xs font-medium whitespace-nowrap">轮询间隔</label>
                       <input
                         type="number"
                         min="100"
@@ -813,7 +813,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                         value={pollingInterval}
                         onChange={(e) => setPollingInterval(parseInt(e.target.value) || 1000)}
                         disabled={isPolling}
-                        className="w-24 px-2 py-1 border border-border rounded-md text-sm disabled:opacity-50"
+                        className="w-24 px-2 py-1 border border-border rounded-md text-xs disabled:opacity-50"
                       />
                       <span className="text-xs text-muted-foreground whitespace-nowrap">毫秒</span>
 
@@ -821,7 +821,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                         <button
                           onClick={handleStartPolling}
                           disabled={session.status !== 'connected' || isExecuting}
-                          className="flex items-center justify-center gap-1.5 px-4 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
+                          className="flex items-center justify-center gap-1.5 px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 text-xs whitespace-nowrap"
                         >
                           <Play className="w-3.5 h-3.5" />
                           开始轮询
@@ -829,7 +829,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                       ) : (
                         <button
                           onClick={handleStopPolling}
-                          className="flex items-center justify-center gap-1.5 px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm whitespace-nowrap"
+                          className="flex items-center justify-center gap-1.5 px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs whitespace-nowrap"
                         >
                           <Square className="w-3.5 h-3.5" />
                           停止轮询
@@ -843,7 +843,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                     onClick={handleExecute}
                     disabled={session.status !== 'connected' || isExecuting || isPolling}
                     className={cn(
-                      "flex items-center justify-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm whitespace-nowrap",
+                      "flex items-center justify-center gap-1.5 px-2 py-1 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 text-xs whitespace-nowrap",
                       !isReadOperation && "ml-auto"
                     )}
                   >
@@ -869,7 +869,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             <div className="bg-card border border-border rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold">响应结果</h3>
+                  <h3 className="text-sm font-medium">响应结果</h3>
                   {isPolling && (
                     <span className="flex items-center gap-1 text-xs text-green-600">
                       <RefreshCw className="w-3 h-3 animate-spin" />
@@ -901,22 +901,22 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                   )}
                 </div>
               </div>
-              
+
               <div className={cn(
-                "p-3 rounded-md",
+                "p-2 rounded-md",
                 lastResponse.success ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"
               )}>
                 {lastResponse.success ? (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-green-800">✓ 操作成功</p>
+                    <p className="text-xs font-medium text-green-800">✓ 操作成功</p>
                     {lastResponse.data && (
-                      <div className="text-sm text-green-700">
+                      <div className="text-xs text-green-700">
                         <p className="font-medium mb-1">寄存器值:</p>
                         <div className="grid grid-cols-4 gap-2">
                           {lastResponse.data.map((value: number, index: number) => (
                             <div key={index} className="bg-white px-2 py-1 rounded">
                               <div className="text-xs text-gray-500 mb-1">[{startAddress + index + addressBase}]</div>
-                              <div className="font-mono text-sm break-all">{formatRegisterValue(value)}</div>
+                              <div className="font-mono text-xs break-all">{formatRegisterValue(value)}</div>
                               {displayFormat !== 'decimal' && (
                                 <div className="text-xs text-gray-400 mt-1">({value})</div>
                               )}
