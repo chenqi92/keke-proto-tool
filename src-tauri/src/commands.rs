@@ -387,6 +387,18 @@ pub async fn modbus_read_coils(
     Err("Modbus commands not yet implemented - use standard send/receive".to_string())
 }
 
+/// Read Modbus discrete inputs (function code 0x02)
+/// TODO: This command requires architectural changes to access connections directly
+#[tauri::command]
+pub async fn modbus_read_discrete_inputs(
+    _session_id: String,
+    _address: u16,
+    _quantity: u16,
+    _session_manager: State<'_, SessionManager>,
+) -> Result<ModbusResponse, String> {
+    Err("Modbus commands not yet implemented - use standard send/receive".to_string())
+}
+
 /// Read Modbus holding registers (function code 0x03)
 /// TODO: This command requires architectural changes to access connections directly
 #[tauri::command]
@@ -399,6 +411,30 @@ pub async fn modbus_read_holding_registers(
     Err("Modbus commands not yet implemented - use standard send/receive".to_string())
 }
 
+/// Read Modbus input registers (function code 0x04)
+/// TODO: This command requires architectural changes to access connections directly
+#[tauri::command]
+pub async fn modbus_read_input_registers(
+    _session_id: String,
+    _address: u16,
+    _quantity: u16,
+    _session_manager: State<'_, SessionManager>,
+) -> Result<ModbusResponse, String> {
+    Err("Modbus commands not yet implemented - use standard send/receive".to_string())
+}
+
+/// Write Modbus single coil (function code 0x05)
+/// TODO: This command requires architectural changes to access connections directly
+#[tauri::command]
+pub async fn modbus_write_single_coil(
+    _session_id: String,
+    _address: u16,
+    _value: bool,
+    _session_manager: State<'_, SessionManager>,
+) -> Result<ModbusResponse, String> {
+    Err("Modbus commands not yet implemented - use standard send/receive".to_string())
+}
+
 /// Write Modbus single register (function code 0x06)
 /// TODO: This command requires architectural changes to access connections directly
 #[tauri::command]
@@ -406,6 +442,18 @@ pub async fn modbus_write_single_register(
     _session_id: String,
     _address: u16,
     _value: u16,
+    _session_manager: State<'_, SessionManager>,
+) -> Result<ModbusResponse, String> {
+    Err("Modbus commands not yet implemented - use standard send/receive".to_string())
+}
+
+/// Write Modbus multiple coils (function code 0x0F)
+/// TODO: This command requires architectural changes to access connections directly
+#[tauri::command]
+pub async fn modbus_write_multiple_coils(
+    _session_id: String,
+    _address: u16,
+    _values: Vec<bool>,
     _session_manager: State<'_, SessionManager>,
 ) -> Result<ModbusResponse, String> {
     Err("Modbus commands not yet implemented - use standard send/receive".to_string())

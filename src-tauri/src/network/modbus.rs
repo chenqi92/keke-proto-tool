@@ -347,6 +347,28 @@ impl ModbusRtuClient {
         })
     }
 
+    /// Read coils (function code 0x01)
+    pub async fn read_coils(&mut self, address: u16, quantity: u16) -> NetworkResult<Vec<bool>> {
+        let ctx = self.context.as_ref()
+            .ok_or(NetworkError::NotConnected)?;
+
+        let mut ctx_guard = ctx.lock().await;
+        ctx_guard.read_coils(address, quantity).await
+            .map_err(|e| NetworkError::SendFailed(format!("Read coils failed: {}", e)))?
+            .map_err(|e| NetworkError::SendFailed(format!("Modbus exception: {:?}", e)))
+    }
+
+    /// Read discrete inputs (function code 0x02)
+    pub async fn read_discrete_inputs(&mut self, address: u16, quantity: u16) -> NetworkResult<Vec<bool>> {
+        let ctx = self.context.as_ref()
+            .ok_or(NetworkError::NotConnected)?;
+
+        let mut ctx_guard = ctx.lock().await;
+        ctx_guard.read_discrete_inputs(address, quantity).await
+            .map_err(|e| NetworkError::SendFailed(format!("Read discrete inputs failed: {}", e)))?
+            .map_err(|e| NetworkError::SendFailed(format!("Modbus exception: {:?}", e)))
+    }
+
     /// Read holding registers (function code 0x03)
     pub async fn read_holding_registers(&mut self, address: u16, quantity: u16) -> NetworkResult<Vec<u16>> {
         let ctx = self.context.as_ref()
@@ -358,6 +380,28 @@ impl ModbusRtuClient {
             .map_err(|e| NetworkError::SendFailed(format!("Modbus exception: {:?}", e)))
     }
 
+    /// Read input registers (function code 0x04)
+    pub async fn read_input_registers(&mut self, address: u16, quantity: u16) -> NetworkResult<Vec<u16>> {
+        let ctx = self.context.as_ref()
+            .ok_or(NetworkError::NotConnected)?;
+
+        let mut ctx_guard = ctx.lock().await;
+        ctx_guard.read_input_registers(address, quantity).await
+            .map_err(|e| NetworkError::SendFailed(format!("Read input registers failed: {}", e)))?
+            .map_err(|e| NetworkError::SendFailed(format!("Modbus exception: {:?}", e)))
+    }
+
+    /// Write single coil (function code 0x05)
+    pub async fn write_single_coil(&mut self, address: u16, value: bool) -> NetworkResult<()> {
+        let ctx = self.context.as_ref()
+            .ok_or(NetworkError::NotConnected)?;
+
+        let mut ctx_guard = ctx.lock().await;
+        ctx_guard.write_single_coil(address, value).await
+            .map_err(|e| NetworkError::SendFailed(format!("Write single coil failed: {}", e)))?
+            .map_err(|e| NetworkError::SendFailed(format!("Modbus exception: {:?}", e)))
+    }
+
     /// Write single register (function code 0x06)
     pub async fn write_single_register(&mut self, address: u16, value: u16) -> NetworkResult<()> {
         let ctx = self.context.as_ref()
@@ -366,6 +410,17 @@ impl ModbusRtuClient {
         let mut ctx_guard = ctx.lock().await;
         ctx_guard.write_single_register(address, value).await
             .map_err(|e| NetworkError::SendFailed(format!("Write single register failed: {}", e)))?
+            .map_err(|e| NetworkError::SendFailed(format!("Modbus exception: {:?}", e)))
+    }
+
+    /// Write multiple coils (function code 0x0F)
+    pub async fn write_multiple_coils(&mut self, address: u16, values: &[bool]) -> NetworkResult<()> {
+        let ctx = self.context.as_ref()
+            .ok_or(NetworkError::NotConnected)?;
+
+        let mut ctx_guard = ctx.lock().await;
+        ctx_guard.write_multiple_coils(address, values).await
+            .map_err(|e| NetworkError::SendFailed(format!("Write multiple coils failed: {}", e)))?
             .map_err(|e| NetworkError::SendFailed(format!("Modbus exception: {:?}", e)))
     }
 

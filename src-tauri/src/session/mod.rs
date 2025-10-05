@@ -222,6 +222,11 @@ impl Session {
         self.connection_manager.send_udp_message(data, target_host, target_port).await
     }
 
+    /// Get connection manager reference for protocol-specific operations
+    pub fn get_connection_manager(&self) -> &ConnectionManager {
+        &self.connection_manager
+    }
+
     /// Check if the session is connected
     #[allow(dead_code)]
     pub fn is_connected(&self) -> bool {

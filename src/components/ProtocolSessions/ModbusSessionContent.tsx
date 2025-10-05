@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/utils';
 import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
 import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { EditConfigModal } from '@/components/EditConfigModal';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Wifi,
@@ -20,7 +21,8 @@ import {
   RotateCcw,
   Download,
   Upload,
-  Activity
+  Activity,
+  RefreshCw
 } from 'lucide-react';
 
 interface ModbusSessionContentProps {
@@ -35,6 +37,30 @@ interface ModbusOperation {
   values?: number[];
 }
 
+interface HistoryRecord {
+  id: string;
+  timestamp: number;
+  functionCode: number;
+  functionName: string;
+  address: number;
+  quantity?: number;
+  value?: number;
+  values?: number[] | boolean[];
+  success: boolean;
+  responseTime: number;
+  error?: string;
+  responseData?: any;
+}
+
+interface AddressBookEntry {
+  id: string;
+  name: string;
+  address: number;
+  quantity: number;
+  functionCode: number;
+  description?: string;
+}
+
 const FUNCTION_CODES = [
   { code: 0x01, name: '读取线圈 (0x01)', type: 'read', registerType: 'coil' },
   { code: 0x02, name: '读取离散输入 (0x02)', type: 'read', registerType: 'discrete' },
@@ -46,8 +72,11 @@ const FUNCTION_CODES = [
   { code: 0x10, name: '写多个寄存器 (0x10)', type: 'write', registerType: 'holding' },
 ];
 
+type DataDisplayFormat = 'decimal' | 'hex' | 'binary' | 'float';
+
 export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sessionId }) => {
   const session = useSessionById(sessionId);
+  const updateSession = useAppStore(state => state.updateSession);
   const [selectedFunctionCode, setSelectedFunctionCode] = useState(0x03);
   const [startAddress, setStartAddress] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -56,6 +85,44 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
   const [isExecuting, setIsExecuting] = useState(false);
   const [lastResponse, setLastResponse] = useState<any>(null);
   const [responseTime, setResponseTime] = useState<number | null>(null);
+  const [isEditConfigOpen, setIsEditConfigOpen] = useState(false);
+  const [displayFormat, setDisplayFormat] = useState<DataDisplayFormat>('decimal');
+
+  // Polling state
+  const [isPolling, setIsPolling] = useState(false);
+  const [pollingInterval, setPollingInterval] = useState(1000); // milliseconds
+  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // History state
+  const [history, setHistory] = useState<HistoryRecord[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Address book state
+  const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
+  const [showAddressBook, setShowAddressBook] = useState(false);
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [newAddressName, setNewAddressName] = useState('');
+  const [newAddressDescription, setNewAddressDescription] = useState('');
+
+  // Cleanup polling on unmount or when polling stops
+  useEffect(() => {
+    return () => {
+      if (pollingTimerRef.current) {
+        clearInterval(pollingTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Stop polling when disconnected
+  useEffect(() => {
+    if (session && session.status !== 'connected' && isPolling) {
+      if (pollingTimerRef.current) {
+        clearInterval(pollingTimerRef.current);
+        pollingTimerRef.current = null;
+      }
+      setIsPolling(false);
+    }
+  }, [session, isPolling]);
 
   if (!session) {
     return (
@@ -72,12 +139,54 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
   const isReadOperation = selectedFunction?.type === 'read';
   const isMultipleOperation = selectedFunctionCode === 0x0F || selectedFunctionCode === 0x10;
 
+  // Format register value based on selected format
+  const formatRegisterValue = (value: number): string => {
+    switch (displayFormat) {
+      case 'hex':
+        return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
+      case 'binary':
+        return `0b${value.toString(2).padStart(16, '0')}`;
+      case 'float': {
+        // Convert two consecutive 16-bit registers to 32-bit float (IEEE 754)
+        // This is a simplified version - in real use, you'd need two registers
+        const buffer = new ArrayBuffer(4);
+        const view = new DataView(buffer);
+        view.setUint16(0, value, false); // Big-endian
+        return view.getFloat32(0, false).toFixed(4);
+      }
+      case 'decimal':
+      default:
+        return value.toString();
+    }
+  };
+
   const handleConnect = async () => {
     await networkService.connect(sessionId);
   };
 
   const handleDisconnect = async () => {
     await networkService.disconnect(sessionId);
+  };
+
+  const handleSaveConfig = async (newConfig: any) => {
+    // 如果会话已连接，需要先断开再重新连接
+    const wasConnected = session.status === 'connected';
+
+    if (wasConnected) {
+      await networkService.disconnect(sessionId);
+    }
+
+    // 更新配置
+    updateSession(sessionId, { config: newConfig });
+
+    // 如果之前是连接状态，重新连接
+    if (wasConnected) {
+      setTimeout(() => {
+        networkService.connect(sessionId);
+      }, 500);
+    }
+
+    setIsEditConfigOpen(false);
   };
 
   const handleExecute = async () => {
@@ -101,11 +210,35 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
           });
           break;
 
+        case 0x02: // Read Discrete Inputs
+          response = await invoke('modbus_read_discrete_inputs', {
+            sessionId,
+            address: startAddress,
+            quantity,
+          });
+          break;
+
         case 0x03: // Read Holding Registers
           response = await invoke('modbus_read_holding_registers', {
             sessionId,
             address: startAddress,
             quantity,
+          });
+          break;
+
+        case 0x04: // Read Input Registers
+          response = await invoke('modbus_read_input_registers', {
+            sessionId,
+            address: startAddress,
+            quantity,
+          });
+          break;
+
+        case 0x05: // Write Single Coil
+          response = await invoke('modbus_write_single_coil', {
+            sessionId,
+            address: startAddress,
+            value: writeValue > 0, // Convert to boolean
           });
           break;
 
@@ -116,6 +249,16 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             value: writeValue,
           });
           break;
+
+        case 0x0F: { // Write Multiple Coils
+          const values = writeValues.split(',').map(v => parseInt(v.trim()) > 0).filter(v => v !== undefined);
+          response = await invoke('modbus_write_multiple_coils', {
+            sessionId,
+            address: startAddress,
+            values,
+          });
+          break;
+        }
 
         case 0x10: { // Write Multiple Registers
           const values = writeValues.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
@@ -132,14 +275,115 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
       }
 
       const endTime = Date.now();
-      setResponseTime(endTime - startTime);
+      const responseTimeMs = endTime - startTime;
+      setResponseTime(responseTimeMs);
       setLastResponse(response);
+
+      // Add to history
+      const functionName = FUNCTION_CODES.find(f => f.code === selectedFunctionCode)?.name || `功能码 ${selectedFunctionCode}`;
+      const historyRecord: HistoryRecord = {
+        id: `${Date.now()}-${Math.random()}`,
+        timestamp: Date.now(),
+        functionCode: selectedFunctionCode,
+        functionName,
+        address: startAddress,
+        quantity: isReadOperation ? quantity : undefined,
+        value: !isReadOperation && !isMultipleOperation ? writeValue : undefined,
+        values: isMultipleOperation ? (selectedFunctionCode === 0x0F ?
+          writeValues.split(',').map(v => parseInt(v.trim()) > 0) :
+          writeValues.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v))
+        ) : undefined,
+        success: response.success,
+        responseTime: responseTimeMs,
+        error: response.error,
+        responseData: response.data || response.coilData,
+      };
+
+      setHistory(prev => [historyRecord, ...prev].slice(0, 100)); // Keep last 100 records
     } catch (error) {
       console.error('Modbus operation failed:', error);
-      setLastResponse({ success: false, error: String(error) });
+      const errorResponse = { success: false, error: String(error) };
+      setLastResponse(errorResponse);
+
+      // Add error to history
+      const functionName = FUNCTION_CODES.find(f => f.code === selectedFunctionCode)?.name || `功能码 ${selectedFunctionCode}`;
+      const historyRecord: HistoryRecord = {
+        id: `${Date.now()}-${Math.random()}`,
+        timestamp: Date.now(),
+        functionCode: selectedFunctionCode,
+        functionName,
+        address: startAddress,
+        quantity: isReadOperation ? quantity : undefined,
+        success: false,
+        responseTime: Date.now() - startTime,
+        error: String(error),
+      };
+
+      setHistory(prev => [historyRecord, ...prev].slice(0, 100));
     } finally {
       setIsExecuting(false);
     }
+  };
+
+  const handleStartPolling = () => {
+    if (!isReadOperation) {
+      alert('轮询功能仅支持读取操作');
+      return;
+    }
+
+    if (session.status !== 'connected') {
+      alert('请先连接到 Modbus 设备');
+      return;
+    }
+
+    setIsPolling(true);
+
+    // Execute immediately
+    handleExecute();
+
+    // Set up interval
+    pollingTimerRef.current = setInterval(() => {
+      handleExecute();
+    }, pollingInterval);
+  };
+
+  const handleStopPolling = () => {
+    setIsPolling(false);
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  };
+
+  const handleSaveToAddressBook = () => {
+    if (!newAddressName.trim()) {
+      alert('请输入地址名称');
+      return;
+    }
+
+    const entry: AddressBookEntry = {
+      id: `${Date.now()}-${Math.random()}`,
+      name: newAddressName,
+      address: startAddress,
+      quantity,
+      functionCode: selectedFunctionCode,
+      description: newAddressDescription,
+    };
+
+    setAddressBook(prev => [...prev, entry]);
+    setNewAddressName('');
+    setNewAddressDescription('');
+    setIsAddingAddress(false);
+  };
+
+  const handleLoadFromAddressBook = (entry: AddressBookEntry) => {
+    setStartAddress(entry.address);
+    setQuantity(entry.quantity);
+    setSelectedFunctionCode(entry.functionCode);
+  };
+
+  const handleDeleteAddressBookEntry = (id: string) => {
+    setAddressBook(prev => prev.filter(e => e.id !== id));
   };
 
   return (
@@ -172,6 +416,14 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsEditConfigOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 border border-border rounded-md hover:bg-accent transition-colors"
+            title="编辑配置"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+
           {session.status === 'connected' ? (
             <button
               onClick={handleDisconnect}
@@ -222,9 +474,86 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
             </div>
           </div>
 
+          {/* Address Book Quick Access */}
+          {addressBook.length > 0 && (
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold">地址簿快捷访问</h3>
+                <button
+                  onClick={() => setShowAddressBook(!showAddressBook)}
+                  className="text-xs px-2 py-1 bg-accent hover:bg-accent/80 rounded transition-colors"
+                >
+                  {showAddressBook ? '隐藏' : '显示'}
+                </button>
+              </div>
+
+              {showAddressBook && (
+                <div className="grid grid-cols-2 gap-2">
+                  {addressBook.map((entry) => (
+                    <button
+                      key={entry.id}
+                      onClick={() => handleLoadFromAddressBook(entry)}
+                      className="flex items-center justify-between p-2 bg-muted hover:bg-muted/80 rounded-md text-left transition-colors group"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{entry.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          地址: {entry.address} | 数量: {entry.quantity}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteAddressBookEntry(entry.id);
+                        }}
+                        className="ml-2 p-1 opacity-0 group-hover:opacity-100 hover:bg-red-100 rounded transition-opacity"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-600" />
+                      </button>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Operation Parameters */}
           <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="text-sm font-semibold mb-3">操作参数</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">操作参数</h3>
+              <button
+                onClick={() => setIsAddingAddress(!isAddingAddress)}
+                className="text-xs px-2 py-1 bg-primary text-primary-foreground hover:bg-primary/90 rounded transition-colors"
+              >
+                {isAddingAddress ? '取消' : '保存到地址簿'}
+              </button>
+            </div>
+
+            {isAddingAddress && (
+              <div className="mb-3 p-3 bg-accent/50 rounded-md space-y-2">
+                <input
+                  type="text"
+                  value={newAddressName}
+                  onChange={(e) => setNewAddressName(e.target.value)}
+                  placeholder="地址名称（必填）"
+                  className="w-full px-3 py-2 border border-border rounded-md text-sm"
+                />
+                <input
+                  type="text"
+                  value={newAddressDescription}
+                  onChange={(e) => setNewAddressDescription(e.target.value)}
+                  placeholder="描述（可选）"
+                  className="w-full px-3 py-2 border border-border rounded-md text-sm"
+                />
+                <button
+                  onClick={handleSaveToAddressBook}
+                  className="w-full px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+                >
+                  保存
+                </button>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -284,9 +613,48 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                 </div>
               )}
 
+              {/* Polling Controls - Only for read operations */}
+              {isReadOperation && (
+                <div className="border-t border-border pt-4">
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium whitespace-nowrap">轮询间隔</label>
+                    <input
+                      type="number"
+                      min="100"
+                      max="60000"
+                      step="100"
+                      value={pollingInterval}
+                      onChange={(e) => setPollingInterval(parseInt(e.target.value) || 1000)}
+                      disabled={isPolling}
+                      className="w-24 px-2 py-1 border border-border rounded-md text-sm disabled:opacity-50"
+                    />
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">毫秒</span>
+
+                    {!isPolling ? (
+                      <button
+                        onClick={handleStartPolling}
+                        disabled={session.status !== 'connected' || isExecuting}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 text-sm"
+                      >
+                        <Play className="w-4 h-4" />
+                        开始轮询
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleStopPolling}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
+                      >
+                        <Square className="w-4 h-4" />
+                        停止轮询
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={handleExecute}
-                disabled={session.status !== 'connected' || isExecuting}
+                disabled={session.status !== 'connected' || isExecuting || isPolling}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {isExecuting ? (
@@ -297,7 +665,7 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    执行操作
+                    {isPolling ? '轮询中...' : '执行操作'}
                   </>
                 )}
               </button>
@@ -308,12 +676,38 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
           {lastResponse && (
             <div className="bg-card border border-border rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">响应结果</h3>
-                {responseTime !== null && (
-                  <span className="text-xs text-muted-foreground">
-                    响应时间: {responseTime}ms
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold">响应结果</h3>
+                  {isPolling && (
+                    <span className="flex items-center gap-1 text-xs text-green-600">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      轮询中
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Data Format Selector */}
+                  {lastResponse.data && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">格式:</span>
+                      <select
+                        value={displayFormat}
+                        onChange={(e) => setDisplayFormat(e.target.value as DataDisplayFormat)}
+                        className="text-xs px-2 py-1 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="decimal">十进制</option>
+                        <option value="hex">十六进制</option>
+                        <option value="binary">二进制</option>
+                        <option value="float">浮点数</option>
+                      </select>
+                    </div>
+                  )}
+                  {responseTime !== null && (
+                    <span className="text-xs text-muted-foreground">
+                      响应时间: {responseTime}ms
+                    </span>
+                  )}
+                </div>
               </div>
               
               <div className={cn(
@@ -326,11 +720,14 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
                     {lastResponse.data && (
                       <div className="text-sm text-green-700">
                         <p className="font-medium mb-1">寄存器值:</p>
-                        <div className="grid grid-cols-8 gap-2">
+                        <div className="grid grid-cols-4 gap-2">
                           {lastResponse.data.map((value: number, index: number) => (
-                            <div key={index} className="bg-white px-2 py-1 rounded text-center">
-                              <div className="text-xs text-gray-500">[{startAddress + index}]</div>
-                              <div className="font-mono">{value}</div>
+                            <div key={index} className="bg-white px-2 py-1 rounded">
+                              <div className="text-xs text-gray-500 mb-1">[{startAddress + index}]</div>
+                              <div className="font-mono text-sm break-all">{formatRegisterValue(value)}</div>
+                              {displayFormat !== 'decimal' && (
+                                <div className="text-xs text-gray-400 mt-1">({value})</div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -362,8 +759,100 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
               </div>
             </div>
           )}
+
+          {/* History Panel */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">操作历史</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  共 {history.length} 条记录
+                </span>
+                {history.length > 0 && (
+                  <button
+                    onClick={() => setHistory([])}
+                    className="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                  >
+                    清空
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="text-xs px-2 py-1 bg-accent hover:bg-accent/80 rounded transition-colors"
+                >
+                  {showHistory ? '隐藏' : '显示'}
+                </button>
+              </div>
+            </div>
+
+            {showHistory && (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {history.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">暂无操作记录</p>
+                ) : (
+                  history.map((record) => (
+                    <div
+                      key={record.id}
+                      className={cn(
+                        "p-3 rounded-md border text-sm",
+                        record.success ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                      )}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "font-medium",
+                              record.success ? "text-green-800" : "text-red-800"
+                            )}>
+                              {record.functionName}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              地址: {record.address}
+                              {record.quantity && ` | 数量: ${record.quantity}`}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {new Date(record.timestamp).toLocaleString('zh-CN')} |
+                            响应时间: {record.responseTime}ms
+                          </div>
+                        </div>
+                      </div>
+
+                      {record.success && record.responseData && (
+                        <div className="mt-2 text-xs">
+                          <span className="text-muted-foreground">结果: </span>
+                          <span className="font-mono">
+                            {Array.isArray(record.responseData) ?
+                              record.responseData.slice(0, 10).join(', ') +
+                              (record.responseData.length > 10 ? '...' : '') :
+                              String(record.responseData)
+                            }
+                          </span>
+                        </div>
+                      )}
+
+                      {!record.success && record.error && (
+                        <div className="mt-2 text-xs text-red-700">
+                          错误: {record.error}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Edit Config Modal */}
+      <EditConfigModal
+        isOpen={isEditConfigOpen}
+        onClose={() => setIsEditConfigOpen(false)}
+        onSave={handleSaveConfig}
+        config={session.config}
+      />
     </div>
   );
 };

@@ -37,8 +37,12 @@ pub fn run() {
             cancel_connection,
             // Modbus commands
             modbus_read_coils,
+            modbus_read_discrete_inputs,
             modbus_read_holding_registers,
+            modbus_read_input_registers,
+            modbus_write_single_coil,
             modbus_write_single_register,
+            modbus_write_multiple_coils,
             modbus_write_multiple_registers,
             // Serial port commands
             list_serial_ports,

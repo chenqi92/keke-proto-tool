@@ -374,7 +374,23 @@ impl SessionManager {
         self.sessions.iter().map(|entry| entry.key().clone()).collect()
     }
 
-
+    /// Execute Modbus operation on a session
+    pub async fn execute_modbus_operation<F, Fut, R>(&self, session_id: &str, operation: F) -> NetworkResult<R>
+    where
+        F: FnOnce(&mut Box<dyn crate::network::Connection>) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = NetworkResult<R>> + Send,
+        R: Send + 'static,
+    {
+        match self.sessions.get(session_id) {
+            Some(session) => {
+                let conn_manager = session.get_connection_manager();
+                conn_manager.with_connection_async(operation).await
+            }
+            None => {
+                Err(NetworkError::SessionNotFound(session_id.to_string()))
+            }
+        }
+    }
 
     /// Get session count
     #[allow(dead_code)]
