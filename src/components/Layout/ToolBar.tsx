@@ -10,7 +10,8 @@ import {
   Settings,
   Puzzle,
   Edit3,
-  Terminal
+  Terminal,
+  Command
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { usePlatform } from '@/hooks/usePlatform';
@@ -51,7 +52,8 @@ const createLeftToolBarItems = (
   canCapture: boolean,
   onOpenSearch: () => void,
   canSearch: boolean,
-  onOpenCommandPalette: () => void
+  onOpenCommandPalette: () => void,
+  onOpenProtoShell: () => void
 ): ToolBarItem[] => [
   {
     id: 'new-session',
@@ -93,9 +95,15 @@ const createLeftToolBarItems = (
   {
     id: 'command-palette',
     label: '快捷命令',
-    icon: Terminal,
+    icon: Command,
     shortcut: 'Ctrl+K',
     action: onOpenCommandPalette
+  },
+  {
+    id: 'proto-shell',
+    label: 'ProtoShell',
+    icon: Terminal,
+    action: onOpenProtoShell
   }
 ];
 
@@ -200,9 +208,16 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     setIsSearchOpen(true);
   };
 
-  // 控制面板处理函数
+  // 快捷命令处理函数
   const handleOpenCommandPalette = () => {
     commandPaletteService.open();
+  };
+
+  // ProtoShell 处理函数
+  const handleOpenProtoShell = () => {
+    // TODO: 实现 ProtoShell 功能
+    console.log('Opening ProtoShell...');
+    onOpenModal('proto-shell');
   };
 
   // 判断是否可以抓包：必须有选中的会话
@@ -261,7 +276,8 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     canCapture,
     handleOpenSearch,
     canSearch,
-    handleOpenCommandPalette
+    handleOpenCommandPalette,
+    handleOpenProtoShell
   );
   const rightItems = createRightToolBarItems(onOpenModal);
 
@@ -279,9 +295,9 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     if (layoutConfig.toolbar.showAllButtons) {
       return leftItems;
     } else if (layoutConfig.toolbar.showEssentialButtons) {
-      // 平板：显示核心功能，包括控制面板
+      // 平板：显示核心功能，包括快捷命令和 ProtoShell
       return leftItems.filter(item =>
-        item.id && ['new-session', 'connect', 'capture', 'search', 'command-palette'].includes(item.id)
+        item.id && ['new-session', 'connect', 'capture', 'search', 'command-palette', 'proto-shell'].includes(item.id)
       );
     } else {
       // 移动端：只显示最重要的功能

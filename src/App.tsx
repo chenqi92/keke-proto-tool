@@ -26,6 +26,7 @@ import { UpdateNotification } from '@/components/UpdateNotification'
 import { MenuUpdateNotification } from '@/components/MenuUpdateNotification'
 import { UpdateModal } from '@/components/UpdateModal'
 import { ProtocolEditorModal } from '@/components/ProtocolEditorModal'
+import { ProtoShellModal } from '@/components/ProtoShell'
 import { useToast, useConfirmDialog } from '@/components/Common'
 
 // Context
@@ -316,6 +317,13 @@ function App() {
       case 'edit-protocol':
         return (
           <ProtocolEditorModal
+            isOpen={true}
+            onClose={closeModal}
+          />
+        )
+      case 'proto-shell':
+        return (
+          <ProtoShellModal
             isOpen={true}
             onClose={closeModal}
           />
