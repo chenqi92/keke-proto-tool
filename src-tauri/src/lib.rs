@@ -93,6 +93,7 @@ pub fn run() {
             read_file_content,
             write_file_content,
             start_interactive_session,
+            write_interactive_session,
             get_interactive_session,
             list_interactive_sessions,
             kill_interactive_session

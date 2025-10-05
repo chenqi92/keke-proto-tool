@@ -2,12 +2,12 @@
 // Backend command execution service
 
 use serde::{Deserialize, Serialize};
-use std::process::{Command, Stdio};
+use std::process::{Command, Stdio, ChildStdin};
 use std::io::{Write, BufRead, BufReader};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::thread;
-use tauri::State;
+use tauri::{State, AppHandle, Emitter};
 use encoding_rs::GBK;
 
 /// Decode command output based on OS encoding
@@ -47,9 +47,16 @@ pub struct InteractiveSessionInfo {
     pub state: String,
 }
 
+/// Interactive session data
+struct SessionData {
+    info: InteractiveSessionInfo,
+    stdin: Option<ChildStdin>,
+}
+
 // Interactive session manager
+#[derive(Clone)]
 pub struct InteractiveSessionManager {
-    sessions: Arc<Mutex<HashMap<String, InteractiveSessionInfo>>>,
+    sessions: Arc<Mutex<HashMap<String, SessionData>>>,
 }
 
 impl InteractiveSessionManager {
@@ -59,14 +66,14 @@ impl InteractiveSessionManager {
         }
     }
 
-    pub fn add_session(&self, id: String, info: InteractiveSessionInfo) {
+    pub fn add_session(&self, id: String, info: InteractiveSessionInfo, stdin: Option<ChildStdin>) {
         let mut sessions = self.sessions.lock().unwrap();
-        sessions.insert(id, info);
+        sessions.insert(id, SessionData { info, stdin });
     }
 
     pub fn get_session(&self, id: &str) -> Option<InteractiveSessionInfo> {
         let sessions = self.sessions.lock().unwrap();
-        sessions.get(id).cloned()
+        sessions.get(id).map(|data| data.info.clone())
     }
 
     pub fn remove_session(&self, id: &str) {
@@ -76,7 +83,24 @@ impl InteractiveSessionManager {
 
     pub fn list_sessions(&self) -> Vec<InteractiveSessionInfo> {
         let sessions = self.sessions.lock().unwrap();
-        sessions.values().cloned().collect()
+        sessions.values().map(|data| data.info.clone()).collect()
+    }
+
+    pub fn write_to_session(&self, id: &str, data: &str) -> Result<(), String> {
+        let mut sessions = self.sessions.lock().unwrap();
+        if let Some(session_data) = sessions.get_mut(id) {
+            if let Some(stdin) = &mut session_data.stdin {
+                stdin.write_all(data.as_bytes())
+                    .map_err(|e| format!("Failed to write to stdin: {}", e))?;
+                stdin.flush()
+                    .map_err(|e| format!("Failed to flush stdin: {}", e))?;
+                Ok(())
+            } else {
+                Err("Session stdin not available".to_string())
+            }
+        } else {
+            Err(format!("Session {} not found", id))
+        }
     }
 }
 
@@ -258,6 +282,7 @@ pub async fn start_interactive_session(
     command: String,
     args: Vec<String>,
     context: ShellContext,
+    app_handle: AppHandle,
     session_manager: State<'_, InteractiveSessionManager>,
 ) -> Result<InteractiveSessionInfo, String> {
     println!("[InteractiveSession] Starting session {}: {} {:?}", session_id, command, args);
@@ -284,10 +309,15 @@ pub async fn start_interactive_session(
         .stderr(Stdio::piped());
 
     // Spawn process
-    let child = cmd.spawn()
+    let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to spawn process: {}", e))?;
 
     let pid = child.id();
+
+    // Take stdin, stdout, stderr
+    let stdin = child.stdin.take();
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
 
     let session_info = InteractiveSessionInfo {
         id: session_id.clone(),
@@ -297,13 +327,84 @@ pub async fn start_interactive_session(
         state: "running".to_string(),
     };
 
-    // Store session info
-    session_manager.add_session(session_id.clone(), session_info.clone());
+    // Store session info with stdin
+    session_manager.add_session(session_id.clone(), session_info.clone(), stdin);
 
-    // TODO: Handle stdin/stdout/stderr in separate threads
-    // For now, just return the session info
+    // Handle stdout in separate thread
+    if let Some(stdout) = stdout {
+        let session_id_clone = session_id.clone();
+        let app_handle_clone = app_handle.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                match line {
+                    Ok(line) => {
+                        let event_name = format!("interactive-session-{}-stdout", session_id_clone);
+                        let _ = app_handle_clone.emit(&event_name, line);
+                    }
+                    Err(e) => {
+                        eprintln!("[InteractiveSession] Error reading stdout: {}", e);
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    // Handle stderr in separate thread
+    if let Some(stderr) = stderr {
+        let session_id_clone = session_id.clone();
+        let app_handle_clone = app_handle.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                match line {
+                    Ok(line) => {
+                        let event_name = format!("interactive-session-{}-stderr", session_id_clone);
+                        let _ = app_handle_clone.emit(&event_name, line);
+                    }
+                    Err(e) => {
+                        eprintln!("[InteractiveSession] Error reading stderr: {}", e);
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    // Wait for process to exit in separate thread
+    let session_id_clone = session_id.clone();
+    let app_handle_clone = app_handle.clone();
+    let session_manager_clone: InteractiveSessionManager = (*session_manager.inner()).clone();
+    thread::spawn(move || {
+        match child.wait() {
+            Ok(status) => {
+                let exit_code = status.code().unwrap_or(-1);
+                println!("[InteractiveSession] Session {} exited with code: {}", session_id_clone, exit_code);
+
+                let event_name = format!("interactive-session-{}-close", session_id_clone);
+                let _ = app_handle_clone.emit(&event_name, exit_code);
+
+                // Remove session
+                session_manager_clone.remove_session(&session_id_clone);
+            }
+            Err(e) => {
+                eprintln!("[InteractiveSession] Error waiting for process: {}", e);
+            }
+        }
+    });
 
     Ok(session_info)
+}
+
+/// Write to interactive session stdin
+#[tauri::command]
+pub async fn write_interactive_session(
+    session_id: String,
+    data: String,
+    session_manager: State<'_, InteractiveSessionManager>,
+) -> Result<(), String> {
+    session_manager.write_to_session(&session_id, &data)
 }
 
 /// Get interactive session info

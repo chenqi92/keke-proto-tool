@@ -1,7 +1,8 @@
 // Interactive Session Manager
 // Manages interactive command sessions (ssh, vim, etc.)
 
-import { Child, Command } from '@tauri-apps/plugin-shell';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { ShellContext } from '@/types/shell';
 
 /**
@@ -33,12 +34,23 @@ export interface SessionHandlers {
 }
 
 /**
+ * Backend session info
+ */
+interface BackendSessionInfo {
+  id: string;
+  command: string;
+  args: string[];
+  pid: number;
+  state: string;
+}
+
+/**
  * Interactive Session Manager
  */
 export class InteractiveSessionManager {
   private sessions: Map<string, InteractiveSession> = new Map();
-  private processes: Map<string, Child> = new Map();
   private handlers: Map<string, SessionHandlers> = new Map();
+  private eventListeners: Map<string, (() => void)[]> = new Map();
   
   /**
    * Start an interactive session
@@ -50,9 +62,9 @@ export class InteractiveSessionManager {
     handlers: SessionHandlers
   ): Promise<string> {
     const sessionId = this.generateSessionId();
-    
+
     console.log(`[InteractiveSession] Starting session ${sessionId}: ${command} ${args.join(' ')}`);
-    
+
     // Create session
     const session: InteractiveSession = {
       id: sessionId,
@@ -61,66 +73,92 @@ export class InteractiveSessionManager {
       state: 'starting',
       startTime: new Date(),
     };
-    
+
     this.sessions.set(sessionId, session);
     this.handlers.set(sessionId, handlers);
-    
+
     try {
-      // Create command
-      const cmd = Command.create(command, args, {
-        cwd: context.cwd || undefined,
-        env: context.env || undefined,
+      // Start session via backend
+      const backendSession = await invoke<BackendSessionInfo>('start_interactive_session', {
+        sessionId,
+        command,
+        args,
+        context: {
+          cwd: context.cwd || null,
+          env: context.env || null,
+        },
       });
-      
-      // Set up event listeners
-      cmd.on('close', (data) => {
-        console.log(`[InteractiveSession] Session ${sessionId} closed with code: ${data.code}`);
+
+      console.log(`[InteractiveSession] Backend session started:`, backendSession);
+
+      // Update session with PID
+      session.pid = backendSession.pid;
+      session.state = 'running';
+
+      if (handlers.onStateChange) {
+        handlers.onStateChange('running');
+      }
+
+      // Set up event listeners for session output
+      const listeners: (() => void)[] = [];
+
+      // Listen for stdout
+      const unlistenStdout = await listen<string>(`interactive-session-${sessionId}-stdout`, (event) => {
+        console.log(`[InteractiveSession] Session ${sessionId} stdout:`, event.payload);
+        if (handlers.onOutput) {
+          handlers.onOutput(event.payload);
+        }
+      });
+      listeners.push(unlistenStdout);
+
+      // Listen for stderr
+      const unlistenStderr = await listen<string>(`interactive-session-${sessionId}-stderr`, (event) => {
+        console.error(`[InteractiveSession] Session ${sessionId} stderr:`, event.payload);
+        if (handlers.onError) {
+          handlers.onError(event.payload);
+        }
+      });
+      listeners.push(unlistenStderr);
+
+      // Listen for close
+      const unlistenClose = await listen<number>(`interactive-session-${sessionId}-close`, (event) => {
+        console.log(`[InteractiveSession] Session ${sessionId} closed with code:`, event.payload);
         this.updateSessionState(sessionId, 'stopped');
         session.endTime = new Date();
-        
+
         if (handlers.onClose) {
-          handlers.onClose(data.code);
+          handlers.onClose(event.payload);
         }
+
+        // Clean up listeners
+        this.cleanupListeners(sessionId);
       });
-      
-      cmd.on('error', (error) => {
-        console.error(`[InteractiveSession] Session ${sessionId} error:`, error);
-        this.updateSessionState(sessionId, 'error');
-        
-        if (handlers.onError) {
-          handlers.onError(error);
-        }
-      });
-      
-      cmd.stdout.on('data', (line) => {
-        console.log(`[InteractiveSession] Session ${sessionId} stdout:`, line);
-        
-        if (handlers.onOutput) {
-          handlers.onOutput(line);
-        }
-      });
-      
-      cmd.stderr.on('data', (line) => {
-        console.log(`[InteractiveSession] Session ${sessionId} stderr:`, line);
-        
-        if (handlers.onError) {
-          handlers.onError(line);
-        }
-      });
-      
-      // Spawn process
-      const child = await cmd.spawn();
-      console.log(`[InteractiveSession] Session ${sessionId} spawned with PID: ${child.pid}`);
-      
-      session.pid = child.pid;
-      this.processes.set(sessionId, child);
-      this.updateSessionState(sessionId, 'running');
-      
+      listeners.push(unlistenClose);
+
+      // Store listeners for cleanup
+      this.eventListeners.set(sessionId, listeners);
+
       return sessionId;
     } catch (error) {
       console.error(`[InteractiveSession] Failed to start session ${sessionId}:`, error);
       this.updateSessionState(sessionId, 'error');
+
+      if (handlers.onStateChange) {
+        handlers.onStateChange('error');
+      }
+
       throw error;
+    }
+  }
+
+  /**
+   * Clean up event listeners for a session
+   */
+  private cleanupListeners(sessionId: string): void {
+    const listeners = this.eventListeners.get(sessionId);
+    if (listeners) {
+      listeners.forEach(unlisten => unlisten());
+      this.eventListeners.delete(sessionId);
     }
   }
   
@@ -128,39 +166,45 @@ export class InteractiveSessionManager {
    * Write to session stdin
    */
   async writeToSession(sessionId: string, data: string): Promise<void> {
-    const child = this.processes.get(sessionId);
-    
-    if (!child) {
+    const session = this.sessions.get(sessionId);
+
+    if (!session) {
       throw new Error(`Session ${sessionId} not found`);
     }
-    
+
     console.log(`[InteractiveSession] Writing to session ${sessionId}:`, data);
-    
+
     try {
-      await child.write(data);
+      await invoke('write_interactive_session', {
+        sessionId,
+        data,
+      });
     } catch (error) {
       console.error(`[InteractiveSession] Failed to write to session ${sessionId}:`, error);
       throw error;
     }
   }
-  
+
   /**
    * Kill session
    */
   async killSession(sessionId: string): Promise<void> {
-    const child = this.processes.get(sessionId);
-    
-    if (!child) {
+    const session = this.sessions.get(sessionId);
+
+    if (!session) {
       throw new Error(`Session ${sessionId} not found`);
     }
-    
+
     console.log(`[InteractiveSession] Killing session ${sessionId}`);
-    
+
     try {
-      await child.kill();
+      await invoke('kill_interactive_session', {
+        sessionId,
+      });
+
       this.updateSessionState(sessionId, 'stopped');
-      
-      const session = this.sessions.get(sessionId);
+      this.cleanupListeners(sessionId);
+
       if (session) {
         session.endTime = new Date();
       }
