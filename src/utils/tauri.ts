@@ -1,6 +1,9 @@
 /**
  * Tauri API 工具函数
  * 提供安全的Tauri API调用，专注于桌面端环境
+ *
+ * 注意：在 Tauri v2 中，dialog 和 fs 功能需要安装插件：
+ * npm install @tauri-apps/plugin-dialog @tauri-apps/plugin-fs
  */
 
 // 安全的文件保存对话框
@@ -13,29 +16,13 @@ export const showSaveDialog = async (options: {
   }>;
 }): Promise<string | null> => {
   try {
-    // 尝试使用 Tauri v2 API
-    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-      const { save } = (window as any).__TAURI__.dialog;
-      const result = await save(options);
-      return result || null;
-    }
-
-    // 后备方案：尝试动态导入
-    try {
-      const modulePath = '@tauri-apps/api/' + 'dialog';
-      const tauriDialog = await import(/* @vite-ignore */ modulePath);
-      if (tauriDialog?.save) {
-        const result = await tauriDialog.save(options);
-        return result || null;
-      }
-    } catch (importError) {
-      console.warn('Failed to import @tauri-apps/api/dialog:', importError);
-    }
-
-    console.warn('Tauri dialog API not available');
-    return null;
+    // 使用 Tauri v2 plugin-dialog
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const result = await save(options);
+    return result || null;
   } catch (error) {
     console.error('Failed to show save dialog:', error);
+    console.error('Make sure @tauri-apps/plugin-dialog is installed');
     return null;
   }
 };
@@ -51,37 +38,14 @@ export const showOpenDialog = async (options: {
   multiple?: boolean;
   directory?: boolean;
 }): Promise<string | string[] | null> => {
-  console.log('showOpenDialog called with options:', options);
-
   try {
-    console.log('Attempting to access Tauri dialog API...');
-
-    // 尝试使用 Tauri v2 API
-    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-      const { open } = (window as any).__TAURI__.dialog;
-      const result = await open(options);
-      console.log('Dialog result:', result, 'Type:', typeof result);
-      return result || null;
-    }
-
-    // 后备方案：尝试动态导入
-    try {
-      const modulePath = '@tauri-apps/api/' + 'dialog';
-      const tauriDialog = await import(/* @vite-ignore */ modulePath);
-      if (tauriDialog?.open) {
-        console.log('Tauri dialog module imported successfully');
-        const result = await tauriDialog.open(options);
-        console.log('Dialog result:', result, 'Type:', typeof result);
-        return result || null;
-      }
-    } catch (importError) {
-      console.warn('Failed to import @tauri-apps/api/dialog:', importError);
-    }
-
-    console.warn('Tauri dialog API not available');
-    return null;
+    // 使用 Tauri v2 plugin-dialog
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const result = await open(options);
+    return result || null;
   } catch (error) {
     console.error('Failed to show open dialog:', error);
+    console.error('Make sure @tauri-apps/plugin-dialog is installed');
     return null;
   }
 };
@@ -260,25 +224,12 @@ export const getDownloadDir = async (): Promise<string | null> => {
 // 安全的文件读取
 export const readTextFile = async (filePath: string): Promise<string> => {
   try {
-    // 尝试使用 Tauri v2 API
-    if (typeof window !== 'undefined' && (window as any).__TAURI__?.fs) {
-      return await (window as any).__TAURI__.fs.readTextFile(filePath);
-    }
-
-    // 后备方案：尝试动态导入
-    try {
-      const modulePath = '@tauri-apps/api/' + 'fs';
-      const fsApi = await import(/* @vite-ignore */ modulePath);
-      if (fsApi?.readTextFile) {
-        return await fsApi.readTextFile(filePath);
-      }
-    } catch (importError) {
-      console.warn('Failed to import @tauri-apps/api/fs:', importError);
-    }
-
-    throw new Error('Tauri fs API not available');
+    // 使用 Tauri v2 plugin-fs
+    const { readTextFile: read } = await import('@tauri-apps/plugin-fs');
+    return await read(filePath);
   } catch (error) {
     console.error('Failed to read file:', error);
+    console.error('Make sure @tauri-apps/plugin-fs is installed');
     throw error;
   }
 };
@@ -286,27 +237,12 @@ export const readTextFile = async (filePath: string): Promise<string> => {
 // 安全的文件写入
 export const writeTextFile = async (filePath: string, content: string): Promise<void> => {
   try {
-    // 尝试使用 Tauri v2 API
-    if (typeof window !== 'undefined' && (window as any).__TAURI__?.fs) {
-      await (window as any).__TAURI__.fs.writeTextFile(filePath, content);
-      return;
-    }
-
-    // 后备方案：尝试动态导入
-    try {
-      const modulePath = '@tauri-apps/api/' + 'fs';
-      const fsApi = await import(/* @vite-ignore */ modulePath);
-      if (fsApi?.writeTextFile) {
-        await fsApi.writeTextFile(filePath, content);
-        return;
-      }
-    } catch (importError) {
-      console.warn('Failed to import @tauri-apps/api/fs:', importError);
-    }
-
-    throw new Error('Tauri fs API not available');
+    // 使用 Tauri v2 plugin-fs
+    const { writeTextFile: write } = await import('@tauri-apps/plugin-fs');
+    await write(filePath, content);
   } catch (error) {
     console.error('Failed to write file:', error);
+    console.error('Make sure @tauri-apps/plugin-fs is installed');
     throw error;
   }
 };

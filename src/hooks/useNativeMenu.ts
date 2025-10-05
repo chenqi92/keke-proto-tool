@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { showOpenDialog, showSaveDialog, readTextFile, writeTextFile } from '@/utils/tauri';
 import { useTheme } from '@/hooks/useTheme';
@@ -25,7 +25,7 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
   );
 
   // 工作区管理函数
-  const handleNewWorkspace = async () => {
+  const handleNewWorkspace = useCallback(async () => {
     if (Object.keys(sessions).length > 0) {
       const confirmed = await notificationService.confirm({
         title: '创建新工作区',
@@ -39,9 +39,9 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
     clearAllSessions();
     notificationService.success('新工作区已创建');
     console.log('[useNativeMenu] New workspace created');
-  };
+  }, [sessions, clearAllSessions]);
 
-  const handleOpenWorkspace = async () => {
+  const handleOpenWorkspace = useCallback(async () => {
     try {
       const filePath = await showOpenDialog({
         title: '打开工作区',
@@ -66,9 +66,9 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
       console.error('[useNativeMenu] Failed to open workspace:', error);
       notificationService.error('打开工作区失败', String(error));
     }
-  };
+  }, [loadSessions]);
 
-  const handleSaveWorkspace = async (saveAs: boolean = false) => {
+  const handleSaveWorkspace = useCallback(async (saveAs: boolean = false) => {
     try {
       const workspaceData = {
         version: '1.0',
@@ -94,9 +94,9 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
       console.error('[useNativeMenu] Failed to save workspace:', error);
       notificationService.error('保存工作区失败', String(error));
     }
-  };
+  }, [sessions]);
 
-  const handleImportConfig = async () => {
+  const handleImportConfig = useCallback(async () => {
     try {
       const filePath = await showOpenDialog({
         title: '导入配置',
@@ -118,9 +118,9 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
       console.error('[useNativeMenu] Failed to import config:', error);
       notificationService.error('导入配置失败', String(error));
     }
-  };
+  }, []);
 
-  const handleExportConfig = async () => {
+  const handleExportConfig = useCallback(async () => {
     try {
       const config = {
         version: '1.0',
@@ -146,9 +146,9 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
       console.error('[useNativeMenu] Failed to export config:', error);
       notificationService.error('导出配置失败', String(error));
     }
-  };
+  }, [sessions]);
 
-  const handleExportLogs = async () => {
+  const handleExportLogs = useCallback(async () => {
     try {
       const filePath = await showSaveDialog({
         title: '导出日志',
@@ -173,7 +173,7 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
       console.error('[useNativeMenu] Failed to export logs:', error);
       notificationService.error('导出日志失败', String(error));
     }
-  };
+  }, []);
 
   useEffect(() => {
     console.log('[useNativeMenu] Setting up event listener with onOpenModal:', typeof onOpenModal);
@@ -489,5 +489,21 @@ export const useNativeMenu = ({ onOpenModal, onCheckUpdates, onOpenSearch }: Use
         unlisten();
       }
     };
-  }, [onOpenModal, onCheckUpdates, onOpenSearch, setTheme, setColorTheme, selectedNode, currentSession, startRecording, stopRecording]);
+  }, [
+    onOpenModal,
+    onCheckUpdates,
+    onOpenSearch,
+    setTheme,
+    setColorTheme,
+    selectedNode,
+    currentSession,
+    startRecording,
+    stopRecording,
+    handleNewWorkspace,
+    handleOpenWorkspace,
+    handleSaveWorkspace,
+    handleImportConfig,
+    handleExportConfig,
+    handleExportLogs
+  ]);
 };
