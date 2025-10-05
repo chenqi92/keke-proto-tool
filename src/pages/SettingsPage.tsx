@@ -98,6 +98,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
   const [updateNotifyEnabled, setUpdateNotifyEnabled] = useState(true);
   const [pluginNotifyEnabled, setPluginNotifyEnabled] = useState(false);
   const [notificationDuration, setNotificationDuration] = useState(5);
+  const [singleNotificationMode, setSingleNotificationMode] = useState(true);
 
   // Updates settings state
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -156,12 +157,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
     const savedUpdateNotify = localStorage.getItem('prototool-update-notify');
     const savedPluginNotify = localStorage.getItem('prototool-plugin-notify');
     const savedNotificationDuration = localStorage.getItem('prototool-notification-duration');
+    const savedSingleNotificationMode = localStorage.getItem('prototool-single-notification-mode');
 
     if (savedConnectionNotify !== null) setConnectionNotifyEnabled(JSON.parse(savedConnectionNotify));
     if (savedErrorNotify !== null) setErrorNotifyEnabled(JSON.parse(savedErrorNotify));
     if (savedUpdateNotify !== null) setUpdateNotifyEnabled(JSON.parse(savedUpdateNotify));
     if (savedPluginNotify !== null) setPluginNotifyEnabled(JSON.parse(savedPluginNotify));
     if (savedNotificationDuration) setNotificationDuration(Number(savedNotificationDuration));
+    if (savedSingleNotificationMode !== null) setSingleNotificationMode(JSON.parse(savedSingleNotificationMode));
 
     // Load update settings
     const currentInfo = versionUpdateService.getCurrentUpdateInfo();
@@ -518,50 +521,77 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
         <h3 className="text-lg font-semibold mb-4">通知设置</h3>
 
         <div className="space-y-4">
-          <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              id="connection-notify"
-              checked={connectionNotifyEnabled}
-              onChange={(e) => setConnectionNotifyEnabled(e.target.checked)}
-              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
-            />
-            <label htmlFor="connection-notify" className="text-sm">连接状态变化</label>
+          {/* Single Notification Mode */}
+          <div className="p-4 border border-border rounded-lg bg-card">
+            <div className="flex items-center justify-between">
+              <div>
+                <label htmlFor="single-notification" className="text-sm font-medium">一次只显示一条通知</label>
+                <p className="text-xs text-muted-foreground mt-1">新通知出现时自动隐藏之前的通知</p>
+              </div>
+              <input
+                type="checkbox"
+                id="single-notification"
+                checked={singleNotificationMode}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  setSingleNotificationMode(newValue);
+                  localStorage.setItem('prototool-single-notification-mode', JSON.stringify(newValue));
+                }}
+                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              id="error-notify"
-              checked={errorNotifyEnabled}
-              onChange={(e) => setErrorNotifyEnabled(e.target.checked)}
-              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
-            />
-            <label htmlFor="error-notify" className="text-sm">错误和警告</label>
+          {/* Notification Types */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium block">通知类型</label>
+
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="connection-notify"
+                checked={connectionNotifyEnabled}
+                onChange={(e) => setConnectionNotifyEnabled(e.target.checked)}
+                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="connection-notify" className="text-sm">连接状态变化</label>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="error-notify"
+                checked={errorNotifyEnabled}
+                onChange={(e) => setErrorNotifyEnabled(e.target.checked)}
+                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="error-notify" className="text-sm">错误和警告</label>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="update-notify"
+                checked={updateNotifyEnabled}
+                onChange={(e) => setUpdateNotifyEnabled(e.target.checked)}
+                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="update-notify" className="text-sm">软件更新</label>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="plugin-notify"
+                checked={pluginNotifyEnabled}
+                onChange={(e) => setPluginNotifyEnabled(e.target.checked)}
+                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="plugin-notify" className="text-sm">插件活动</label>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              id="update-notify"
-              checked={updateNotifyEnabled}
-              onChange={(e) => setUpdateNotifyEnabled(e.target.checked)}
-              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
-            />
-            <label htmlFor="update-notify" className="text-sm">软件更新</label>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              id="plugin-notify"
-              checked={pluginNotifyEnabled}
-              onChange={(e) => setPluginNotifyEnabled(e.target.checked)}
-              className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-2"
-            />
-            <label htmlFor="plugin-notify" className="text-sm">插件活动</label>
-          </div>
-
+          {/* Notification Duration */}
           <div>
             <label className="text-sm font-medium mb-2 block">通知持续时间 (秒)</label>
             <input
@@ -570,6 +600,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
               onChange={(e) => setNotificationDuration(Number(e.target.value))}
               className="w-full h-9 px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              设置为 0 表示通知不会自动消失
+            </p>
           </div>
         </div>
       </div>
@@ -619,6 +652,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
       localStorage.setItem('prototool-update-notify', JSON.stringify(updateNotifyEnabled));
       localStorage.setItem('prototool-plugin-notify', JSON.stringify(pluginNotifyEnabled));
       localStorage.setItem('prototool-notification-duration', notificationDuration.toString());
+      localStorage.setItem('prototool-single-notification-mode', JSON.stringify(singleNotificationMode));
 
       // Save update settings
       localStorage.setItem('prototool-auto-check-updates', JSON.stringify(autoCheckEnabled));
@@ -909,6 +943,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ defaultSection = 'ap
                 setUpdateNotifyEnabled(true);
                 setPluginNotifyEnabled(false);
                 setNotificationDuration(5);
+                setSingleNotificationMode(true);
                 setAutoCheckEnabled(true);
                 setCheckInterval(24);
                 setIncludePrerelease(false);

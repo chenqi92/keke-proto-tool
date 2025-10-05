@@ -138,7 +138,18 @@ export const useToast = () => {
       duration: toast.duration ?? 5000, // Default 5 seconds
     };
 
-    setToasts(prev => [...prev, newToast]);
+    // Check if single notification mode is enabled
+    const singleMode = localStorage.getItem('prototool-single-notification-mode');
+    const isSingleMode = singleMode === null || JSON.parse(singleMode); // Default to true
+
+    if (isSingleMode) {
+      // Only keep the latest toast - hide previous ones
+      setToasts([newToast]);
+    } else {
+      // Keep all toasts
+      setToasts(prev => [...prev, newToast]);
+    }
+
     return id;
   };
 

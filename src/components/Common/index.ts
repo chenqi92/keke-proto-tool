@@ -18,3 +18,4 @@ export { ProtocolTag, type ProtocolType } from './ProtocolTag';
 export { PageSkeleton } from './PageSkeleton';
 export { useToast, ToastContainer, type Toast, type ToastType } from './Toast';
 export { ConnectionErrorBanner } from './ConnectionErrorBanner';
+export { ConfirmDialog, useConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog';

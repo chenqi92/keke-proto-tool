@@ -27,6 +27,7 @@ import {
   Edit3
 } from 'lucide-react';
 import { ProtocolEditor } from './ProtocolEditor';
+import { useConfirmDialog } from '@/components/Common';
 
 interface ProtocolPluginManagerProps {
   plugins?: ProtocolPlugin[];
@@ -213,6 +214,9 @@ export const ProtocolPluginManager: React.FC<ProtocolPluginManagerProps> = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [editingProtocol, setEditingProtocol] = useState<ProtocolMetadata | null>(null);
   const [editorContent, setEditorContent] = useState('');
+
+  // Confirm dialog
+  const { confirm, ConfirmDialog: ConfirmDialogComponent } = useConfirmDialog();
 
   // Load protocols from backend
   useEffect(() => {
@@ -402,7 +406,15 @@ examples:
   };
 
   const handleDeleteProtocol = async (plugin: ProtocolPlugin) => {
-    if (!confirm(`Are you sure you want to delete the protocol "${plugin.name}"?`)) {
+    const confirmed = await confirm({
+      title: '删除协议',
+      message: `确定要删除协议 "${plugin.name}" 吗？此操作无法撤销。`,
+      confirmText: '删除',
+      cancelText: '取消',
+      variant: 'danger'
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -418,8 +430,10 @@ examples:
       if (onUninstall) {
         onUninstall(plugin);
       }
+
+      setSuccess(`协议 "${plugin.name}" 已成功删除`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete protocol');
+      setError(err instanceof Error ? err.message : '删除协议失败');
       console.error('Failed to delete protocol:', err);
     }
   };
@@ -862,6 +876,9 @@ examples:
           </div>
         </div>
         )}
+
+        {/* Confirm Dialog */}
+        <ConfirmDialogComponent />
       </div>
     </div>
   );
