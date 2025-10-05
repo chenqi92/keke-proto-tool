@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/utils';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
 import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
-import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { useToast } from '@/components/Common/Toast';
 import { invoke } from '@tauri-apps/api/core';
 
 import {ConnectionStatus, Message} from '@/types';
@@ -34,11 +34,16 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const removeClientConnection = useAppStore(state => state.removeClientConnection);
   const clearMessages = useAppStore(state => state.clearMessages);
 
+  // Toast notification
+  const toast = useToast();
+
+  // Track previous connection error to avoid duplicate toasts
+  const prevConnectionErrorRef = useRef<string | undefined>();
+
   // 本地UI状态 - 使用sessionId作为key确保状态隔离
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
   const [receiveFormat, setReceiveFormat] = useState<DataFormat>('ascii');
   const [sendData, setSendData] = useState('');
-  const [formatError, setFormatError] = useState<string | null>(null);
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
@@ -249,6 +254,23 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
     }
   };
 
+  // Show connection error as toast
+  useEffect(() => {
+    if (connectionError && connectionError !== prevConnectionErrorRef.current) {
+      prevConnectionErrorRef.current = connectionError;
+      toast.error('连接失败', connectionError, {
+        duration: 0, // Don't auto-dismiss
+        action: {
+          label: isServerMode ? '重新启动' : '重新连接',
+          onClick: handleConnect
+        }
+      });
+    } else if (!connectionError && prevConnectionErrorRef.current) {
+      // Clear the ref when error is resolved
+      prevConnectionErrorRef.current = undefined;
+    }
+  }, [connectionError, isServerMode]);
+
   // 处理停止重连
   const handleStopReconnect = async () => {
     if (!config) return;
@@ -292,11 +314,10 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
     if (!config || !isConnected || isSending) return;
 
     if (!validateFormat[sendFormat](sendData)) {
-      setFormatError(`无效的${sendFormat.toUpperCase()}格式`);
+      toast.error('格式错误', `无效的${sendFormat.toUpperCase()}格式`);
       return;
     }
 
-    setFormatError(null);
     setIsSending(true);
 
     try {
@@ -312,7 +333,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
           // 发送到指定客户端
           success = await networkService.sendToClient(sessionId, selectedClient, dataBytes);
         } else {
-          setFormatError('请选择目标客户端或启用广播模式');
+          toast.warning('未选择目标', '请选择目标客户端或启用广播模式');
           return;
         }
       } else {
@@ -324,14 +345,14 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
       if (success) {
         console.log(`TCP Session ${sessionId}: 消息发送成功`);
         // Keep input content for easy resending or modification
-        setFormatError(null);
       } else {
-        const errorMsg = `发送失败：${isServerMode ? '服务端' : '网络'}错误或连接已断开`;
-        console.error(`TCP Session ${sessionId}: ${errorMsg}`);
-        setFormatError(errorMsg);
+        const errorMsg = `${isServerMode ? '服务端' : '网络'}错误或连接已断开`;
+        console.error(`TCP Session ${sessionId}: 发送失败 - ${errorMsg}`);
+        toast.error('发送失败', errorMsg);
       }
     } catch (error) {
-      setFormatError(`发送失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      const errorMsg = error instanceof Error ? error.message : '未知错误';
+      toast.error('发送失败', errorMsg);
     } finally {
       setIsSending(false);
     }
@@ -438,14 +459,12 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
     }
 
     setIsEditingConnection(false);
-    setFormatError(null);
   };
 
   const handleCancelEdit = () => {
     setIsEditingConnection(false);
     setEditHost('');
     setEditPort('');
-    setFormatError(null);
   };
 
   const formatMessageData = (message: Message): string => {
@@ -618,17 +637,6 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
           )}
         </div>
       </div>
-
-      {/* 连接错误横幅 */}
-      {connectionError && (
-        <div className="px-4 pt-4">
-          <ConnectionErrorBanner
-            error={connectionError}
-            onRetry={handleConnect}
-            retryLabel={isServerMode ? '重新启动' : '重新连接'}
-          />
-        </div>
-      )}
 
       {/* 自动重连暂停状态横幅 - 仅客户端模式显示 */}
       {!isServerMode && autoReconnectPaused && (
@@ -816,10 +824,6 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
               placeholder="输入TCP数据包内容..."
               className="flex-1 resize-none bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            
-            {formatError && (
-              <div className="text-xs text-red-500">{formatError}</div>
-            )}
           </div>
           
           <div className="flex flex-col justify-end space-y-2">
@@ -1221,6 +1225,8 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
           </div>
         )}
       </div>
+      {/* Toast Container */}
+      <toast.ToastContainer />
     </div>
   );
 };

@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/utils';
 import { DataFormat, formatData } from '@/components/DataFormatSelector';
 import { useSessionById, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
-import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { useToast } from '@/components/Common/Toast';
 import { Message, SSEEventFilter } from '@/types';
 import {
   AlertCircle,
@@ -27,6 +27,12 @@ interface SSESessionContentProps {
 export const SSESessionContent: React.FC<SSESessionContentProps> = ({ sessionId }) => {
   // 从全局状态获取会话数据
   const session = useSessionById(sessionId);
+
+  // Toast notification
+  const toast = useToast();
+
+  // Track previous connection error to avoid duplicate toasts
+  const prevConnectionErrorRef = useRef<string | undefined>();
 
   // 本地UI状态
   const [receiveFormat] = useState<DataFormat>('ascii');
@@ -124,7 +130,22 @@ export const SSESessionContent: React.FC<SSESessionContentProps> = ({ sessionId 
     }
   };
 
-
+  // Show connection error as toast
+  useEffect(() => {
+    if (connectionError && connectionError !== prevConnectionErrorRef.current) {
+      prevConnectionErrorRef.current = connectionError;
+      toast.error('连接失败', connectionError, {
+        duration: 0, // Don't auto-dismiss
+        action: {
+          label: '重新连接',
+          onClick: handleConnect
+        }
+      });
+    } else if (!connectionError && prevConnectionErrorRef.current) {
+      // Clear the ref when error is resolved
+      prevConnectionErrorRef.current = undefined;
+    }
+  }, [connectionError]);
 
   // 如果没有会话数据，显示错误信息
   if (!session || !config) {
@@ -220,17 +241,6 @@ export const SSESessionContent: React.FC<SSESessionContentProps> = ({ sessionId 
           </button>
         </div>
       </div>
-
-      {/* 连接错误横幅 */}
-      {connectionError && (
-        <div className="px-4 pt-4">
-          <ConnectionErrorBanner
-            error={connectionError}
-            onRetry={handleConnect}
-            retryLabel="重新连接"
-          />
-        </div>
-      )}
 
       {/* 事件过滤器配置面板 */}
       <div className="h-40 border-b border-border bg-card p-4">
@@ -441,6 +451,8 @@ export const SSESessionContent: React.FC<SSESessionContentProps> = ({ sessionId 
           </div>
         </div>
       </div>
+      {/* Toast Container */}
+      <toast.ToastContainer />
     </div>
   );
 };

@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/utils';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
 import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
-import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { useToast } from '@/components/Common/Toast';
 import { Message } from '@/types';
 import {
   Send,
@@ -28,11 +28,16 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
   const session = useSessionById(sessionId);
   const { clearMessages, getClientConnections, removeClientConnection } = useAppStore();
 
+  // Toast notification
+  const toast = useToast();
+
+  // Track previous connection error to avoid duplicate toasts
+  const prevConnectionErrorRef = useRef<string | undefined>();
+
   // 本地UI状态
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
   const [receiveFormat, setReceiveFormat] = useState<DataFormat>('ascii');
   const [sendData, setSendData] = useState('');
-  const [formatError, setFormatError] = useState<string | null>(null);
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
@@ -290,22 +295,38 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
     }
   };
 
+  // Show connection error as toast
+  useEffect(() => {
+    if (connectionError && connectionError !== prevConnectionErrorRef.current) {
+      prevConnectionErrorRef.current = connectionError;
+      toast.error('连接失败', connectionError, {
+        duration: 0, // Don't auto-dismiss
+        action: {
+          label: isServerMode ? '重新绑定' : '重新创建',
+          onClick: handleConnect
+        }
+      });
+    } else if (!connectionError && prevConnectionErrorRef.current) {
+      // Clear the ref when error is resolved
+      prevConnectionErrorRef.current = undefined;
+    }
+  }, [connectionError, isServerMode]);
+
   // 处理发送UDP数据报
   const handleSendMessage = async () => {
     if (!config || isSending) return;
 
     // UDP服务端模式需要选择客户端或广播
     if (isServerMode && !broadcastMode && !selectedClient) {
-      setFormatError('请选择目标客户端或启用广播模式');
+      toast.warning('未选择目标', '请选择目标客户端或启用广播模式');
       return;
     }
 
     if (!validateFormat[sendFormat](sendData)) {
-      setFormatError(`无效的${sendFormat.toUpperCase()}格式`);
+      toast.error('格式错误', `无效的${sendFormat.toUpperCase()}格式`);
       return;
     }
 
-    setFormatError(null);
     setIsSending(true);
 
     try {
@@ -329,12 +350,13 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
 
       if (success) {
         setSendData('');
-        setFormatError(null);
       } else {
-        setFormatError(`发送失败：UDP ${isServerMode ? '服务端' : '客户端'}错误`);
+        const errorMsg = `UDP ${isServerMode ? '服务端' : '客户端'}错误`;
+        toast.error('发送失败', errorMsg);
       }
     } catch (error) {
-      setFormatError(`发送失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      const errorMsg = error instanceof Error ? error.message : '未知错误';
+      toast.error('发送失败', errorMsg);
     } finally {
       setIsSending(false);
     }
@@ -342,7 +364,6 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
 
   const handleSendDataChange = (value: string) => {
     setSendData(value);
-    setFormatError(null);
   };
 
   // 处理连接信息编辑
@@ -381,14 +402,12 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
     console.log(`UDP Session ${sessionId}: Configuration updated - host: ${editHost.trim()}, port: ${port}`);
 
     setIsEditingConnection(false);
-    setFormatError(null);
   };
 
   const handleCancelEdit = () => {
     setIsEditingConnection(false);
     setEditHost('');
     setEditPort('');
-    setFormatError(null);
   };
 
   // 处理发送消息 - 可被外部调用的版本
@@ -580,17 +599,6 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
         </div>
       </div>
 
-      {/* 连接错误横幅 */}
-      {connectionError && (
-        <div className="px-4 pt-4">
-          <ConnectionErrorBanner
-            error={connectionError}
-            onRetry={handleConnect}
-            retryLabel={isServerMode ? '重新绑定' : '重新创建'}
-          />
-        </div>
-      )}
-
       {/* 发送面板 */}
       <div className={cn("border-b border-border bg-card p-4", isServerMode ? "h-40" : "h-32")}>
         <div className="flex items-stretch space-x-3 h-full">
@@ -679,17 +687,6 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
               placeholder="输入UDP数据报内容..."
               className="flex-1 resize-none bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
-
-            {formatError && (
-              <div className={cn(
-                "text-xs px-2 py-1 rounded",
-                formatError.includes('成功')
-                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-              )}>
-                {formatError}
-              </div>
-            )}
           </div>
 
           <div className="flex flex-col justify-end space-y-2">
@@ -1140,6 +1137,8 @@ export const UDPSessionContent: React.FC<UDPSessionContentProps> = ({ sessionId 
           </div>
         )}
       </div>
+      {/* Toast Container */}
+      <toast.ToastContainer />
     </div>
   );
 };

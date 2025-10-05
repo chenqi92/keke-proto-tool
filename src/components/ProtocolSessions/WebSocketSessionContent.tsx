@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/utils';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
 import { useSessionById, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
-import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { useToast } from '@/components/Common/Toast';
 import { ConnectionManagementPanel } from '@/components/Session';
 import { Message } from '@/types';
 import {
@@ -28,11 +28,16 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
   const session = useSessionById(sessionId);
   const getClientConnections = useAppStore(state => state.getClientConnections);
 
+  // Toast notification
+  const toast = useToast();
+
+  // Track previous connection error to avoid duplicate toasts
+  const prevConnectionErrorRef = useRef<string | undefined>();
+
   // 本地UI状态
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
   const [receiveFormat] = useState<DataFormat>('ascii');
   const [sendData, setSendData] = useState('');
-  const [formatError, setFormatError] = useState<string | null>(null);
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
@@ -97,16 +102,32 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
     }
   };
 
+  // Show connection error as toast
+  useEffect(() => {
+    if (connectionError && connectionError !== prevConnectionErrorRef.current) {
+      prevConnectionErrorRef.current = connectionError;
+      toast.error('连接失败', connectionError, {
+        duration: 0, // Don't auto-dismiss
+        action: {
+          label: isServerMode ? '重新启动' : '重新连接',
+          onClick: handleConnect
+        }
+      });
+    } else if (!connectionError && prevConnectionErrorRef.current) {
+      // Clear the ref when error is resolved
+      prevConnectionErrorRef.current = undefined;
+    }
+  }, [connectionError, isServerMode]);
+
   // 处理发送消息
   const handleSendMessage = async () => {
     if (!config || !isConnected || isSending) return;
 
     if (!validateFormat[sendFormat](sendData)) {
-      setFormatError(`无效的${sendFormat.toUpperCase()}格式`);
+      toast.error('格式错误', `无效的${sendFormat.toUpperCase()}格式`);
       return;
     }
 
-    setFormatError(null);
     setIsSending(true);
 
     try {
@@ -119,7 +140,7 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
         } else if (selectedClient) {
           success = await networkService.sendWebSocketMessageToClient(sessionId, selectedClient, dataBytes, messageType);
         } else {
-          setFormatError('请选择目标客户端或启用广播模式');
+          toast.warning('未选择目标', '请选择目标客户端或启用广播模式');
           return;
         }
       } else {
@@ -128,12 +149,13 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
 
       if (success) {
         setSendData('');
-        setFormatError(null);
       } else {
-        setFormatError(`发送失败：${isServerMode ? '服务端' : '网络'}错误或连接已断开`);
+        const errorMsg = `${isServerMode ? '服务端' : '网络'}错误或连接已断开`;
+        toast.error('发送失败', errorMsg);
       }
     } catch (error) {
-      setFormatError(`发送失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      const errorMsg = error instanceof Error ? error.message : '未知错误';
+      toast.error('发送失败', errorMsg);
     } finally {
       setIsSending(false);
     }
@@ -388,17 +410,6 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
         </div>
       </div>
 
-      {/* 连接错误横幅 */}
-      {connectionError && (
-        <div className="px-4 pt-4">
-          <ConnectionErrorBanner
-            error={connectionError}
-            onRetry={handleConnect}
-            retryLabel={isServerMode ? '重新启动' : '重新连接'}
-          />
-        </div>
-      )}
-
       {/* 发送面板 */}
       <div className={cn("border-b border-border bg-card p-4", isServerMode ? "h-40" : "h-32")}>
         <div className="flex items-stretch space-x-3 h-full">
@@ -478,10 +489,6 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
               placeholder="输入WebSocket消息内容..."
               className="flex-1 resize-none bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            
-            {formatError && (
-              <div className="text-xs text-red-500">{formatError}</div>
-            )}
           </div>
           
           <div className="flex flex-col justify-end space-y-2">
@@ -721,6 +728,8 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
           </div>
         )}
       </div>
+      {/* Toast Container */}
+      <toast.ToastContainer />
     </div>
   );
 };

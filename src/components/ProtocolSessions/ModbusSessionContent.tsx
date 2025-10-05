@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/utils';
 import { useAppStore, useSessionById } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
-import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { useToast } from '@/components/Common/Toast';
 import { EditConfigModal } from '@/components/EditConfigModal';
 import { invoke } from '@tauri-apps/api/core';
 import {
@@ -93,6 +93,13 @@ type DataDisplayFormat = 'decimal' | 'hex' | 'binary' | 'float';
 export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sessionId }) => {
   const session = useSessionById(sessionId);
   const updateSession = useAppStore(state => state.updateSession);
+
+  // Toast notification
+  const toast = useToast();
+
+  // Track previous connection error to avoid duplicate toasts
+  const prevConnectionErrorRef = useRef<string | undefined>();
+
   const [selectedFunctionCode, setSelectedFunctionCode] = useState(0x03);
   const [startAddress, setStartAddress] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -496,17 +503,25 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
     setAddressBook(prev => prev.filter(e => e.id !== id));
   };
 
+  // Show connection error as toast
+  useEffect(() => {
+    if (session.error && session.error !== prevConnectionErrorRef.current) {
+      prevConnectionErrorRef.current = session.error;
+      toast.error('连接失败', session.error, {
+        duration: 0, // Don't auto-dismiss
+        action: {
+          label: '重新连接',
+          onClick: handleConnect
+        }
+      });
+    } else if (!session.error && prevConnectionErrorRef.current) {
+      // Clear the ref when error is resolved
+      prevConnectionErrorRef.current = undefined;
+    }
+  }, [session.error]);
+
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Connection Error Banner */}
-      {session.error && (
-        <ConnectionErrorBanner
-          error={session.error}
-          onRetry={handleConnect}
-          onDismiss={() => useAppStore.getState().updateSession(sessionId, { error: undefined })}
-        />
-      )}
-
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-3">
@@ -1189,6 +1204,9 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
         onSave={handleSaveConfig}
         config={session.config}
       />
+
+      {/* Toast Container */}
+      <toast.ToastContainer />
     </div>
   );
 };

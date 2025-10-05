@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/utils';
 import { DataFormatSelector, DataFormat, formatData, validateFormat } from '@/components/DataFormatSelector';
 import { useSessionById, useAppStore } from '@/stores/AppStore';
 import { networkService } from '@/services/NetworkService';
-import { ConnectionErrorBanner } from '@/components/Common/ConnectionErrorBanner';
+import { useToast } from '@/components/Common/Toast';
 import { Message, MQTTQoSLevel } from '@/types';
 import {
   Send,
@@ -27,11 +27,16 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
   const session = useSessionById(sessionId);
   const getMQTTSubscriptions = useAppStore(state => state.getMQTTSubscriptions);
 
+  // Toast notification
+  const toast = useToast();
+
+  // Track previous connection error to avoid duplicate toasts
+  const prevConnectionErrorRef = useRef<string | undefined>();
+
   // 本地UI状态
   const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
   const [receiveFormat] = useState<DataFormat>('ascii');
   const [publishData, setPublishData] = useState('');
-  const [formatError, setFormatError] = useState<string | null>(null);
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
@@ -86,23 +91,39 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
     }
   };
 
+  // Show connection error as toast
+  useEffect(() => {
+    if (connectionError && connectionError !== prevConnectionErrorRef.current) {
+      prevConnectionErrorRef.current = connectionError;
+      toast.error('连接失败', connectionError, {
+        duration: 0, // Don't auto-dismiss
+        action: {
+          label: '重新连接',
+          onClick: handleConnect
+        }
+      });
+    } else if (!connectionError && prevConnectionErrorRef.current) {
+      // Clear the ref when error is resolved
+      prevConnectionErrorRef.current = undefined;
+    }
+  }, [connectionError]);
+
   // 处理订阅主题
   const handleSubscribe = async () => {
     if (!config || !isConnected || isSubscribing || !subscribeTopic.trim()) return;
 
     setIsSubscribing(true);
-    setFormatError(null);
 
     try {
       const success = await networkService.subscribeMQTTTopic(sessionId, subscribeTopic.trim(), subscribeQos);
       if (success) {
         setSubscribeTopic('');
-        setFormatError(null);
       } else {
-        setFormatError('订阅失败：MQTT协议错误或连接已断开');
+        toast.error('订阅失败', 'MQTT协议错误或连接已断开');
       }
     } catch (error) {
-      setFormatError(`订阅失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      const errorMsg = error instanceof Error ? error.message : '未知错误';
+      toast.error('订阅失败', errorMsg);
     } finally {
       setIsSubscribing(false);
     }
@@ -127,11 +148,10 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
     if (!config || !isConnected || isPublishing || !publishTopic.trim()) return;
 
     if (!validateFormat[sendFormat](publishData)) {
-      setFormatError(`无效的${sendFormat.toUpperCase()}格式`);
+      toast.error('格式错误', `无效的${sendFormat.toUpperCase()}格式`);
       return;
     }
 
-    setFormatError(null);
     setIsPublishing(true);
 
     try {
@@ -148,12 +168,12 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
 
       if (success) {
         setPublishData('');
-        setFormatError(null);
       } else {
-        setFormatError('发布失败：MQTT协议错误或连接已断开');
+        toast.error('发布失败', 'MQTT协议错误或连接已断开');
       }
     } catch (error) {
-      setFormatError(`发布失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      const errorMsg = error instanceof Error ? error.message : '未知错误';
+      toast.error('发布失败', errorMsg);
     } finally {
       setIsPublishing(false);
     }
@@ -161,7 +181,6 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
 
   const handlePublishDataChange = (value: string) => {
     setPublishData(value);
-    setFormatError(null);
   };
 
   const formatMessageData = (message: Message): string => {
@@ -268,17 +287,6 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
         </div>
       </div>
 
-      {/* 连接错误横幅 */}
-      {connectionError && (
-        <div className="px-4 pt-4">
-          <ConnectionErrorBanner
-            error={connectionError}
-            onRetry={handleConnect}
-            retryLabel="重新连接"
-          />
-        </div>
-      )}
-
       {/* 发布面板 */}
       <div className="h-40 border-b border-border bg-card p-4">
         <div className="flex items-stretch space-x-3 h-full">
@@ -348,10 +356,6 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
               placeholder="输入要发布的消息内容..."
               className="flex-1 resize-none bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            
-            {formatError && (
-              <div className="text-xs text-red-500">{formatError}</div>
-            )}
           </div>
           
           <div className="flex flex-col justify-end space-y-2">
@@ -551,6 +555,8 @@ export const MQTTSessionContent: React.FC<MQTTSessionContentProps> = ({ sessionI
           </div>
         </div>
       </div>
+      {/* Toast Container */}
+      <toast.ToastContainer />
     </div>
   );
 };
