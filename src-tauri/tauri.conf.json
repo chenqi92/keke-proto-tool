@@ -59,7 +59,8 @@
       "nsis": {
         "displayLanguageSelector": true,
         "languages": ["English", "SimpChinese"],
-        "template": null
+        "template": null,
+        "installerIcon": "icons/icon.ico"
       }
     }
   }
