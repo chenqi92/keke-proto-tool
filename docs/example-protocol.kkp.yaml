@@ -1,0 +1,160 @@
+# 示例协议文件 - HJ212-2017 环保数据传输协议
+# 这是一个完整的协议定义示例，可以作为创建新协议的模板
+
+meta:
+  name: "HJ212-2017"
+  version: "1.0.0"
+  author: "Environmental Monitoring Team"
+  description: "HJ212-2017 污染物在线监控（监测）系统数据传输标准"
+  category: "environmental"
+  tags:
+    - environmental
+    - pollution
+    - monitoring
+    - china-standard
+
+# ⚠️ 必需：帧定义配置
+# 定义如何识别和分隔数据帧
+framing:
+  # 模式：delimiters（分隔符）、length（长度字段）、fixed（固定大小）
+  mode: delimiters
+  
+  # 帧头：数据包开始标识
+  header: "##"
+  
+  # 帧尾：数据包结束标识
+  footer: "\r\n"
+
+# 字段定义：描述数据包中的各个字段
+fields:
+  # 字段1：数据段长度
+  - name: data_length
+    at: 0                    # 字段起始位置（相对于帧头之后）
+    size: 4                  # 字段大小（字节）
+    encoding: dec_ascii      # 编码方式：十进制ASCII
+    description: "数据段长度，4位十进制数"
+    required: true
+  
+  # 字段2：数据段内容
+  - name: data_segment
+    at: 4                    # 起始位置
+    size_from: data_length   # 大小由 data_length 字段指定
+    encoding: utf8           # UTF-8 编码
+    description: "数据段，包含实际的监测数据"
+    required: true
+  
+  # 字段3：CRC校验码
+  - name: crc
+    at: -4                   # 负数表示从帧尾倒数
+    size: 4                  # 4字节
+    encoding: hex            # 十六进制编码
+    description: "CRC16校验码"
+    required: true
+
+# 数据段内部结构（键值对格式）
+data_structure:
+  # 分隔符
+  separator: ";"
+  
+  # 键值对格式
+  key_value_separator: "="
+  
+  # 常见字段
+  common_fields:
+    - name: QN
+      description: "请求编号"
+      type: string
+      example: "20230101120000001"
+    
+    - name: ST
+      description: "系统编码"
+      type: string
+      example: "22"
+    
+    - name: CN
+      description: "命令编号"
+      type: string
+      example: "2011"
+    
+    - name: PW
+      description: "访问密码"
+      type: string
+      example: "123456"
+    
+    - name: MN
+      description: "设备唯一标识"
+      type: string
+      example: "88888888888888888888"
+    
+    - name: Flag
+      description: "标志位"
+      type: integer
+      example: 5
+    
+    - name: CP
+      description: "数据包"
+      type: string
+      example: "&&DataTime=20230101120000;a01001-Rtd=100.5,a01001-Flag=N&&"
+
+# 校验配置
+validation:
+  # CRC校验
+  checksum:
+    algorithm: crc16         # 算法：CRC16
+    field: crc               # 校验字段名
+    range:
+      start: 0               # 校验范围起始
+      end: -4                # 校验范围结束（不包含CRC字段本身）
+    polynomial: 0xA001       # CRC多项式
+    initial: 0xFFFF          # 初始值
+
+# 示例数据包
+examples:
+  - name: "实时数据上报"
+    description: "设备上报实时监测数据"
+    hex: "23 23 30 30 38 38 51 4E 3D 32 30 32 33 30 31 30 31 31 32 30 30 30 30 30 30 31 3B 53 54 3D 32 32 3B 43 4E 3D 32 30 31 31 3B 50 57 3D 31 32 33 34 35 36 3B 4D 4E 3D 38 38 38 38 38 38 38 38 38 38 38 38 38 38 38 38 38 38 38 38 3B 46 6C 61 67 3D 35 3B 43 50 3D 26 26 44 61 74 61 54 69 6D 65 3D 32 30 32 33 30 31 30 31 31 32 30 30 30 30 3B 61 30 31 30 30 31 2D 52 74 64 3D 31 30 30 2E 35 2C 61 30 31 30 30 31 2D 46 6C 61 67 3D 4E 26 26 41 42 43 44 0D 0A"
+    ascii: "##0088QN=20230101120000001;ST=22;CN=2011;PW=123456;MN=88888888888888888888;Flag=5;CP=&&DataTime=20230101120000;a01001-Rtd=100.5,a01001-Flag=N&&ABCD\r\n"
+    parsed:
+      data_length: "0088"
+      data_segment: "QN=20230101120000001;ST=22;CN=2011;PW=123456;MN=88888888888888888888;Flag=5;CP=&&DataTime=20230101120000;a01001-Rtd=100.5,a01001-Flag=N&&"
+      crc: "ABCD"
+
+# 协议特性
+features:
+  - bidirectional: true      # 双向通信
+  - reliable: true           # 可靠传输
+  - ordered: true            # 有序传输
+  - checksum: true           # 包含校验
+  - compression: false       # 不支持压缩
+  - encryption: false        # 不支持加密
+
+# 使用说明
+usage:
+  transport: "TCP/UDP"
+  default_port: 9001
+  encoding: "UTF-8"
+  notes:
+    - "数据包必须以 ## 开头，\\r\\n 结尾"
+    - "数据段长度为4位十进制数，不足4位前补0"
+    - "CRC校验码为4位十六进制数，大写字母"
+    - "数据段内部使用分号分隔各字段"
+    - "CP字段内容使用 && 包裹"
+
+# 参考资料
+references:
+  - title: "HJ212-2017 污染物在线监控（监测）系统数据传输标准"
+    url: "http://www.mee.gov.cn/"
+    type: "official"
+  
+  - title: "环保数据传输协议实施指南"
+    url: "https://example.com/guide"
+    type: "guide"
+
+# 版本历史
+changelog:
+  - version: "1.0.0"
+    date: "2023-01-01"
+    changes:
+      - "初始版本"
+      - "支持基本的数据上报和查询功能"
+

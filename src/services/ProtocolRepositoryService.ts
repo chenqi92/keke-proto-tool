@@ -105,20 +105,43 @@ export class ProtocolRepositoryService {
    * Validate protocol content has required fields
    */
   private validateProtocolContent(content: string): { valid: boolean; error?: string } {
-    // Check for framing configuration
-    const hasFraming = content.includes('framing:') ||
-                       content.includes('frame {') ||
-                       content.includes('delimiters:') ||
-                       content.includes('length:') ||
-                       content.includes('fixed_size:');
+    console.log('Validating protocol content...');
 
-    if (!hasFraming) {
+    // Check for framing configuration - be more thorough
+    const hasFramingSection = content.includes('framing:') || content.includes('frame {');
+    const hasDelimiters = /delimiters?:/i.test(content) || /header:/i.test(content) || /footer:/i.test(content);
+    const hasLength = /length:/i.test(content) || /length\s+at/i.test(content);
+    const hasFixedSize = /fixed_?size:/i.test(content) || /size:/i.test(content);
+    const hasMode = /mode:\s*(delimiters?|length|fixed)/i.test(content) || /mode\s+(delimiters?|length|fixed)/i.test(content);
+
+    console.log('Validation checks:', {
+      hasFramingSection,
+      hasDelimiters,
+      hasLength,
+      hasFixedSize,
+      hasMode
+    });
+
+    // Protocol must have either:
+    // 1. A framing section with mode specified, OR
+    // 2. At least one of: delimiters, length, or fixed_size configuration
+    const hasValidFraming = (hasFramingSection && hasMode) || hasDelimiters || hasLength || hasFixedSize;
+
+    if (!hasValidFraming) {
+      const error = '协议定义不完整：缺少帧定义（framing）配置。\n\n' +
+                    '协议必须包含以下配置之一：\n' +
+                    '1. 分隔符模式（delimiters）：使用 header/footer 定义帧边界\n' +
+                    '2. 长度字段模式（length）：使用长度字段指示帧大小\n' +
+                    '3. 固定大小模式（fixed）：使用固定大小的帧\n\n' +
+                    '请检查协议文件是否包含完整的 framing 配置。';
+      console.error('Validation failed:', error);
       return {
         valid: false,
-        error: '协议定义不完整：缺少帧定义（framing）配置。协议必须指定分隔符、长度字段或固定大小中的至少一种帧定义方式。'
+        error
       };
     }
 
+    console.log('Validation passed');
     return { valid: true };
   }
 
@@ -130,18 +153,25 @@ export class ProtocolRepositoryService {
       // Convert KPT format to YAML format for backend compatibility
       let content = request.content;
 
+      console.log('Importing protocol:', request.name);
+      console.log('Original content length:', content.length);
+      console.log('Content preview:', content.substring(0, 200));
+
       // Check if content is in KPT format (starts with 'protocol')
       if (content.trim().startsWith('protocol ')) {
         console.log('Converting KPT format to YAML for backend compatibility');
         content = convertKptToYaml(content);
+        console.log('Converted content preview:', content.substring(0, 200));
       }
 
       // Validate protocol content
       const validation = this.validateProtocolContent(content);
       if (!validation.valid) {
+        console.error('Validation failed:', validation.error);
         throw new Error(validation.error);
       }
 
+      console.log('Validation passed, calling backend import...');
       const protocolId = await invoke<string>('import_protocol', {
         content,
         custom_name: request.name,
@@ -162,6 +192,11 @@ export class ProtocolRepositoryService {
         if (match) {
           errorMessage = match[1];
         }
+      }
+
+      // If it's a framing error, provide helpful message
+      if (errorMessage.includes('framing method')) {
+        errorMessage = '协议定义不完整：缺少帧定义（framing）配置。协议必须指定分隔符、长度字段或固定大小中的至少一种帧定义方式。\n\n请确保协议文件包含完整的 framing 配置。';
       }
 
       throw new Error(errorMessage);
