@@ -114,30 +114,32 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
         <div className="p-6 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           {/* Session Name - Full width */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium mb-1">会话名称</label>
-            <input
-              type="text"
-              value={formData.name || ''}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              className={cn(
-                "w-full px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
-                errors.name ? "border-red-500" : "border-border"
+          <div className="col-span-2 flex items-center gap-4">
+            <label className="text-sm font-medium w-32 flex-shrink-0">会话名称</label>
+            <div className="flex items-center gap-2 flex-1">
+              <input
+                type="text"
+                value={formData.name || ''}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                className={cn(
+                  "flex-1 px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
+                  errors.name ? "border-red-500" : "border-border"
+                )}
+                placeholder="输入会话名称"
+              />
+              {errors.name && (
+                <div className="flex items-center space-x-1 text-red-500 text-xs whitespace-nowrap">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                  <span>{errors.name}</span>
+                </div>
               )}
-              placeholder="输入会话名称"
-            />
-            {errors.name && (
-              <div className="flex items-center space-x-1 text-red-500 text-xs mt-1">
-                <AlertCircle className="w-3 h-3" />
-                <span>{errors.name}</span>
-              </div>
-            )}
+            </div>
           </div>
 
           {/* Protocol (Read-only) */}
-          <div>
-            <label className="block text-sm font-medium mb-1">协议类型</label>
-            <div className="flex items-center gap-2 px-3 py-2 text-sm bg-muted border border-border rounded-md text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium w-32 flex-shrink-0">协议类型</label>
+            <div className="flex items-center gap-2 px-3 py-2 text-sm bg-muted border border-border rounded-md text-muted-foreground flex-1">
               <Info className="w-4 h-4" />
               <span>{formData.protocol}</span>
               <span className="text-xs ml-auto">(不可修改)</span>
@@ -145,9 +147,9 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
           </div>
 
           {/* Connection Type (Read-only) */}
-          <div>
-            <label className="block text-sm font-medium mb-1">连接类型</label>
-            <div className="flex items-center gap-2 px-3 py-2 text-sm bg-muted border border-border rounded-md text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium w-32 flex-shrink-0">连接类型</label>
+            <div className="flex items-center gap-2 px-3 py-2 text-sm bg-muted border border-border rounded-md text-muted-foreground flex-1">
               <Info className="w-4 h-4" />
               <span>{formData.connectionType === 'client' ? '客户端' : '服务端'}</span>
               <span className="text-xs ml-auto">(不可修改)</span>
@@ -157,61 +159,65 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
           {/* Host and Port (for non-Modbus RTU protocols) */}
           {formData.protocol !== 'Modbus-RTU' && (
             <>
-              <div>
-                <label className="block text-sm font-medium mb-1">
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0">
                   {formData.connectionType === 'server' ? '监听地址' : '主机地址'}
                 </label>
-                <input
-                  type="text"
-                  value={formData.host || ''}
-                  onChange={(e) => handleInputChange('host', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
-                    errors.host ? "border-red-500" : "border-border"
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="text"
+                    value={formData.host || ''}
+                    onChange={(e) => handleInputChange('host', e.target.value)}
+                    className={cn(
+                      "flex-1 px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
+                      errors.host ? "border-red-500" : "border-border"
+                    )}
+                    placeholder={formData.connectionType === 'server' ? '例如: 0.0.0.0, 127.0.0.1' : '例如: localhost, 192.168.1.100'}
+                  />
+                  {errors.host && (
+                    <div className="flex items-center space-x-1 text-red-500 text-xs whitespace-nowrap">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span>{errors.host}</span>
+                    </div>
                   )}
-                  placeholder={formData.connectionType === 'server' ? '例如: 0.0.0.0, 127.0.0.1' : '例如: localhost, 192.168.1.100'}
-                />
-                {errors.host && (
-                  <div className="flex items-center space-x-1 text-red-500 text-xs mt-1">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>{errors.host}</span>
-                  </div>
-                )}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">端口</label>
-                <input
-                  type="number"
-                  value={formData.port || ''}
-                  onChange={(e) => handleInputChange('port', parseInt(e.target.value) || 0)}
-                  className={cn(
-                    "w-full px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
-                    errors.port ? "border-red-500" : "border-border"
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0">端口</label>
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="number"
+                    value={formData.port || ''}
+                    onChange={(e) => handleInputChange('port', parseInt(e.target.value) || 0)}
+                    className={cn(
+                      "flex-1 px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
+                      errors.port ? "border-red-500" : "border-border"
+                    )}
+                    placeholder="1-65535"
+                    min="1"
+                    max="65535"
+                  />
+                  {errors.port && (
+                    <div className="flex items-center space-x-1 text-red-500 text-xs whitespace-nowrap">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span>{errors.port}</span>
+                    </div>
                   )}
-                  placeholder="1-65535"
-                  min="1"
-                  max="65535"
-                />
-                {errors.port && (
-                  <div className="flex items-center space-x-1 text-red-500 text-xs mt-1">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>{errors.port}</span>
-                  </div>
-                )}
+                </div>
               </div>
             </>
           )}
 
           {/* WebSocket-specific fields */}
           {formData.protocol === 'WebSocket' && (
-            <div>
-              <label className="block text-sm font-medium mb-1">子协议 (可选)</label>
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium w-32 flex-shrink-0">子协议</label>
               <input
                 type="text"
                 value={formData.websocketSubprotocol || ''}
                 onChange={(e) => handleInputChange('websocketSubprotocol', e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1 px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="例如: mqtt, stomp"
               />
             </div>
@@ -219,108 +225,120 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
 
           {/* MQTT-specific fields */}
           {formData.protocol === 'MQTT' && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium w-32 flex-shrink-0">
                 主题 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={formData.mqttTopic || ''}
-                onChange={(e) => handleInputChange('mqttTopic', e.target.value)}
-                className={cn(
-                  "w-full px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
-                  errors.mqttTopic ? "border-red-500" : "border-border"
+              <div className="flex items-center gap-2 flex-1">
+                <input
+                  type="text"
+                  value={formData.mqttTopic || ''}
+                  onChange={(e) => handleInputChange('mqttTopic', e.target.value)}
+                  className={cn(
+                    "flex-1 px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
+                    errors.mqttTopic ? "border-red-500" : "border-border"
+                  )}
+                  placeholder="例如: sensor/temperature"
+                />
+                {errors.mqttTopic && (
+                  <div className="flex items-center space-x-1 text-red-500 text-xs whitespace-nowrap">
+                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                    <span>{errors.mqttTopic}</span>
+                  </div>
                 )}
-                placeholder="例如: sensor/temperature"
-              />
-              {errors.mqttTopic && (
-                <div className="flex items-center space-x-1 text-red-500 text-xs mt-1">
-                  <AlertCircle className="w-3 h-3" />
-                  <span>{errors.mqttTopic}</span>
-                </div>
-              )}
+              </div>
             </div>
           )}
 
           {/* SSE-specific fields */}
           {formData.protocol === 'SSE' && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                事件类型 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={(formData.sseEventTypes || []).join(', ')}
-                onChange={(e) => handleInputChange('sseEventTypes', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                className={cn(
-                  "w-full px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
-                  errors.sseEventTypes ? "border-red-500" : "border-border"
-                )}
-                placeholder="例如: message, update, notification (逗号分隔)"
-              />
-              {errors.sseEventTypes && (
-                <div className="flex items-center space-x-1 text-red-500 text-xs mt-1">
-                  <AlertCircle className="w-3 h-3" />
-                  <span>{errors.sseEventTypes}</span>
+            <div className="col-span-2">
+              <div className="flex items-start gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0 pt-2">
+                  事件类型 <span className="text-red-500">*</span>
+                </label>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={(formData.sseEventTypes || []).join(', ')}
+                      onChange={(e) => handleInputChange('sseEventTypes', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                      className={cn(
+                        "flex-1 px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
+                        errors.sseEventTypes ? "border-red-500" : "border-border"
+                      )}
+                      placeholder="例如: message, update, notification (逗号分隔)"
+                    />
+                    {errors.sseEventTypes && (
+                      <div className="flex items-center space-x-1 text-red-500 text-xs whitespace-nowrap">
+                        <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                        <span>{errors.sseEventTypes}</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    多个事件类型用逗号分隔
+                  </p>
                 </div>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">
-                多个事件类型用逗号分隔
-              </p>
+              </div>
             </div>
           )}
 
           {/* Modbus TCP/RTU-specific fields */}
           {(formData.protocol === 'Modbus' || formData.protocol === 'Modbus-TCP' || formData.protocol === 'Modbus-RTU') && (
-            <div>
-              <label className="block text-sm font-medium mb-1">单元标识符 (Unit ID)</label>
-              <input
-                type="number"
-                value={formData.modbusUnitId || 1}
-                onChange={(e) => handleInputChange('modbusUnitId', parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="1-247"
-                min="1"
-                max="247"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Modbus 从站设备地址 (1-247)
-              </p>
+            <div className="flex items-start gap-4">
+              <label className="text-sm font-medium w-32 flex-shrink-0 pt-2">Unit ID</label>
+              <div className="flex-1">
+                <input
+                  type="number"
+                  value={formData.modbusUnitId || 1}
+                  onChange={(e) => handleInputChange('modbusUnitId', parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="1-247"
+                  min="1"
+                  max="247"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Modbus 从站设备地址 (1-247)
+                </p>
+              </div>
             </div>
           )}
 
           {/* Modbus RTU Serial Configuration */}
           {formData.protocol === 'Modbus-RTU' && (
             <>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">
+              <div className="col-span-2 flex items-center gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0">
                   串口 <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.modbusSerialPort || ''}
-                  onChange={(e) => handleInputChange('modbusSerialPort', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
-                    errors.modbusSerialPort ? "border-red-500" : "border-border"
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="text"
+                    value={formData.modbusSerialPort || ''}
+                    onChange={(e) => handleInputChange('modbusSerialPort', e.target.value)}
+                    className={cn(
+                      "flex-1 px-3 py-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary",
+                      errors.modbusSerialPort ? "border-red-500" : "border-border"
+                    )}
+                    placeholder="Windows: COM1, Linux: /dev/ttyUSB0"
+                  />
+                  {errors.modbusSerialPort && (
+                    <div className="flex items-center space-x-1 text-red-500 text-xs whitespace-nowrap">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span>{errors.modbusSerialPort}</span>
+                    </div>
                   )}
-                  placeholder="Windows: COM1, Linux: /dev/ttyUSB0"
-                />
-                {errors.modbusSerialPort && (
-                  <div className="flex items-center space-x-1 text-red-500 text-xs mt-1">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>{errors.modbusSerialPort}</span>
-                  </div>
-                )}
+                </div>
               </div>
 
-              {/* Serial port settings - these will naturally flow in the parent 2-column grid */}
-              <div>
-                <label className="block text-sm font-medium mb-1">波特率</label>
+              {/* Serial port settings */}
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0">波特率</label>
                 <select
                   value={formData.modbusBaudRate || 9600}
                   onChange={(e) => handleInputChange('modbusBaudRate', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex-1 px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="9600">9600</option>
                   <option value="19200">19200</option>
@@ -330,12 +348,12 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">数据位</label>
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0">数据位</label>
                 <select
                   value={formData.modbusDataBits || 8}
                   onChange={(e) => handleInputChange('modbusDataBits', parseInt(e.target.value) as 5 | 6 | 7 | 8)}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex-1 px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="5">5</option>
                   <option value="6">6</option>
@@ -344,12 +362,12 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">校验位</label>
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0">校验位</label>
                 <select
                   value={formData.modbusParity || 'none'}
                   onChange={(e) => handleInputChange('modbusParity', e.target.value as 'none' | 'even' | 'odd')}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex-1 px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="none">无</option>
                   <option value="even">偶校验</option>
@@ -357,12 +375,12 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">停止位</label>
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0">停止位</label>
                 <select
                   value={formData.modbusStopBits || 1}
                   onChange={(e) => handleInputChange('modbusStopBits', parseInt(e.target.value) as 1 | 2)}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex-1 px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="1">1</option>
                   <option value="2">2</option>
@@ -375,50 +393,59 @@ export const EditConfigModal: React.FC<EditConfigModalProps> = ({
           <div className="col-span-2 border-t border-border pt-4 mt-2">
             <h3 className="text-sm font-medium mb-3">连接管理</h3>
 
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm">自动重连</label>
-                <input
-                  type="checkbox"
-                  checked={formData.autoReconnect || false}
-                  onChange={(e) => handleInputChange('autoReconnect', e.target.checked)}
-                  className="w-4 h-4"
-                />
+            <div className="space-y-2">
+              {/* Auto Reconnect and Keep Alive - Compact */}
+              <div className="flex items-center gap-8">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="autoReconnect"
+                    checked={formData.autoReconnect || false}
+                    onChange={(e) => handleInputChange('autoReconnect', e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="autoReconnect" className="text-sm cursor-pointer">自动重连</label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="keepAlive"
+                    checked={formData.keepAlive !== false}
+                    onChange={(e) => handleInputChange('keepAlive', e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="keepAlive" className="text-sm cursor-pointer">保持连接</label>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="text-sm">保持连接</label>
-                <input
-                  type="checkbox"
-                  checked={formData.keepAlive !== false}
-                  onChange={(e) => handleInputChange('keepAlive', e.target.checked)}
-                  className="w-4 h-4"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">超时时间 (毫秒)</label>
+              {/* Timeout */}
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0">超时时间</label>
                 <input
                   type="number"
                   value={formData.timeout || 10000}
                   onChange={(e) => handleInputChange('timeout', parseInt(e.target.value) || 10000)}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex-1 px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="10000"
                   min="1000"
                 />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">毫秒</span>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">重试次数</label>
+              {/* Retry Attempts */}
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium w-32 flex-shrink-0">重试次数</label>
                 <input
                   type="number"
                   value={formData.retryAttempts || 3}
                   onChange={(e) => handleInputChange('retryAttempts', parseInt(e.target.value) || 3)}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex-1 px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="3"
                   min="0"
                   max="10"
                 />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">次</span>
               </div>
             </div>
           </div>
