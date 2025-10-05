@@ -11,6 +11,18 @@ import {
   ParsedCommand,
 } from '@/types/shell';
 import { generateId } from '@/utils';
+import {
+  executeSystemCommand,
+  isLikelySystemCommand,
+  requiresInteractiveMode,
+  executeInteractiveCommand
+} from './shell/SystemCommandExecutor';
+import {
+  parsePipeline,
+  executePipeline,
+  hasPipelineFeatures
+} from './shell/PipelineExecutor';
+import { interactiveSessionManager } from './shell/InteractiveSession';
 
 export class ShellExecutor implements IShellExecutor {
   private jobs = new Map<string, ShellJob>();
@@ -71,8 +83,29 @@ export class ShellExecutor implements IShellExecutor {
    */
   async execute(commandStr: string, context: ShellContext): Promise<ShellExecutionResult> {
     const startTime = Date.now();
+
+    // Check for pipeline features (pipes and redirects)
+    if (hasPipelineFeatures(commandStr)) {
+      console.log(`[ShellExecutor] Detected pipeline features in command: ${commandStr}`);
+
+      try {
+        const commands = parsePipeline(commandStr);
+        console.log(`[ShellExecutor] Parsed ${commands.length} commands in pipeline`);
+
+        return await executePipeline(commands, context);
+      } catch (error) {
+        return {
+          success: false,
+          output: '',
+          error: `Pipeline execution failed: ${error instanceof Error ? error.message : String(error)}`,
+          exitCode: 1,
+          executionTime: Date.now() - startTime,
+        };
+      }
+    }
+
     const parsed = this.parseCommand(commandStr);
-    
+
     // Handle background execution
     if (parsed.background) {
       const jobId = await this.executeInBackground(commandStr, context);
@@ -84,34 +117,77 @@ export class ShellExecutor implements IShellExecutor {
         jobId,
       };
     }
-    
+
     // Get command
     const command = this.getCommand(parsed.command);
-    
-    if (!command) {
-      return {
-        success: false,
-        output: '',
-        error: `Command not found: ${parsed.command}`,
-        exitCode: 127,
-        executionTime: Date.now() - startTime,
-      };
+
+    // If command is registered, execute it
+    if (command) {
+      try {
+        const result = await command.execute(parsed.args, context);
+        result.executionTime = Date.now() - startTime;
+        return result;
+      } catch (error) {
+        return {
+          success: false,
+          output: '',
+          error: error instanceof Error ? error.message : String(error),
+          exitCode: 1,
+          executionTime: Date.now() - startTime,
+        };
+      }
     }
-    
-    try {
-      // Execute command
-      const result = await command.execute(parsed.args, context);
-      result.executionTime = Date.now() - startTime;
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        output: '',
-        error: error instanceof Error ? error.message : String(error),
-        exitCode: 1,
-        executionTime: Date.now() - startTime,
-      };
+
+    // If not a builtin command, try to execute as system command
+    if (isLikelySystemCommand(parsed.command)) {
+      console.log(`[ShellExecutor] Attempting to execute system command: ${parsed.command}`);
+
+      // Check if command requires interactive mode
+      if (requiresInteractiveMode(parsed.command)) {
+        console.log(`[ShellExecutor] Command requires interactive mode: ${parsed.command}`);
+
+        // Start interactive session
+        try {
+          const sessionId = await interactiveSessionManager.startSession(
+            parsed.command,
+            parsed.args,
+            context,
+            {
+              onOutput: (data) => console.log(`[Interactive] ${data}`),
+              onError: (data) => console.error(`[Interactive] ${data}`),
+              onClose: (code) => console.log(`[Interactive] Closed with code: ${code}`),
+            }
+          );
+
+          return {
+            success: true,
+            output: `Interactive session started: ${sessionId}\nUse the interactive terminal window to interact with the command.`,
+            exitCode: 0,
+            executionTime: Date.now() - startTime,
+          };
+        } catch (error) {
+          return {
+            success: false,
+            output: '',
+            error: `Failed to start interactive session: ${error instanceof Error ? error.message : String(error)}`,
+            exitCode: 1,
+            executionTime: Date.now() - startTime,
+          };
+        }
+      }
+
+      // Execute as system command
+      return await executeSystemCommand(parsed.command, parsed.args, context);
     }
+
+    // Command not found
+    return {
+      success: false,
+      output: '',
+      error: `Command not found: ${parsed.command}. Type 'help' to see available builtin commands.`,
+      exitCode: 127,
+      executionTime: Date.now() - startTime,
+    };
   }
 
   /**
@@ -187,7 +263,7 @@ export class ShellExecutor implements IShellExecutor {
     isCancelled: () => boolean
   ): Promise<ShellExecutionResult> {
     const startTime = Date.now();
-    
+
     // Check cancellation before execution
     if (isCancelled()) {
       return {
@@ -198,44 +274,74 @@ export class ShellExecutor implements IShellExecutor {
         executionTime: Date.now() - startTime,
       };
     }
-    
+
     const command = this.getCommand(parsed.command);
-    
-    if (!command) {
-      return {
-        success: false,
-        output: '',
-        error: `Command not found: ${parsed.command}`,
-        exitCode: 127,
-        executionTime: Date.now() - startTime,
-      };
-    }
-    
-    try {
-      const result = await command.execute(parsed.args, context);
-      
-      // Check cancellation after execution
-      if (isCancelled()) {
+
+    // Try builtin command first
+    if (command) {
+      try {
+        const result = await command.execute(parsed.args, context);
+
+        // Check cancellation after execution
+        if (isCancelled()) {
+          return {
+            success: false,
+            output: result.output,
+            error: 'Job cancelled',
+            exitCode: 130,
+            executionTime: Date.now() - startTime,
+          };
+        }
+
+        result.executionTime = Date.now() - startTime;
+        return result;
+      } catch (error) {
         return {
           success: false,
-          output: result.output,
-          error: 'Job cancelled',
-          exitCode: 130,
+          output: '',
+          error: error instanceof Error ? error.message : String(error),
+          exitCode: 1,
           executionTime: Date.now() - startTime,
         };
       }
-      
-      result.executionTime = Date.now() - startTime;
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        output: '',
-        error: error instanceof Error ? error.message : String(error),
-        exitCode: 1,
-        executionTime: Date.now() - startTime,
-      };
     }
+
+    // Try system command
+    if (isLikelySystemCommand(parsed.command)) {
+      try {
+        const result = await executeSystemCommand(parsed.command, parsed.args, context);
+
+        // Check cancellation after execution
+        if (isCancelled()) {
+          return {
+            success: false,
+            output: result.output,
+            error: 'Job cancelled',
+            exitCode: 130,
+            executionTime: Date.now() - startTime,
+          };
+        }
+
+        return result;
+      } catch (error) {
+        return {
+          success: false,
+          output: '',
+          error: error instanceof Error ? error.message : String(error),
+          exitCode: 1,
+          executionTime: Date.now() - startTime,
+        };
+      }
+    }
+
+    // Command not found
+    return {
+      success: false,
+      output: '',
+      error: `Command not found: ${parsed.command}`,
+      exitCode: 127,
+      executionTime: Date.now() - startTime,
+    };
   }
 
   /**

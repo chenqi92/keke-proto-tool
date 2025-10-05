@@ -27,6 +27,7 @@ tauri-plugin-os = "2.0.0-rc"
 tauri-plugin-opener = "2.0.0-rc"
 tauri-plugin-dialog = "2.0.0-rc"
 tauri-plugin-fs = "2.0.0-rc"
+tauri-plugin-shell = "2.0.0-rc"
 
 # Async runtime and networking
 tokio = { version = "1.0", features = ["net", "rt-multi-thread", "macros", "io-util", "time"] }
@@ -56,6 +57,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 bytes = "1.0"
 dashmap = "5.5"  # Concurrent HashMap for session management
 hex = "0.4"
+encoding_rs = "0.8"  # Character encoding conversion (GBK support for Windows)
 
 # Parsing system dependencies
 serde_yaml = "0.9"  # YAML parsing for .kkp.yaml rules

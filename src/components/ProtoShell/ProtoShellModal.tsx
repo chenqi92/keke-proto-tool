@@ -12,6 +12,7 @@ import { HistorySearchPanel } from './HistorySearchPanel';
 import { OutputPager } from './OutputPager';
 import { ThemeSelector } from './ThemeSelector';
 import { ShellThemeProvider } from './ThemeConfig';
+import { InteractiveTerminalManager } from './InteractiveTerminal';
 import { generateId } from '@/utils';
 
 interface ProtoShellModalProps {
@@ -680,6 +681,9 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
           </div>
         </div>
       </div>
+
+      {/* Interactive Terminal Manager */}
+      <InteractiveTerminalManager />
     </ShellThemeProvider>
   );
 };

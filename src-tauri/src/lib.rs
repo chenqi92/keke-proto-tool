@@ -10,8 +10,10 @@ mod storage;
 mod types;
 mod utils;
 mod menu;
+mod shell_executor;
 
 use commands::*;
+use shell_executor::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -84,12 +86,22 @@ pub fn run() {
             get_protocol_factor_definitions,
             parse_hj212_message,
             // File dialog commands
-            save_file_dialog
+            save_file_dialog,
+            // Shell executor commands
+            execute_system_command,
+            execute_pipeline,
+            read_file_content,
+            write_file_content,
+            start_interactive_session,
+            get_interactive_session,
+            list_interactive_sessions,
+            kill_interactive_session
         ])
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -113,6 +125,10 @@ pub fn run() {
             });
 
             app.manage(session_manager);
+
+            // Initialize interactive session manager
+            let interactive_session_manager = shell_executor::InteractiveSessionManager::new();
+            app.manage(interactive_session_manager);
 
             // Initialize parser system with repository
             let app_data_dir = app.path().app_data_dir()

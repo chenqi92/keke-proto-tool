@@ -74,7 +74,10 @@
         }
       ]
     },
-    "fs:allow-exists"
+    "fs:allow-exists",
+    "shell:default",
+    "shell:allow-execute",
+    "shell:allow-spawn"
   ]
 }
 
