@@ -154,61 +154,56 @@ export const ProtocolStore: React.FC<ProtocolStoreProps> = ({ onProtocolInstalle
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <Package className="w-5 h-5 text-primary" />
-          <div>
-            <h2 className="text-lg font-semibold">协议商店</h2>
-            <p className="text-xs text-muted-foreground">
-              从 GitHub 仓库浏览和下载协议
-            </p>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={loading}
-        >
-          <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
-          刷新
-        </Button>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="p-4 border-b border-border space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      {/* Header - Compact single row */}
+      <div className="flex items-center gap-2 p-2 border-b border-border">
+        {/* Search - Shorter */}
+        <div className="relative w-48">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="搜索协议..."
+            placeholder="搜索..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-8 pr-2 py-1.5 h-8 text-xs"
           />
         </div>
 
-        {/* Category Filter */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-muted-foreground">分类:</span>
+        {/* Category Filter - Compact */}
+        <Button
+          variant={selectedCategory === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setSelectedCategory('all')}
+          className="h-8 px-2 text-xs"
+        >
+          全部
+        </Button>
+        {categories.map(category => (
           <Button
-            variant={selectedCategory === 'all' ? 'default' : 'outline'}
+            key={category}
+            variant={selectedCategory === category ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setSelectedCategory('all')}
+            onClick={() => setSelectedCategory(category)}
+            className="h-8 px-2 text-xs"
           >
-            全部 ({protocols.length})
+            {category}
           </Button>
-          {categories.map(category => (
-            <Button
-              key={category}
-              variant={selectedCategory === category ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedCategory(category)}
-            >
-              {category} ({protocolStoreService.filterByCategory(protocols, category).length})
-            </Button>
-          ))}
+        ))}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Refresh Button */}
+        <div title="刷新协议列表">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="h-8 px-2 text-xs"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5 mr-1", loading && "animate-spin")} />
+            刷新
+          </Button>
         </div>
       </div>
 

@@ -452,70 +452,68 @@ examples:
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border p-4 bg-muted/30">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Network className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold">协议插件</h2>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={loadProtocols}
-              disabled={loading}
-              className="flex items-center space-x-2 px-2.5 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 text-sm disabled:opacity-50"
-            >
-              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-              <span>刷新</span>
-            </button>
-            <input
-              type="file"
-              id="protocol-upload"
-              accept=".kpt"
-              onChange={handleFileUpload}
-              className="hidden"
-              disabled={loading}
-            />
-            <label
-              htmlFor="protocol-upload"
-              className={cn(
-                "flex items-center space-x-2 px-2.5 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm cursor-pointer",
-                loading && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <Upload className="w-4 h-4" />
-              <span>导入协议</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="flex items-center space-x-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      {/* Header - Compact single row */}
+      <div className="border-b border-border p-2 bg-muted/30">
+        <div className="flex items-center gap-2">
+          {/* Search - Shorter */}
+          <div className="relative w-48">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="搜索协议插件..."
+              placeholder="搜索..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full pl-8 pr-2 py-1.5 border border-border rounded-md bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
+          {/* Protocol Filter */}
           <select
             value={selectedProtocol || ''}
             onChange={(e) => setSelectedProtocol(e.target.value || null)}
-            className="pl-3 pr-8 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors hover:border-accent-foreground"
+            className="px-2 py-1.5 border border-border rounded-md bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
             disabled={loading}
           >
-            <option value="">所有协议</option>
+            <option value="">协议</option>
             {protocolNames.map(protocol => (
               <option key={protocol} value={protocol}>
                 {protocol}
               </option>
             ))}
           </select>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Action Buttons */}
+          <button
+            onClick={loadProtocols}
+            disabled={loading}
+            className="flex items-center space-x-1 px-2 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 text-xs disabled:opacity-50"
+            title="刷新列表"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+            <span>刷新</span>
+          </button>
+          <input
+            type="file"
+            id="protocol-upload"
+            accept=".kpt"
+            onChange={handleFileUpload}
+            className="hidden"
+            disabled={loading}
+          />
+          <label
+            htmlFor="protocol-upload"
+            className={cn(
+              "flex items-center space-x-1 px-2 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-xs cursor-pointer",
+              loading && "opacity-50 cursor-not-allowed"
+            )}
+            title="导入协议定义文件"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>导入</span>
+          </label>
         </div>
       </div>
 

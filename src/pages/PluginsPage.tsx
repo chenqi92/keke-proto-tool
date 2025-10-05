@@ -64,39 +64,32 @@ export const PluginsPage: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border p-4 bg-muted/30">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Puzzle className="w-5 h-5 text-primary" />
-            <h1 className="text-xl font-semibold">协议仓库</h1>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex items-center space-x-4">
+      {/* Header - Compact */}
+      <div className="border-b border-border p-2 bg-muted/30">
+        {/* Tabs only */}
+        <div className="flex items-center space-x-2">
           <button
             onClick={() => setActiveTab('protocol')}
             className={cn(
-              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
+              "flex items-center space-x-1.5 px-2 py-1.5 text-xs rounded-md transition-colors",
               activeTab === 'protocol'
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent"
             )}
           >
-            <Network className="w-4 h-4" />
+            <Network className="w-3.5 h-3.5" />
             <span>协议插件</span>
           </button>
           <button
             onClick={() => setActiveTab('store')}
             className={cn(
-              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
+              "flex items-center space-x-1.5 px-2 py-1.5 text-xs rounded-md transition-colors",
               activeTab === 'store'
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent"
             )}
           >
-            <Store className="w-4 h-4" />
+            <Store className="w-3.5 h-3.5" />
             <span>协议商店</span>
           </button>
         </div>

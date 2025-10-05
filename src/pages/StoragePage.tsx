@@ -529,55 +529,48 @@ export const StoragePage: React.FC = () => {
         {/* Toast Container */}
         <toast.ToastContainer />
 
-        {/* Header */}
-        <div className="border-b border-border p-4 bg-muted/30">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <Database className="w-5 h-5 text-primary" />
-              <h1 className="text-xl font-semibold">储存方式</h1>
-            </div>
+        {/* Header - Compact */}
+        <div className="border-b border-border p-2 bg-muted/30">
+          {/* Tabs only */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setActiveTab('connections')}
+              className={cn(
+                "flex items-center space-x-1.5 px-2 py-1.5 text-xs rounded-md transition-colors",
+                activeTab === 'connections'
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-accent"
+              )}
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>数据库连接</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={cn(
+                "flex items-center space-x-1.5 px-2 py-1.5 text-xs rounded-md transition-colors",
+                activeTab === 'settings'
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-accent"
+              )}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>存储设置</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('monitoring')}
+              className={cn(
+                "flex items-center space-x-1.5 px-2 py-1.5 text-xs rounded-md transition-colors",
+                activeTab === 'monitoring'
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-accent"
+              )}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>存储监控</span>
+            </button>
           </div>
-
-        {/* Tabs */}
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setActiveTab('connections')}
-            className={cn(
-              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
-              activeTab === 'connections'
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent"
-            )}
-          >
-            <Database className="w-4 h-4" />
-            <span>数据库连接</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={cn(
-              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
-              activeTab === 'settings'
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent"
-            )}
-          >
-            <Settings className="w-4 h-4" />
-            <span>存储设置</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('monitoring')}
-            className={cn(
-              "flex items-center space-x-2 px-2.5 py-1.5 text-sm rounded-md transition-colors",
-              activeTab === 'monitoring'
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent"
-            )}
-          >
-            <Activity className="w-4 h-4" />
-            <span>存储监控</span>
-          </button>
         </div>
-      </div>
 
         {/* Content */}
         <div className="flex-1 overflow-hidden">

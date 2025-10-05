@@ -14,6 +14,9 @@ import { AboutPage } from '@/pages/AboutPage'
 import { UserGuidePage } from '@/pages/UserGuidePage'
 import { ReleaseNotesPage } from '@/pages/ReleaseNotesPage'
 import { ReportIssuePage } from '@/pages/ReportIssuePage'
+import { LogsPage } from '@/pages/LogsPage'
+import { PluginsPage } from '@/pages/PluginsPage'
+import { StoragePage } from '@/pages/StoragePage'
 
 // Layout Components
 import { MainContent } from '@/components/Layout/MainContent'
@@ -27,6 +30,7 @@ import { MenuUpdateNotification } from '@/components/MenuUpdateNotification'
 import { UpdateModal } from '@/components/UpdateModal'
 import { ProtocolEditorModal } from '@/components/ProtocolEditorModal'
 import { ProtoShellModal } from '@/components/ProtoShell'
+import { ToolboxInterface } from '@/components/Toolbox/ToolboxInterface'
 import { useToast, useConfirmDialog } from '@/components/Common'
 
 // Context
@@ -327,6 +331,60 @@ function App() {
             isOpen={true}
             onClose={closeModal}
           />
+        )
+      case 'toolbox':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="工具箱"
+            size="xl"
+            fixedHeight={true}
+          >
+            <ToolboxInterface
+              mode="page"
+              onToolExecute={(toolId, result) => {
+                console.log('Tool executed:', toolId, result);
+              }}
+              className="h-full"
+            />
+          </Modal>
+        )
+      case 'logs':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="日志管理"
+            size="xl"
+            fixedHeight={true}
+          >
+            <LogsPage />
+          </Modal>
+        )
+      case 'plugins':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="协议仓库"
+            size="xl"
+            fixedHeight={true}
+          >
+            <PluginsPage />
+          </Modal>
+        )
+      case 'storage':
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeModal}
+            title="储存方式"
+            size="xl"
+            fixedHeight={true}
+          >
+            <StoragePage />
+          </Modal>
         )
       default:
         return null

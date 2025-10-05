@@ -5,7 +5,11 @@ import {
   Settings,
   Edit3,
   Terminal,
-  Command
+  Command,
+  Wrench,
+  FileText,
+  Puzzle,
+  Database
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { usePlatform } from '@/hooks/usePlatform';
@@ -61,6 +65,34 @@ const createLeftToolBarItems = (
     label: 'ProtoShell',
     icon: Terminal,
     action: onOpenProtoShell
+  },
+  {
+    id: 'toolbox',
+    label: '工具箱',
+    icon: Wrench,
+    shortcut: 'Ctrl+2',
+    action: () => onOpenModal('toolbox')
+  },
+  {
+    id: 'logs',
+    label: '日志管理',
+    icon: FileText,
+    shortcut: 'Ctrl+3',
+    action: () => onOpenModal('logs')
+  },
+  {
+    id: 'plugins',
+    label: '协议仓库',
+    icon: Puzzle,
+    shortcut: 'Ctrl+4',
+    action: () => onOpenModal('plugins')
+  },
+  {
+    id: 'storage',
+    label: '储存方式',
+    icon: Database,
+    shortcut: 'Ctrl+5',
+    action: () => onOpenModal('storage')
   }
 ];
 
@@ -104,6 +136,38 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
         handleOpenCommandPalette();
       },
       description: '打开快捷命令'
+    },
+    {
+      key: '2',
+      ctrl: true,
+      handler: () => {
+        onOpenModal('toolbox');
+      },
+      description: '打开工具箱'
+    },
+    {
+      key: '3',
+      ctrl: true,
+      handler: () => {
+        onOpenModal('logs');
+      },
+      description: '打开日志管理'
+    },
+    {
+      key: '4',
+      ctrl: true,
+      handler: () => {
+        onOpenModal('plugins');
+      },
+      description: '打开协议仓库'
+    },
+    {
+      key: '5',
+      ctrl: true,
+      handler: () => {
+        onOpenModal('storage');
+      },
+      description: '打开储存方式'
     }
   ]);
 
@@ -128,14 +192,14 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     if (layoutConfig.toolbar.showAllButtons) {
       return leftItems;
     } else if (layoutConfig.toolbar.showEssentialButtons) {
-      // 平板：显示核心功能，包括快捷命令和 ProtoShell
+      // 平板：显示核心功能
       return leftItems.filter(item =>
-        item.id && ['new-session', 'edit-protocol', 'command-palette', 'proto-shell'].includes(item.id)
+        item.id && ['new-session', 'edit-protocol', 'command-palette', 'proto-shell', 'toolbox', 'logs'].includes(item.id)
       );
     } else {
       // 移动端：只显示最重要的功能
       return leftItems.filter(item =>
-        item.id && ['new-session', 'command-palette'].includes(item.id)
+        item.id && ['new-session', 'command-palette', 'toolbox'].includes(item.id)
       );
     }
   };

@@ -300,53 +300,18 @@ export const LogsPage: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
-            {/* Header */}
-            <div className="border-b border-border p-4 bg-muted/30">
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h1 className="text-xl font-semibold">日志管理</h1>
-                        {sessionFilter && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                                正在查看会话: <span className="font-medium text-foreground">{sessionName}</span>
-                                <button
-                                    onClick={() => {
-                                        setSessionFilter(null);
-                                        setSessionName('');
-                                    }}
-                                    className="ml-2 text-xs text-primary hover:underline"
-                                >
-                                    清除过滤
-                                </button>
-                            </p>
-                        )}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <button
-                            onClick={() => setShowExportModal(true)}
-                            className="flex items-center space-x-2 px-3 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
-                            <Download className="w-4 h-4"/>
-                            <span>导出</span>
-                        </button>
-                        <button
-                            onClick={() => setShowClearConfirm(true)}
-                            className="flex items-center space-x-2 px-3 py-1.5 border border-border rounded-md hover:bg-accent text-sm">
-                            <Trash2 className="w-4 h-4"/>
-                            <span>清理</span>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Filters */}
-                <div className="flex flex-wrap items-center gap-4">
-                    {/* Search */}
-                    <div className="relative flex-1 min-w-64">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+            {/* Header - Compact single row */}
+            <div className="border-b border-border p-2.5 bg-muted/30">
+                <div className="flex items-center gap-2">
+                    {/* Search - Shorter */}
+                    <div className="relative w-48">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground"/>
                         <input
                             type="text"
                             placeholder="搜索日志..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full pl-8 pr-2 py-1.5 border border-border rounded-md bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                     </div>
 
@@ -354,9 +319,9 @@ export const LogsPage: React.FC = () => {
                     <select
                         value={selectedLevel || ''}
                         onChange={(e) => setSelectedLevel(e.target.value || null)}
-                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-24"
+                        className="px-2 py-1.5 border border-border rounded-md bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
-                        <option value="">所有级别</option>
+                        <option value="">级别</option>
                         {levels.map(level => (
                             <option key={level} value={level}>
                                 {level.toUpperCase()}
@@ -368,9 +333,9 @@ export const LogsPage: React.FC = () => {
                     <select
                         value={selectedCategory || ''}
                         onChange={(e) => setSelectedCategory(e.target.value || null)}
-                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-24"
+                        className="px-2 py-1.5 border border-border rounded-md bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
-                        <option value="">所有类别</option>
+                        <option value="">类别</option>
                         {categories.map(category => (
                             <option key={category.value} value={category.value}>
                                 {category.label}
@@ -382,7 +347,7 @@ export const LogsPage: React.FC = () => {
                     <select
                         value={selectedTimeRange}
                         onChange={(e) => setSelectedTimeRange(e.target.value)}
-                        className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-24"
+                        className="px-2 py-1.5 border border-border rounded-md bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                         {timeRanges.map(range => (
                             <option key={range.value} value={range.value}>
@@ -390,6 +355,44 @@ export const LogsPage: React.FC = () => {
                             </option>
                         ))}
                     </select>
+
+                    {/* Spacer */}
+                    <div className="flex-1" />
+
+                    {/* Session Filter Info */}
+                    {sessionFilter && (
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">会话:</span>
+                            <span className="text-xs font-medium">{sessionName}</span>
+                            <button
+                                onClick={() => {
+                                    setSessionFilter(null);
+                                    setSessionName('');
+                                }}
+                                className="text-xs text-primary hover:underline ml-1"
+                            >
+                                清除
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <button
+                        onClick={() => setShowExportModal(true)}
+                        className="flex items-center space-x-1 px-2 py-1.5 border border-border rounded-md hover:bg-accent text-xs"
+                        title="导出日志"
+                    >
+                        <Download className="w-3.5 h-3.5"/>
+                        <span>导出</span>
+                    </button>
+                    <button
+                        onClick={() => setShowClearConfirm(true)}
+                        className="flex items-center space-x-1 px-2 py-1.5 border border-border rounded-md hover:bg-accent text-xs"
+                        title="清理日志"
+                    >
+                        <Trash2 className="w-3.5 h-3.5"/>
+                        <span>清理</span>
+                    </button>
                 </div>
             </div>
 

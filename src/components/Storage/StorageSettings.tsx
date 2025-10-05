@@ -287,21 +287,12 @@ export const StorageSettings: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="p-6 border-b border-border bg-muted/30">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Settings className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold">存储设置</h2>
-              <p className="text-sm text-muted-foreground">配置数据存储策略和规则</p>
-            </div>
-          </div>
+      {/* Header - Compact */}
+      <div className="p-2 border-b border-border bg-muted/30">
+        <div className="flex items-center justify-end">
           <button
             onClick={() => setIsAddingRule(true)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            className="flex items-center space-x-1 px-2 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>添加规则</span>
