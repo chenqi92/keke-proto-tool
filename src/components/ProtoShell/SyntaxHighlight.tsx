@@ -1,7 +1,7 @@
 // Syntax Highlighting for ProtoShell Input
-import React from 'react';
+import React, { useMemo } from 'react';
 import { cn } from '@/utils';
-import { useShellTheme } from './ThemeConfig';
+import { useShellTheme, ShellThemeColors } from './ThemeConfig';
 
 interface SyntaxHighlightProps {
   input: string;
@@ -13,16 +13,24 @@ interface SyntaxHighlightProps {
  * Highlights: commands, arguments, strings, operators, errors
  */
 export const SyntaxHighlight: React.FC<SyntaxHighlightProps> = ({ input, className }) => {
-  const { getColor } = useShellTheme();
+  const { getColor, config } = useShellTheme();
+
+  console.log('[SyntaxHighlight] Rendering with theme:', config.theme);
 
   if (!input) return null;
 
-  const tokens = tokenize(input);
+  const tokens = useMemo(() => tokenize(input), [input]);
+
+  // Create a style getter that depends on the theme
+  const getStyle = useMemo(() => {
+    console.log('[SyntaxHighlight] Creating new style getter for theme:', config.theme);
+    return (type: Token['type']) => getTokenStyle(type, getColor);
+  }, [config.theme, getColor]);
 
   return (
     <div className={cn('font-mono', className)}>
       {tokens.map((token, index) => (
-        <span key={index} style={getTokenStyle(token.type, getColor)}>
+        <span key={index} style={getStyle(token.type)}>
           {token.value}
         </span>
       ))}
@@ -125,7 +133,10 @@ function tokenize(input: string): Token[] {
 /**
  * Get inline style for token type using theme colors
  */
-function getTokenStyle(type: Token['type'], getColor: (key: string) => string): React.CSSProperties {
+function getTokenStyle(
+  type: Token['type'],
+  getColor: (colorKey: keyof ShellThemeColors) => string
+): React.CSSProperties {
   switch (type) {
     case 'command':
       return { color: getColor('command'), fontWeight: 600 };

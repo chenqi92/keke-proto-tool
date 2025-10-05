@@ -210,12 +210,19 @@ export const ShellThemeProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [config]);
 
   const setTheme = (theme: ShellTheme) => {
-    setConfig(prev => ({
-      ...prev,
-      theme,
-      colors: THEME_PRESETS[theme],
-      monochromeMode: theme === 'monochrome',
-    }));
+    console.log('[ShellTheme] Changing theme to:', theme);
+    const newColors = THEME_PRESETS[theme];
+    console.log('[ShellTheme] New colors:', newColors);
+    setConfig(prev => {
+      const newConfig = {
+        ...prev,
+        theme,
+        colors: newColors,
+        monochromeMode: theme === 'monochrome',
+      };
+      console.log('[ShellTheme] New config:', newConfig);
+      return newConfig;
+    });
   };
 
   const setDisableColors = (disable: boolean) => {
@@ -235,12 +242,14 @@ export const ShellThemeProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
   };
 
-  const getColor = (colorKey: keyof ShellThemeColors): string => {
+  const getColor = React.useCallback((colorKey: keyof ShellThemeColors): string => {
     if (config.disableColors || config.monochromeMode) {
       return 'inherit';
     }
-    return config.colors[colorKey];
-  };
+    const color = config.colors[colorKey];
+    console.log(`[ShellTheme] getColor(${colorKey}) = ${color}, theme: ${config.theme}`);
+    return color;
+  }, [config.disableColors, config.monochromeMode, config.colors, config.theme]);
 
   return (
     <ThemeContext.Provider value={{
@@ -260,8 +269,10 @@ export const ShellThemeProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 export const useShellTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
+    console.error('[ShellTheme] useShellTheme called outside of ShellThemeProvider!');
     throw new Error('useShellTheme must be used within ShellThemeProvider');
   }
+  console.log('[ShellTheme] useShellTheme called, current theme:', context.config.theme);
   return context;
 };
 

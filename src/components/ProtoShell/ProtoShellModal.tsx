@@ -7,7 +7,7 @@ import { cn } from '@/utils';
 import { shellService } from '@/services/shell/ShellService';
 import { ShellJob } from '@/types/shell';
 import { ToastContainer } from './Toast';
-import { GhostSuggestion, InlineDiagnostic } from './SyntaxHighlight';
+import { SyntaxHighlight, GhostSuggestion, InlineDiagnostic } from './SyntaxHighlight';
 import { HistorySearchPanel } from './HistorySearchPanel';
 import { OutputPager } from './OutputPager';
 import { ThemeSelector } from './ThemeSelector';
@@ -517,12 +517,12 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
               ) : (
                 history.map((item, index) => (
                   <div key={index} className="mb-4">
-                    <div className="flex items-center space-x-2 text-primary">
+                    <div className="flex items-center space-x-2">
                       <span className="text-muted-foreground text-xs">
                         {item.timestamp.toLocaleTimeString()}
                       </span>
-                      <span className="font-bold">{'>'}</span>
-                      <span>{item.command}</span>
+                      <span className="font-bold text-primary">{'>'}</span>
+                      <SyntaxHighlight input={item.command} />
                       {item.jobId && (
                         <span className="text-xs text-muted-foreground">
                           [job: {item.jobId.slice(0, 8)}]
