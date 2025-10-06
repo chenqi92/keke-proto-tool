@@ -159,11 +159,13 @@ export class ShellExecutor implements IShellExecutor {
             }
           );
 
+          // Return session ID in a special format
           return {
             success: true,
-            output: `Interactive session started: ${sessionId}\nUse the interactive terminal window to interact with the command.`,
+            output: '', // Empty output, will be filled by session events
             exitCode: 0,
             executionTime: Date.now() - startTime,
+            interactiveSessionId: sessionId, // Special field to indicate interactive session
           };
         } catch (error) {
           return {

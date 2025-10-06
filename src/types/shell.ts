@@ -48,6 +48,7 @@ export interface ShellExecutionResult {
   exitCode: number;
   executionTime: number;
   jobId?: string; // For background jobs
+  interactiveSessionId?: string; // ID of interactive session if command started one
 }
 
 /**

@@ -12,7 +12,7 @@ import { HistorySearchPanel } from './HistorySearchPanel';
 import { OutputPager } from './OutputPager';
 import { ThemeSelector } from './ThemeSelector';
 import { ShellThemeProvider } from './ThemeConfig';
-import { InteractiveTerminalManager } from './InteractiveTerminal';
+import { interactiveSessionManager } from '@/services/shell/InteractiveSession';
 import { generateId } from '@/utils';
 
 interface ProtoShellModalProps {
@@ -45,6 +45,7 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
   const [showOutputPager, setShowOutputPager] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [pagerContent, setPagerContent] = useState('');
+  const [activeInteractiveSession, setActiveInteractiveSession] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Array<{
     id: string;
     type: 'success' | 'error' | 'info' | 'warning';
@@ -88,6 +89,95 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
     }
   }, [history]);
 
+  // Listen to interactive session output
+  useEffect(() => {
+    if (!activeInteractiveSession) return;
+
+    const session = interactiveSessionManager.getSession(activeInteractiveSession);
+    if (!session) return;
+
+    // Import listen from Tauri API
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      const listeners: Array<() => void> = [];
+
+      // Listen for stdout
+      listen<string>(`interactive-session-${activeInteractiveSession}-stdout`, (event) => {
+        setHistory(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.command === '[Interactive Output]') {
+            // Append to last interactive output
+            return [
+              ...prev.slice(0, -1),
+              {
+                ...last,
+                output: last.output + '\n' + event.payload,
+              },
+            ];
+          } else {
+            // Create new interactive output entry
+            return [
+              ...prev,
+              {
+                command: '[Interactive Output]',
+                output: event.payload,
+                timestamp: new Date(),
+                type: 'info' as const,
+              },
+            ];
+          }
+        });
+      }).then(unlisten => listeners.push(unlisten));
+
+      // Listen for stderr
+      listen<string>(`interactive-session-${activeInteractiveSession}-stderr`, (event) => {
+        setHistory(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.command === '[Interactive Output]') {
+            // Append to last interactive output
+            return [
+              ...prev.slice(0, -1),
+              {
+                ...last,
+                output: last.output + '\n' + event.payload,
+              },
+            ];
+          } else {
+            // Create new interactive output entry
+            return [
+              ...prev,
+              {
+                command: '[Interactive Output]',
+                output: event.payload,
+                timestamp: new Date(),
+                type: 'error' as const,
+              },
+            ];
+          }
+        });
+      }).then(unlisten => listeners.push(unlisten));
+
+      // Listen for close
+      listen<number>(`interactive-session-${activeInteractiveSession}-close`, (event) => {
+        setActiveInteractiveSession(null);
+        setHistory(prev => [
+          ...prev,
+          {
+            command: '[Interactive Session Closed]',
+            output: `Session exited with code: ${event.payload}`,
+            timestamp: new Date(),
+            type: 'info' as const,
+          },
+        ]);
+        addToast('info', 'Interactive session closed', 2000);
+      }).then(unlisten => listeners.push(unlisten));
+
+      // Cleanup listeners on unmount or session change
+      return () => {
+        listeners.forEach(unlisten => unlisten());
+      };
+    });
+  }, [activeInteractiveSession]);
+
   // Helper function to add toast
   const addToast = (type: 'success' | 'error' | 'info' | 'warning', message: string, duration = 3000) => {
     const id = generateId();
@@ -126,6 +216,17 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
   const handleCommand = async (cmd: string) => {
     if (!cmd.trim()) return;
 
+    // If in interactive mode, send input to session
+    if (activeInteractiveSession) {
+      try {
+        await interactiveSessionManager.writeToSession(activeInteractiveSession, cmd + '\n');
+        setInput('');
+      } catch (error) {
+        addToast('error', `Failed to write to session: ${error instanceof Error ? error.message : 'Unknown error'}`, 3000);
+      }
+      return;
+    }
+
     // Add to command history
     setCommandHistory(prev => [...prev, cmd]);
     setHistoryIndex(-1);
@@ -133,6 +234,19 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
     // Handle clear command specially
     if (cmd.toLowerCase() === 'clear') {
       setHistory([]);
+      setInput('');
+      return;
+    }
+
+    // Handle exit command in interactive mode
+    if (cmd.toLowerCase() === 'exit' && activeInteractiveSession) {
+      try {
+        await interactiveSessionManager.killSession(activeInteractiveSession);
+        setActiveInteractiveSession(null);
+        addToast('info', 'Interactive session closed', 2000);
+      } catch (error) {
+        addToast('error', `Failed to close session: ${error instanceof Error ? error.message : 'Unknown error'}`, 3000);
+      }
       setInput('');
       return;
     }
@@ -150,25 +264,39 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
         setCurrentDir(context.cwd);
       }
 
-      // Determine output type
-      let type: 'success' | 'error' | 'info' = result.success ? 'success' : 'error';
+      // Check if command started an interactive session
+      if (result.interactiveSessionId) {
+        setActiveInteractiveSession(result.interactiveSessionId);
+        addToast('info', `Interactive session started: ${cmd}`, 2000);
 
-      // Special handling for info commands
-      if (result.success && (cmd.startsWith('help') || cmd.startsWith('proto status') || cmd.startsWith('jobs'))) {
-        type = 'info';
-      }
+        // Add command to history
+        setHistory(prev => [...prev, {
+          command: cmd,
+          output: `[Interactive session started - PID: ${result.interactiveSessionId}]\nType 'exit' or press Ctrl+D to close the session.`,
+          timestamp: new Date(),
+          type: 'info',
+        }]);
+      } else {
+        // Determine output type
+        let type: 'success' | 'error' | 'info' = result.success ? 'success' : 'error';
 
-      setHistory(prev => [...prev, {
-        command: cmd,
-        output: result.output || result.error || '',
-        timestamp: new Date(),
-        type,
-        jobId: result.jobId,
-      }]);
+        // Special handling for info commands
+        if (result.success && (cmd.startsWith('help') || cmd.startsWith('proto status') || cmd.startsWith('jobs'))) {
+          type = 'info';
+        }
 
-      // Show toast for background jobs
-      if (result.jobId) {
-        addToast('info', `Job started: ${cmd.replace(' &', '')}`, 2000);
+        setHistory(prev => [...prev, {
+          command: cmd,
+          output: result.output || result.error || '',
+          timestamp: new Date(),
+          type,
+          jobId: result.jobId,
+        }]);
+
+        // Show toast for background jobs
+        if (result.jobId) {
+          addToast('info', `Job started: ${cmd.replace(' &', '')}`, 2000);
+        }
       }
     } catch (error) {
       setLastExitCode(1);
@@ -644,7 +772,12 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
             )}
 
             <div className="flex items-center space-x-3">
-              <span className="text-primary font-mono font-bold">{'>'}</span>
+              <span className={cn(
+                "font-mono font-bold",
+                activeInteractiveSession ? "text-yellow-500" : "text-primary"
+              )}>
+                {activeInteractiveSession ? '[interactive]>' : '>'}
+              </span>
               <div className="flex-1 relative">
                 <input
                   ref={inputRef}
@@ -652,7 +785,7 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Enter command..."
+                  placeholder={activeInteractiveSession ? "Type input for interactive session..." : "Enter command..."}
                   className="w-full bg-transparent outline-none font-mono text-sm relative z-10"
                   style={{ caretColor: 'auto' }}
                 />
@@ -681,9 +814,6 @@ export const ProtoShellModal: React.FC<ProtoShellModalProps> = ({ isOpen, onClos
           </div>
         </div>
       </div>
-
-      {/* Interactive Terminal Manager */}
-      <InteractiveTerminalManager />
     </ShellThemeProvider>
   );
 };

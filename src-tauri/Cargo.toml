@@ -58,6 +58,7 @@ bytes = "1.0"
 dashmap = "5.5"  # Concurrent HashMap for session management
 hex = "0.4"
 encoding_rs = "0.8"  # Character encoding conversion (GBK support for Windows)
+portable-pty = "0.8"  # PTY support for interactive commands (SSH, etc.)
 
 # Parsing system dependencies
 serde_yaml = "0.9"  # YAML parsing for .kkp.yaml rules
