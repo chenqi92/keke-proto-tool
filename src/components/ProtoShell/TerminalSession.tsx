@@ -36,6 +36,10 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
   const unlistenCloseRef = useRef<(() => void) | null>(null);
   const currentInputRef = useRef<string>('');
   const [autoCompletePosition, setAutoCompletePosition] = useState({ x: 0, y: 0 });
+  const dataHandlerRef = useRef<any>(null);
+  const isRestartingRef = useRef(false);
+  const isInitializedRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   // AutoComplete hook
   const {
@@ -51,6 +55,20 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
 
   useEffect(() => {
     if (!terminalRef.current) return;
+
+    // Reset initialization flag when component mounts
+    // This handles both initial mount and StrictMode remount
+    isMountedRef.current = true;
+
+    // Prevent double initialization in React StrictMode
+    if (isInitializedRef.current && xtermRef.current) {
+      console.log('[TerminalSession] Already initialized and terminal exists, skipping...');
+      return;
+    }
+
+    isInitializedRef.current = true;
+
+    console.log('[TerminalSession] Initializing terminal for session:', sessionId);
 
     // Create terminal instance
     const term = new Terminal({
@@ -112,7 +130,7 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
     startPtySession(term);
 
     // Handle terminal input with autocomplete support
-    term.onData((data) => {
+    dataHandlerRef.current = term.onData((data) => {
       const code = data.charCodeAt(0);
 
       // Handle Ctrl+Space (code 0) for autocomplete
@@ -219,26 +237,61 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
 
     // Cleanup
     return () => {
+      console.log('[TerminalSession] Cleanup called for session:', sessionId);
+
+      // Mark as unmounted
+      isMountedRef.current = false;
+
       window.removeEventListener('resize', handleResize);
 
-      // Close PTY session
-      if (ptySessionIdRef.current) {
-        invoke('close_pty_session', {
-          sessionId: ptySessionIdRef.current,
-        }).catch(error => {
-          console.error('Failed to close PTY:', error);
-        });
-      }
+      // Only cleanup if this is a real unmount (not StrictMode double-mount)
+      // We use a timeout to check if the component remounts immediately
+      setTimeout(() => {
+        if (!isMountedRef.current) {
+          console.log('[TerminalSession] Real unmount detected, cleaning up resources');
 
-      // Unlisten events
-      if (unlistenDataRef.current) {
-        unlistenDataRef.current();
-      }
-      if (unlistenCloseRef.current) {
-        unlistenCloseRef.current();
-      }
+          // Close PTY session
+          if (ptySessionIdRef.current) {
+            console.log('[TerminalSession] Closing PTY session:', ptySessionIdRef.current);
+            invoke('close_pty_session', {
+              sessionId: ptySessionIdRef.current,
+            }).catch(error => {
+              console.error('Failed to close PTY:', error);
+            });
+          }
 
-      term.dispose();
+          // Unlisten events
+          if (unlistenDataRef.current) {
+            console.log('[TerminalSession] Removing data listener');
+            unlistenDataRef.current();
+            unlistenDataRef.current = null;
+          }
+          if (unlistenCloseRef.current) {
+            console.log('[TerminalSession] Removing close listener');
+            unlistenCloseRef.current();
+            unlistenCloseRef.current = null;
+          }
+
+          // Dispose data handler
+          if (dataHandlerRef.current) {
+            console.log('[TerminalSession] Disposing data handler');
+            dataHandlerRef.current.dispose();
+            dataHandlerRef.current = null;
+          }
+
+          // Dispose terminal
+          if (xtermRef.current) {
+            console.log('[TerminalSession] Disposing terminal');
+            xtermRef.current.dispose();
+            xtermRef.current = null;
+          }
+
+          // Reset initialization flag for next mount
+          isInitializedRef.current = false;
+        } else {
+          console.log('[TerminalSession] StrictMode remount detected, keeping all resources alive');
+        }
+      }, 0);
     };
   }, [sessionId, sessionName]);
 
@@ -314,26 +367,41 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
   };
 
   const startPtySession = async (term: Terminal) => {
+    // Prevent multiple simultaneous starts
+    if (isRestartingRef.current) {
+      console.log('[TerminalSession] Already restarting, skipping...');
+      return;
+    }
+
+    isRestartingRef.current = true;
+
     try {
       // Get default shell from backend
       const shell = await invoke<string>('get_default_shell');
 
-      // Determine shell arguments based on platform and shell type
-      const isWindows = navigator.platform.toLowerCase().includes('win');
-      let args: string[] = [];
+      // For PTY sessions, we don't need to specify -i or -l flags
+      // The PTY itself provides an interactive environment
+      const args: string[] = [];
 
-      if (!isWindows) {
-        // For Unix-like systems, use interactive shell flags
-        // -i for interactive, which loads .bashrc/.zshrc
-        // Avoid -l (login shell) as it may cause issues in some environments
-        if (shell.includes('bash')) {
-          args = ['-i'];
-        } else if (shell.includes('zsh')) {
-          args = ['-i'];
-        } else {
-          args = ['-i'];
-        }
+      console.log(`[TerminalSession] Starting PTY with shell: ${shell}`);
+
+      // Get current environment variables to pass to shell
+      // This ensures the shell has all necessary context
+      const env: Record<string, string> = {};
+
+      // These are critical for shell operation
+      if (typeof window !== 'undefined') {
+        // We can't access process.env in browser, but we can set some defaults
+        env.LANG = 'en_US.UTF-8';
+        env.LC_ALL = 'en_US.UTF-8';
       }
+
+      // IMPORTANT: Set up event listeners BEFORE starting PTY
+      // This ensures we don't miss any initial output
+      console.log(`[TerminalSession] Pre-registering event listeners for session: ${sessionId}`);
+
+      // We need to generate a predictable PTY ID or use the session ID
+      // For now, we'll set up listeners after getting the PTY ID, but immediately
 
       // Start PTY session
       const ptyId = await invoke<string>('start_pty_session', {
@@ -342,38 +410,74 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
         args,
         context: {
           cwd: currentDir === '~' ? null : currentDir,
-          env: {},
+          env,
         },
       });
 
+      console.log(`[TerminalSession] PTY session started with ID: ${ptyId}`);
+
       ptySessionIdRef.current = ptyId;
 
+      console.log(`[TerminalSession] Setting up event listeners for PTY: ${ptyId}`);
+
       // Listen for PTY data
-      const unlistenData = await listen<string>(`pty-session-${ptyId}-data`, (event) => {
-        term.write(event.payload);
+      const dataEventName = `pty-session-${ptyId}-data`;
+      console.log(`[TerminalSession] Registering listener for event: ${dataEventName}`);
+
+      const unlistenData = await listen<string>(dataEventName, (event) => {
+        console.log(`[TerminalSession] ✓ Received data from PTY ${ptyId}, length: ${event.payload.length}, preview:`, event.payload.substring(0, 50));
+        try {
+          term.write(event.payload);
+          console.log(`[TerminalSession] ✓ Data written to terminal successfully`);
+        } catch (error) {
+          console.error(`[TerminalSession] ✗ Failed to write to terminal:`, error);
+        }
       });
       unlistenDataRef.current = unlistenData;
+      console.log(`[TerminalSession] ✓ Data listener registered successfully for: ${dataEventName}`);
+
+      // Verify the listener is working by checking if it's defined
+      console.log(`[TerminalSession] Listener function type:`, typeof unlistenData);
 
       // Listen for PTY close
-      const unlistenClose = await listen<number>(`pty-session-${ptyId}-close`, (event) => {
+      const closeEventName = `pty-session-${ptyId}-close`;
+      console.log(`[TerminalSession] Registering listener for event: ${closeEventName}`);
+
+      const unlistenClose = await listen<number>(closeEventName, (event) => {
         console.log(`[TerminalSession] PTY session ${ptyId} closed with code: ${event.payload}`);
+
+        // Clean up event listeners for this PTY session
+        if (unlistenDataRef.current) {
+          unlistenDataRef.current();
+          unlistenDataRef.current = null;
+        }
+        if (unlistenCloseRef.current) {
+          unlistenCloseRef.current();
+          unlistenCloseRef.current = null;
+        }
 
         // Clear the PTY session ID
         ptySessionIdRef.current = null;
+        isRestartingRef.current = false;
 
         // Show exit message
-        term.writeln(`\r\n\x1b[1;33m[Process exited with code ${event.payload}]\x1b[0m`);
-        term.writeln(`\x1b[1;36m[Press Enter to restart shell]\x1b[0m`);
+        term.writeln(`\r\n\x1b[1;33m[Shell exited with code ${event.payload}]\x1b[0m`);
+        term.writeln(`\x1b[1;36m[Press Enter to restart, or close this tab]\x1b[0m`);
+
+        // Remove the normal data handler
+        if (dataHandlerRef.current) {
+          dataHandlerRef.current.dispose();
+          dataHandlerRef.current = null;
+        }
 
         // Set up restart handler
-        let restartDisposable: any = null;
         const restartHandler = (data: string) => {
           // Check if Enter key was pressed
           if (data === '\r' || data === '\n') {
             term.write('\r\n');
-            // Remove the restart handler
-            if (restartDisposable) {
-              restartDisposable.dispose();
+            // Remove the restart handler and restore normal handler
+            if (dataHandlerRef.current) {
+              dataHandlerRef.current.dispose();
             }
             // Restart the shell
             startPtySession(term);
@@ -381,13 +485,30 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
         };
 
         // Add the restart handler
-        restartDisposable = term.onData(restartHandler);
+        dataHandlerRef.current = term.onData(restartHandler);
       });
       unlistenCloseRef.current = unlistenClose;
+
+      isRestartingRef.current = false;
+
+      // Send an initial newline to trigger the shell prompt
+      // Some shells need this to display the initial prompt
+      setTimeout(() => {
+        if (ptySessionIdRef.current === ptyId) {
+          console.log('[TerminalSession] Sending initial newline to trigger prompt');
+          invoke('write_pty_session', {
+            sessionId: ptyId,
+            data: '\n',
+          }).catch(error => {
+            console.error('Failed to send initial newline:', error);
+          });
+        }
+      }, 100);
 
     } catch (error) {
       term.writeln(`\x1b[1;31mFailed to start shell: ${error}\x1b[0m`);
       console.error('Failed to start PTY session:', error);
+      isRestartingRef.current = false;
     }
   };
 

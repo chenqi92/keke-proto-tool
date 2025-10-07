@@ -536,6 +536,53 @@ pub async fn start_pty_session(
         cmd.cwd(cwd);
     }
 
+    // Set essential environment variables for the shell
+    // TERM is required for proper terminal emulation
+    cmd.env("TERM", "xterm-256color");
+
+    // Inherit critical environment variables from parent process
+    #[cfg(unix)]
+    {
+        use std::env;
+
+        // These are essential for shell operation
+        if let Ok(home) = env::var("HOME") {
+            cmd.env("HOME", home);
+        }
+        if let Ok(user) = env::var("USER") {
+            cmd.env("USER", user);
+        }
+        if let Ok(path) = env::var("PATH") {
+            cmd.env("PATH", path);
+        }
+        if let Ok(shell_env) = env::var("SHELL") {
+            cmd.env("SHELL", shell_env);
+        }
+        if let Ok(lang) = env::var("LANG") {
+            cmd.env("LANG", lang);
+        } else {
+            cmd.env("LANG", "en_US.UTF-8");
+        }
+
+        // For zsh specifically
+        if command.contains("zsh") {
+            // Don't set ZDOTDIR, let zsh use default
+            // Setting it might cause issues
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        use std::env;
+        if let Ok(userprofile) = env::var("USERPROFILE") {
+            cmd.env("USERPROFILE", userprofile);
+        }
+        if let Ok(path) = env::var("PATH") {
+            cmd.env("PATH", path);
+        }
+    }
+
+    // Apply custom environment variables from context (these override defaults)
     if let Some(env) = context.env {
         for (key, value) in env {
             cmd.env(key, value);
@@ -546,6 +593,8 @@ pub async fn start_pty_session(
     let child = pair.slave.spawn_command(cmd)
         .map_err(|e| format!("Failed to spawn command: {}", e))?;
 
+    println!("[PTY] Child process spawned successfully for session {}", session_id);
+
     // Get reader and writer
     let mut reader = pair.master.try_clone_reader()
         .map_err(|e| format!("Failed to clone reader: {}", e))?;
@@ -555,6 +604,8 @@ pub async fn start_pty_session(
 
     // Store the PTY master, writer, and child process
     pty_manager.add_session(session_id.clone(), pair.master, writer, child);
+
+    println!("[PTY] Session {} stored in manager", session_id);
 
     // Spawn thread to read output
     let session_id_clone = session_id.clone();
@@ -572,8 +623,12 @@ pub async fn start_pty_session(
                 }
                 Ok(n) => {
                     let data = String::from_utf8_lossy(&buffer[..n]).to_string();
+                    println!("[PTY] Session {} received {} bytes: {:?}", session_id_clone, n, &data[..data.len().min(50)]);
                     let event_name = format!("pty-session-{}-data", session_id_clone);
-                    let _ = app_handle_clone.emit(&event_name, data);
+                    match app_handle_clone.emit(&event_name, &data) {
+                        Ok(_) => println!("[PTY] Event {} emitted successfully", event_name),
+                        Err(e) => eprintln!("[PTY] Failed to emit event {}: {}", event_name, e),
+                    }
                 }
                 Err(e) => {
                     eprintln!("[PTY] Error reading from PTY: {}", e);
