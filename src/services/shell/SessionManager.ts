@@ -30,51 +30,77 @@ class SessionManagerService {
    * Initialize the session manager and database
    */
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) {
+      console.log('[SessionManager] Already initialized, skipping');
+      return;
+    }
+
+    console.log('[SessionManager] Starting initialization...');
+
+    // Clear any existing sessions in memory first
+    this.sessions.clear();
+    this.activeSessionId = null;
 
     try {
       // Initialize the database
       await invoke('init_shell_history_db');
 
-      // Load existing sessions from database
+      // Clear all existing sessions from database to start fresh
+      // This ensures we don't have duplicate sessions from previous runs
       const dbSessions = await invoke<ShellSessionInfo[]>('get_all_shell_sessions');
+      console.log(`[SessionManager] Found ${dbSessions.length} sessions in database, clearing...`);
 
-      if (dbSessions.length === 0) {
-        // Create default session if none exist
-        // createSession will automatically set it as active since it's the first session
-        await this.createSession('Default');
-      } else {
-        // Load sessions from database
-        dbSessions.forEach(session => {
-          this.sessions.set(session.id, {
-            id: session.id,
-            name: session.name,
-            isActive: false,
-            createdAt: new Date(session.created_at),
-            lastActive: new Date(session.last_active),
-          });
-        });
-
-        // Set first session as active
-        const firstSession = dbSessions[0];
-        this.activeSessionId = firstSession.id;
-        const session = this.sessions.get(firstSession.id);
-        if (session) {
-          session.isActive = true;
+      for (const session of dbSessions) {
+        try {
+          await invoke('delete_shell_session', { sessionId: session.id });
+        } catch (e) {
+          console.error('Failed to delete old session:', e);
         }
       }
 
-      this.initialized = true;
-      this.notifyListeners();
-    } catch (error) {
-      console.error('Failed to initialize session manager:', error);
-      // Create a default session even if database fails
+      // Create a single default session
       const sessionId = this.createSessionLocally('Default');
       this.activeSessionId = sessionId;
       const session = this.sessions.get(sessionId);
       if (session) {
         session.isActive = true;
       }
+
+      console.log(`[SessionManager] Created default session: ${sessionId}`);
+
+      // Save to database
+      try {
+        await invoke('create_shell_session', {
+          session: {
+            id: sessionId,
+            name: 'Default',
+            created_at: Date.now(),
+            last_active: Date.now(),
+            command_count: 0,
+          },
+        });
+        console.log('[SessionManager] Saved default session to database');
+      } catch (error) {
+        console.error('Failed to save default session to database:', error);
+      }
+
+      this.initialized = true;
+      console.log(`[SessionManager] Initialization complete. Total sessions: ${this.sessions.size}`);
+      this.notifyListeners();
+    } catch (error) {
+      console.error('Failed to initialize session manager:', error);
+
+      // Only create a session if we don't have any
+      if (this.sessions.size === 0) {
+        const sessionId = this.createSessionLocally('Default');
+        this.activeSessionId = sessionId;
+        const session = this.sessions.get(sessionId);
+        if (session) {
+          session.isActive = true;
+        }
+        console.log(`[SessionManager] Created fallback session: ${sessionId}`);
+      }
+
       this.initialized = true;
       this.notifyListeners();
     }
@@ -103,7 +129,7 @@ class SessionManagerService {
   /**
    * Create a new session
    */
-  async createSession(name?: string): Promise<string> {
+  async createSession(name?: string, setActive: boolean = false): Promise<string> {
     const sessionId = generateId();
     const sessionName = name || `Session ${this.sessions.size + 1}`;
     const now = Date.now();
@@ -135,9 +161,19 @@ class SessionManagerService {
       }
     }
 
-    // If this is the first session, make it active
-    if (this.sessions.size === 1) {
-      this.setActiveSession(sessionId);
+    // Set as active if requested or if it's the first session
+    if (setActive || this.sessions.size === 1) {
+      // Deactivate current session
+      if (this.activeSessionId) {
+        const currentSession = this.sessions.get(this.activeSessionId);
+        if (currentSession) {
+          currentSession.isActive = false;
+        }
+      }
+
+      // Activate new session
+      session.isActive = true;
+      this.activeSessionId = sessionId;
     }
 
     this.notifyListeners();

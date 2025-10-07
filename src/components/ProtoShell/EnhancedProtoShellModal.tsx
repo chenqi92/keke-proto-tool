@@ -6,6 +6,7 @@ import { X, Plus, Terminal as TerminalIcon, Trash2, History, Settings } from 'lu
 import { cn } from '@/utils';
 import { TerminalSession } from './TerminalSession';
 import { sessionManager, SessionState } from '@/services/shell/SessionManager';
+import { ConfirmationModal } from '@/components/Common/ConfirmationModal';
 
 interface EnhancedProtoShellModalProps {
   isOpen: boolean;
@@ -20,6 +21,18 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'warning' | 'info' | 'success';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   // Initialize session manager
   useEffect(() => {
@@ -52,8 +65,8 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
 
   const handleCreateSession = async () => {
     try {
-      const sessionId = await sessionManager.createSession();
-      sessionManager.setActiveSession(sessionId);
+      // Create and activate the new session in one call
+      await sessionManager.createSession(undefined, true);
     } catch (error) {
       console.error('Failed to create session:', error);
     }
@@ -61,17 +74,35 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
 
   const handleCloseSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (sessions.length === 1) {
-      alert('Cannot close the last session');
+      setConfirmDialog({
+        isOpen: true,
+        title: '无法关闭',
+        message: '不能关闭最后一个会话',
+        type: 'info',
+        onConfirm: () => {
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        },
+      });
       return;
     }
 
-    try {
-      await sessionManager.deleteSession(sessionId);
-    } catch (error) {
-      console.error('Failed to close session:', error);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: '关闭会话',
+      message: '确定要关闭这个会话吗？',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await sessionManager.deleteSession(sessionId);
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error('Failed to close session:', error);
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
   };
 
   const handleSwitchSession = (sessionId: string) => {
@@ -81,29 +112,39 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
   const handleClearHistory = async () => {
     if (!activeSessionId) return;
 
-    const confirmed = confirm('Are you sure you want to clear the history for this session?');
-    if (!confirmed) return;
-
-    try {
-      await sessionManager.clearSessionHistory(activeSessionId);
-      alert('History cleared successfully');
-    } catch (error) {
-      console.error('Failed to clear history:', error);
-      alert('Failed to clear history');
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: '清除历史记录',
+      message: '确定要清除当前会话的历史记录吗？',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await sessionManager.clearSessionHistory(activeSessionId);
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error('Failed to clear history:', error);
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
   };
 
   const handleClearAllHistory = async () => {
-    const confirmed = confirm('Are you sure you want to clear ALL history from ALL sessions?');
-    if (!confirmed) return;
-
-    try {
-      await sessionManager.clearAllHistory();
-      alert('All history cleared successfully');
-    } catch (error) {
-      console.error('Failed to clear all history:', error);
-      alert('Failed to clear all history');
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: '清除所有历史记录',
+      message: '确定要清除所有会话的历史记录吗？此操作不可恢复。',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await sessionManager.clearAllHistory();
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error('Failed to clear all history:', error);
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
   };
 
   if (!isOpen) return null;
@@ -248,6 +289,18 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        confirmText="确认"
+        cancelText="取消"
+      />
     </div>
   );
 };

@@ -630,3 +630,64 @@ pub async fn close_pty_session(
     Ok(())
 }
 
+/// Get system commands from PATH for autocomplete
+#[tauri::command]
+pub async fn get_system_commands() -> Result<Vec<String>, String> {
+    use std::env;
+    use std::fs;
+    use std::path::Path;
+
+    let mut commands = Vec::new();
+
+    // Get PATH environment variable
+    if let Ok(path_var) = env::var("PATH") {
+        let paths: Vec<&str> = if cfg!(target_os = "windows") {
+            path_var.split(';').collect()
+        } else {
+            path_var.split(':').collect()
+        };
+
+        for path_str in paths {
+            let path = Path::new(path_str);
+            if !path.exists() {
+                continue;
+            }
+
+            if let Ok(entries) = fs::read_dir(path) {
+                for entry in entries.flatten() {
+                    if let Ok(metadata) = entry.metadata() {
+                        if metadata.is_file() {
+                            #[cfg(unix)]
+                            {
+                                use std::os::unix::fs::PermissionsExt;
+                                // Check if file is executable
+                                if metadata.permissions().mode() & 0o111 != 0 {
+                                    if let Some(name) = entry.file_name().to_str() {
+                                        commands.push(name.to_string());
+                                    }
+                                }
+                            }
+
+                            #[cfg(windows)]
+                            {
+                                if let Some(name) = entry.file_name().to_str() {
+                                    // On Windows, check for executable extensions
+                                    if name.ends_with(".exe") || name.ends_with(".bat") || name.ends_with(".cmd") {
+                                        commands.push(name.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Remove duplicates and sort
+    commands.sort();
+    commands.dedup();
+
+    Ok(commands)
+}
+

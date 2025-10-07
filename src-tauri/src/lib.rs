@@ -105,6 +105,7 @@ pub fn run() {
             write_pty_session,
             resize_pty_session,
             close_pty_session,
+            get_system_commands,
             // Shell history database commands
             init_shell_history_db,
             add_shell_history,

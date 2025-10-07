@@ -8,6 +8,8 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { AutoComplete } from './AutoComplete';
+import { useTerminalAutoComplete } from '@/hooks/useTerminalAutoComplete';
 
 interface TerminalSessionProps {
   sessionId: string;
@@ -30,6 +32,20 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
   const ptySessionIdRef = useRef<string | null>(null);
   const unlistenDataRef = useRef<(() => void) | null>(null);
   const unlistenCloseRef = useRef<(() => void) | null>(null);
+  const currentInputRef = useRef<string>('');
+  const [autoCompletePosition, setAutoCompletePosition] = useState({ x: 0, y: 0 });
+
+  // AutoComplete hook
+  const {
+    suggestions,
+    selectedIndex,
+    isVisible: autoCompleteVisible,
+    handleInput: handleAutoCompleteInput,
+    handleKeyDown: handleAutoCompleteKeyDown,
+    getSelectedSuggestion,
+    hide: hideAutoComplete,
+    refreshHistory,
+  } = useTerminalAutoComplete(sessionId);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -85,18 +101,90 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Welcome message
-    term.writeln(`\x1b[1;32mProtoShell Terminal - ${sessionName}\x1b[0m`);
-    term.writeln('Starting interactive shell...');
-    term.writeln('');
+    // Welcome message - removed to avoid duplicate output
+    // The shell will display its own prompt
 
     setIsReady(true);
 
     // Start PTY session
     startPtySession(term);
 
-    // Handle terminal input - send directly to PTY
+    // Handle terminal input with autocomplete support
     term.onData((data) => {
+      const code = data.charCodeAt(0);
+
+      // Handle Ctrl+Space (code 0) for autocomplete
+      if (code === 0 || (code === 32 && data.length === 1 && data.charCodeAt(0) === 0)) {
+        // Trigger autocomplete
+        handleAutoCompleteInput(currentInputRef.current);
+        updateAutoCompletePosition(term);
+        return;
+      }
+
+      // Handle autocomplete navigation
+      if (autoCompleteVisible) {
+        if (data === '\x1b[A') { // Up arrow
+          if (handleAutoCompleteKeyDown('ArrowUp')) {
+            return;
+          }
+        } else if (data === '\x1b[B') { // Down arrow
+          if (handleAutoCompleteKeyDown('ArrowDown')) {
+            return;
+          }
+        } else if (data === '\t') { // Tab
+          const suggestion = getSelectedSuggestion();
+          if (suggestion) {
+            // Clear current input and write suggestion
+            const clearLength = currentInputRef.current.length;
+            for (let i = 0; i < clearLength; i++) {
+              term.write('\b \b');
+            }
+            term.write(suggestion);
+            currentInputRef.current = suggestion;
+
+            // Send to PTY
+            if (ptySessionIdRef.current) {
+              invoke('write_pty_session', {
+                sessionId: ptySessionIdRef.current,
+                data: suggestion,
+              }).catch(error => {
+                console.error('Failed to write to PTY:', error);
+              });
+            }
+
+            hideAutoComplete();
+            return;
+          }
+        } else if (data === '\x1b') { // Escape
+          hideAutoComplete();
+          return;
+        }
+      }
+
+      // Track current input for autocomplete
+      if (code === 13) { // Enter
+        currentInputRef.current = '';
+        hideAutoComplete();
+        // Refresh history after command execution
+        setTimeout(() => refreshHistory(), 100);
+      } else if (code === 127) { // Backspace
+        if (currentInputRef.current.length > 0) {
+          currentInputRef.current = currentInputRef.current.slice(0, -1);
+        }
+        hideAutoComplete();
+      } else if (code >= 32 && code <= 126) { // Printable characters
+        currentInputRef.current += data;
+        // Auto-trigger suggestions as user types
+        if (currentInputRef.current.length > 0 && !currentInputRef.current.includes(' ')) {
+          handleAutoCompleteInput(currentInputRef.current);
+          updateAutoCompletePosition(term);
+        }
+      } else if (code === 3) { // Ctrl+C
+        currentInputRef.current = '';
+        hideAutoComplete();
+      }
+
+      // Send to PTY
       if (ptySessionIdRef.current) {
         invoke('write_pty_session', {
           sessionId: ptySessionIdRef.current,
@@ -152,6 +240,49 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
     };
   }, [sessionId, sessionName]);
 
+  const updateAutoCompletePosition = (term: Terminal) => {
+    if (!terminalRef.current) return;
+
+    const rect = terminalRef.current.getBoundingClientRect();
+    const cursorY = term.buffer.active.cursorY;
+    const cursorX = term.buffer.active.cursorX;
+
+    // Calculate position based on cursor position
+    // Each character is approximately 9px wide, each line is approximately 17px high
+    const charWidth = 9;
+    const lineHeight = 17;
+
+    setAutoCompletePosition({
+      x: rect.left + (cursorX * charWidth),
+      y: rect.top + ((cursorY + 1) * lineHeight), // +1 to show below cursor
+    });
+  };
+
+  const handleAutoCompleteSelect = (value: string) => {
+    const term = xtermRef.current;
+    if (!term || !ptySessionIdRef.current) return;
+
+    // Clear current input
+    const clearLength = currentInputRef.current.length;
+    for (let i = 0; i < clearLength; i++) {
+      term.write('\b \b');
+    }
+
+    // Write selected value
+    term.write(value);
+    currentInputRef.current = value;
+
+    // Send to PTY
+    invoke('write_pty_session', {
+      sessionId: ptySessionIdRef.current,
+      data: value,
+    }).catch(error => {
+      console.error('Failed to write to PTY:', error);
+    });
+
+    hideAutoComplete();
+  };
+
   const startPtySession = async (term: Terminal) => {
     try {
       // Determine shell command based on OS
@@ -193,8 +324,17 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
 
 
   return (
-    <div className="w-full h-full bg-[#1e1e1e]">
+    <div className="w-full h-full bg-[#1e1e1e] relative">
       <div ref={terminalRef} className="w-full h-full" />
+
+      {/* AutoComplete Popup */}
+      <AutoComplete
+        suggestions={suggestions}
+        selectedIndex={selectedIndex}
+        onSelect={handleAutoCompleteSelect}
+        position={autoCompletePosition}
+        visible={autoCompleteVisible}
+      />
     </div>
   );
 };
