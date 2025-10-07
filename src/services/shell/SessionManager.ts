@@ -378,6 +378,18 @@ class SessionManagerService {
   private notifyListeners(): void {
     this.listeners.forEach(listener => listener());
   }
+
+  /**
+   * Reset the session manager to initial state
+   * This should be called when closing the ProtoShell modal
+   */
+  reset(): void {
+    console.log('[SessionManager] Resetting session manager...');
+    this.sessions.clear();
+    this.activeSessionId = null;
+    this.initialized = false;
+    console.log('[SessionManager] Reset complete');
+  }
 }
 
 // Singleton instance

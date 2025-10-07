@@ -375,6 +375,18 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
         try {
           console.log('[TerminalSession] Refitting terminal after visibility change');
           fitAddonRef.current?.fit();
+
+          // Also resize PTY to match new terminal size
+          const term = xtermRef.current;
+          if (term && ptySessionIdRef.current && term.rows && term.cols) {
+            invoke('resize_pty_session', {
+              sessionId: ptySessionIdRef.current,
+              rows: term.rows,
+              cols: term.cols,
+            }).catch(error => {
+              console.error('[TerminalSession] Failed to resize PTY after visibility change:', error);
+            });
+          }
         } catch (error) {
           console.error('[TerminalSession] Failed to fit terminal:', error);
         }
@@ -464,18 +476,20 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
       // We need to generate a predictable PTY ID or use the session ID
       // For now, we'll set up listeners after getting the PTY ID, but immediately
 
-      // Start PTY session
+      // Start PTY session with terminal dimensions
       const ptyId = await invoke<string>('start_pty_session', {
         sessionId,
         command: shell,
         args,
+        rows: term.rows,
+        cols: term.cols,
         context: {
           cwd: currentDir === '~' ? null : currentDir,
           env,
         },
       });
 
-      console.log(`[TerminalSession] PTY session started with ID: ${ptyId}`);
+      console.log(`[TerminalSession] PTY session started with ID: ${ptyId}, size: ${term.cols}x${term.rows}`);
 
       ptySessionIdRef.current = ptyId;
 

@@ -348,6 +348,8 @@ function App() {
           />
         )
       case 'proto-shell':
+        // Always render the component when activeModal is 'proto-shell'
+        // Use isOpen to control visibility (minimized vs shown)
         return (
           <EnhancedProtoShellModal
             isOpen={!isProtoShellMinimized}

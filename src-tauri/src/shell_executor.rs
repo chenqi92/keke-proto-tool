@@ -510,19 +510,24 @@ pub async fn start_pty_session(
     session_id: String,
     command: String,
     args: Vec<String>,
+    rows: Option<u16>,
+    cols: Option<u16>,
     context: ShellContext,
     app_handle: AppHandle,
     pty_manager: State<'_, PtySessionManager>,
 ) -> Result<String, String> {
-    println!("[PTY] Starting PTY session {}: {} {:?}", session_id, command, args);
+    let rows = rows.unwrap_or(24);
+    let cols = cols.unwrap_or(80);
+
+    println!("[PTY] Starting PTY session {}: {} {:?} (size: {}x{})", session_id, command, args, cols, rows);
 
     let pty_system = native_pty_system();
 
-    // Create PTY with size
+    // Create PTY with size from terminal
     let pair = pty_system
         .openpty(PtySize {
-            rows: 24,
-            cols: 80,
+            rows,
+            cols,
             pixel_width: 0,
             pixel_height: 0,
         })

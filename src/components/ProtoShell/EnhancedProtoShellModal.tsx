@@ -38,15 +38,25 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
     onConfirm: () => {},
   });
 
-  // Initialize session manager
+  // Initialize session manager when first opened
   useEffect(() => {
-    if (isOpen && !isInitialized) {
+    if (!isInitialized) {
       sessionManager.initialize().then(() => {
         setIsInitialized(true);
         updateSessions();
       });
     }
-  }, [isOpen, isInitialized]);
+  }, [isInitialized]);
+
+  // Cleanup when component unmounts (modal is truly closed, not just minimized)
+  // This happens when activeModal changes from 'proto-shell' to null
+  useEffect(() => {
+    return () => {
+      console.log('[EnhancedProtoShellModal] Component unmounting, resetting SessionManager');
+      sessionManager.reset();
+      setIsInitialized(false);
+    };
+  }, []);
 
   // Subscribe to session changes
   useEffect(() => {
