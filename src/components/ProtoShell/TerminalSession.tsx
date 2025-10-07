@@ -183,6 +183,28 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
 
       // Track current input for autocomplete
       if (code === 13) { // Enter
+        const command = currentInputRef.current.trim();
+
+        // Save command to history if it's not empty
+        if (command && ptySessionIdRef.current) {
+          invoke('add_shell_history', {
+            item: {
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              session_id: sessionId,
+              command: command.split(' ')[0] || command,
+              args: JSON.stringify(command.split(' ').slice(1)),
+              timestamp: Date.now(),
+              cwd: currentDir,
+              exit_code: 0, // We don't know the exit code yet
+              execution_time: 0, // We don't track execution time in real-time
+              output: null,
+              error: null,
+            },
+          }).catch(error => {
+            console.error('[TerminalSession] Failed to save command to history:', error);
+          });
+        }
+
         currentInputRef.current = '';
         hideAutoComplete();
         // Refresh history after command execution
@@ -491,19 +513,9 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
 
       isRestartingRef.current = false;
 
-      // Send an initial newline to trigger the shell prompt
-      // Some shells need this to display the initial prompt
-      setTimeout(() => {
-        if (ptySessionIdRef.current === ptyId) {
-          console.log('[TerminalSession] Sending initial newline to trigger prompt');
-          invoke('write_pty_session', {
-            sessionId: ptyId,
-            data: '\n',
-          }).catch(error => {
-            console.error('Failed to send initial newline:', error);
-          });
-        }
-      }, 100);
+      // Note: We don't send an initial newline anymore
+      // The shell automatically displays its prompt when it starts
+      // Sending a newline would cause a duplicate prompt
 
     } catch (error) {
       term.writeln(`\x1b[1;31mFailed to start shell: ${error}\x1b[0m`);

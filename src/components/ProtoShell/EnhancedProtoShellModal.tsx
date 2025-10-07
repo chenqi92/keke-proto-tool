@@ -201,23 +201,23 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
           </div>
         )}
 
-        {/* Session Tabs */}
+        {/* Session Tabs - Compact Design */}
         {isInitialized && (
           <>
-            <div className="flex items-center space-x-1 px-2 py-2 border-b border-border bg-muted/20 overflow-x-auto">
+            <div className="flex items-center space-x-1 px-2 py-1.5 border-b border-border bg-muted/20 overflow-x-auto">
               {sessions.map((session) => (
                 <div
                   key={session.id}
                   onClick={() => handleSwitchSession(session.id)}
                   className={cn(
-                    'flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-colors group',
+                    'flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors group text-xs',
                     session.isActive
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted hover:bg-muted/80'
                   )}
                 >
-                  <TerminalIcon className="w-4 h-4" />
-                  <span className="text-sm font-medium whitespace-nowrap">{session.name}</span>
+                  <TerminalIcon className="w-3.5 h-3.5" />
+                  <span className="font-medium whitespace-nowrap">{session.name}</span>
                   {sessions.length > 1 && (
                     <button
                       onClick={(e) => handleCloseSession(session.id, e)}
@@ -234,11 +234,11 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
 
               <button
                 onClick={handleCreateSession}
-                className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                className="flex items-center space-x-1 px-2.5 py-1.5 rounded-md bg-muted hover:bg-muted/80 transition-colors text-xs"
                 title="New Session"
               >
-                <Plus className="w-4 h-4" />
-                <span className="text-sm">New</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span className="font-medium">New</span>
               </button>
             </div>
 
