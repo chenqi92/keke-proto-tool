@@ -2,7 +2,7 @@
 // Provides a fully-functional terminal shell with multiple sessions
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Terminal as TerminalIcon, Trash2, History, Settings } from 'lucide-react';
+import { X, Plus, Terminal as TerminalIcon, History, Settings } from 'lucide-react';
 import { cn } from '@/utils';
 import { TerminalSession } from './TerminalSession';
 import { sessionManager, SessionState } from '@/services/shell/SessionManager';
@@ -175,13 +175,7 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
             >
               <History className="w-4 h-4" />
             </button>
-            <button
-              onClick={handleClearHistory}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
-              title="Clear Session History"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {/* Removed duplicate Trash2 button - use "Clear All History" at the bottom instead */}
             <button
               onClick={onClose}
               className="p-2 hover:bg-destructive hover:text-destructive-foreground rounded-lg transition-colors"

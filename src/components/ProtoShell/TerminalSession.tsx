@@ -40,6 +40,7 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
   const isRestartingRef = useRef(false);
   const isInitializedRef = useRef(false);
   const isMountedRef = useRef(true);
+  const isAtPromptRef = useRef(true); // Track if we're at a shell prompt (not in interactive mode)
 
   // AutoComplete hook
   const {
@@ -185,24 +186,38 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
       if (code === 13) { // Enter
         const command = currentInputRef.current.trim();
 
-        // Save command to history if it's not empty
-        if (command && ptySessionIdRef.current) {
-          invoke('add_shell_history', {
-            item: {
-              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              session_id: sessionId,
-              command: command.split(' ')[0] || command,
-              args: JSON.stringify(command.split(' ').slice(1)),
-              timestamp: Date.now(),
-              cwd: currentDir,
-              exit_code: 0, // We don't know the exit code yet
-              execution_time: 0, // We don't track execution time in real-time
-              output: null,
-              error: null,
-            },
-          }).catch(error => {
-            console.error('[TerminalSession] Failed to save command to history:', error);
-          });
+        // Save command to history ONLY if:
+        // 1. Command is not empty
+        // 2. We're at a shell prompt (not in interactive mode like password input)
+        // 3. Command doesn't look like a password (no spaces, reasonable length)
+        if (command && ptySessionIdRef.current && isAtPromptRef.current) {
+          // Additional filter: skip if command looks suspicious
+          // (e.g., very long single word without spaces might be a password)
+          const isSuspicious = command.length > 50 && !command.includes(' ');
+
+          if (!isSuspicious) {
+            console.log('[TerminalSession] Saving command to history:', command);
+            invoke('add_shell_history', {
+              item: {
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                session_id: sessionId,
+                command: command.split(' ')[0] || command,
+                args: JSON.stringify(command.split(' ').slice(1)),
+                timestamp: Date.now(),
+                cwd: currentDir,
+                exit_code: 0, // We don't know the exit code yet
+                execution_time: 0, // We don't track execution time in real-time
+                output: null,
+                error: null,
+              },
+            }).catch(error => {
+              console.error('[TerminalSession] Failed to save command to history:', error);
+            });
+          } else {
+            console.log('[TerminalSession] Skipping suspicious input (might be password)');
+          }
+        } else if (!isAtPromptRef.current) {
+          console.log('[TerminalSession] Skipping input - not at shell prompt (interactive mode)');
         }
 
         currentInputRef.current = '';
@@ -450,6 +465,19 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
         console.log(`[TerminalSession] ✓ Received data from PTY ${ptyId}, length: ${event.payload.length}, preview:`, event.payload.substring(0, 50));
         try {
           term.write(event.payload);
+
+          // Detect if we're at a shell prompt
+          // Common prompt patterns: "$ ", "% ", "> ", "# "
+          // Also check for bracketed paste mode end: [?2004h
+          const data = event.payload;
+          if (data.includes('[?2004h')) {
+            // Bracketed paste mode enabled - we're at a prompt
+            isAtPromptRef.current = true;
+          } else if (data.includes('[?2004l')) {
+            // Bracketed paste mode disabled - command is executing
+            isAtPromptRef.current = false;
+          }
+
           console.log(`[TerminalSession] ✓ Data written to terminal successfully`);
         } catch (error) {
           console.error(`[TerminalSession] ✗ Failed to write to terminal:`, error);
