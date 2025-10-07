@@ -2,7 +2,7 @@
 // Provides a fully-functional terminal shell with multiple sessions
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Terminal as TerminalIcon, History, Settings, Minimize2 } from 'lucide-react';
+import { X, Plus, Terminal as TerminalIcon, History, Settings, Minus } from 'lucide-react';
 import { cn } from '@/utils';
 import { TerminalSession } from './TerminalSession';
 import { sessionManager, SessionState } from '@/services/shell/SessionManager';
@@ -157,10 +157,12 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
     setTimeout(() => setSelectedCommand(null), 100);
   };
 
-  if (!isOpen) return null;
-
+  // Don't unmount when minimized, just hide
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className={cn(
+      "fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm",
+      !isOpen && "hidden"
+    )}>
       <div className="w-[95vw] h-[90vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
@@ -183,7 +185,7 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
                 className="p-2 hover:bg-muted rounded-lg transition-colors"
                 title="Minimize to Status Bar"
               >
-                <Minimize2 className="w-4 h-4" />
+                <Minus className="w-4 h-4" />
               </button>
             )}
             <button

@@ -348,13 +348,13 @@ function App() {
           />
         )
       case 'proto-shell':
-        return !isProtoShellMinimized ? (
+        return (
           <EnhancedProtoShellModal
-            isOpen={true}
+            isOpen={!isProtoShellMinimized}
             onClose={closeModal}
             onMinimize={() => setIsProtoShellMinimized(true)}
           />
-        ) : null
+        )
       case 'toolbox':
         return (
           <Modal

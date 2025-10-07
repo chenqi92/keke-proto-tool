@@ -36,6 +36,7 @@ pub struct CommandStats {
     pub last_used: i64,
     pub success_count: i32,
     pub failure_count: i32,
+    pub last_args: String, // JSON array of last used args
 }
 
 pub struct ShellHistoryDb {
@@ -228,14 +229,17 @@ impl ShellHistoryDb {
             format!(
                 r#"
                 SELECT
-                    command,
+                    h1.command,
                     COUNT(*) as count,
-                    MAX(timestamp) as last_used,
-                    SUM(CASE WHEN exit_code = 0 THEN 1 ELSE 0 END) as success_count,
-                    SUM(CASE WHEN exit_code != 0 THEN 1 ELSE 0 END) as failure_count
-                FROM shell_history
-                WHERE session_id = ?
-                GROUP BY command
+                    MAX(h1.timestamp) as last_used,
+                    SUM(CASE WHEN h1.exit_code = 0 THEN 1 ELSE 0 END) as success_count,
+                    SUM(CASE WHEN h1.exit_code != 0 THEN 1 ELSE 0 END) as failure_count,
+                    (SELECT h2.args FROM shell_history h2
+                     WHERE h2.session_id = h1.session_id AND h2.command = h1.command
+                     ORDER BY h2.timestamp DESC LIMIT 1) as last_args
+                FROM shell_history h1
+                WHERE h1.session_id = ?
+                GROUP BY h1.command
                 ORDER BY count DESC, last_used DESC
                 LIMIT {}
                 "#,
@@ -244,14 +248,17 @@ impl ShellHistoryDb {
         } else {
             r#"
             SELECT
-                command,
+                h1.command,
                 COUNT(*) as count,
-                MAX(timestamp) as last_used,
-                SUM(CASE WHEN exit_code = 0 THEN 1 ELSE 0 END) as success_count,
-                SUM(CASE WHEN exit_code != 0 THEN 1 ELSE 0 END) as failure_count
-            FROM shell_history
-            WHERE session_id = ?
-            GROUP BY command
+                MAX(h1.timestamp) as last_used,
+                SUM(CASE WHEN h1.exit_code = 0 THEN 1 ELSE 0 END) as success_count,
+                SUM(CASE WHEN h1.exit_code != 0 THEN 1 ELSE 0 END) as failure_count,
+                (SELECT h2.args FROM shell_history h2
+                 WHERE h2.session_id = h1.session_id AND h2.command = h1.command
+                 ORDER BY h2.timestamp DESC LIMIT 1) as last_args
+            FROM shell_history h1
+            WHERE h1.session_id = ?
+            GROUP BY h1.command
             ORDER BY count DESC, last_used DESC
             "#.to_string()
         };
@@ -270,6 +277,7 @@ impl ShellHistoryDb {
                 last_used: row.get("last_used"),
                 success_count: row.get("success_count"),
                 failure_count: row.get("failure_count"),
+                last_args: row.get("last_args"),
             })
             .collect();
 

@@ -22,6 +22,7 @@ export interface CommandStats {
   last_used: number;
   success_count: number;
   failure_count: number;
+  last_args: string; // JSON array
 }
 
 interface HistoryPanelProps {
@@ -109,6 +110,19 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
     return Math.round((stats.success_count / total) * 100);
   };
 
+  // Build full command from command name and args
+  const getFullCommand = (stats: CommandStats) => {
+    try {
+      const args = JSON.parse(stats.last_args || '[]');
+      if (Array.isArray(args) && args.length > 0) {
+        return `${stats.command} ${args.join(' ')}`;
+      }
+      return stats.command;
+    } catch {
+      return stats.command;
+    }
+  };
+
   return (
     <div className="w-full h-full bg-background border-l border-border flex flex-col overflow-hidden">
       {/* Header */}
@@ -144,16 +158,18 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
           <div className="p-2 space-y-0.5">
             {commandStats.map((stats, index) => {
               const successRate = getSuccessRate(stats);
+              const fullCommand = getFullCommand(stats);
               return (
                 <div
                   key={`${stats.command}-${index}`}
-                  onClick={() => onCommandSelect(stats.command)}
-                  onContextMenu={(e) => handleContextMenu(e, stats.command)}
+                  onClick={() => onCommandSelect(fullCommand)}
+                  onContextMenu={(e) => handleContextMenu(e, fullCommand)}
                   className="px-2 py-1.5 rounded hover:bg-muted/70 cursor-pointer transition-colors group flex items-center justify-between"
+                  title={fullCommand}
                 >
-                  {/* Command Name */}
+                  {/* Command Name - show full command with args */}
                   <div className="font-mono text-sm truncate flex-1 mr-2">
-                    {stats.command}
+                    {fullCommand}
                   </div>
 
                   {/* Compact Stats on the Right */}

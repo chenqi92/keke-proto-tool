@@ -197,12 +197,17 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
 
           if (!isSuspicious) {
             console.log('[TerminalSession] Saving command to history:', command);
+            // Parse command and args
+            const parts = command.split(' ');
+            const cmdName = parts[0] || command;
+            const cmdArgs = parts.slice(1);
+
             invoke('add_shell_history', {
               item: {
                 id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 session_id: sessionId,
-                command: command.split(' ')[0] || command,
-                args: JSON.stringify(command.split(' ').slice(1)),
+                command: cmdName,  // Just the command name for grouping
+                args: JSON.stringify(cmdArgs),  // Arguments as JSON array
                 timestamp: Date.now(),
                 cwd: currentDir,
                 exit_code: 0, // We don't know the exit code yet
@@ -343,11 +348,11 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
         term.write('\b \b');
       }
 
-      // Write the selected command
-      term.write(selectedCommand);
+      // Update current input ref
       currentInputRef.current = selectedCommand;
 
-      // Send to PTY
+      // Send to PTY (PTY will echo it back to the terminal)
+      // Don't write to terminal directly to avoid duplication
       invoke('write_pty_session', {
         sessionId: ptySessionIdRef.current,
         data: selectedCommand,
