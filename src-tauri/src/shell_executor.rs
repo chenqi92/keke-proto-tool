@@ -530,7 +530,19 @@ pub async fn start_pty_session(
 
     // Build command
     let mut cmd = CommandBuilder::new(&command);
-    cmd.args(&args);
+
+    // For shells, add -i flag to force interactive mode
+    // This prevents the shell from exiting immediately
+    if command.contains("zsh") || command.contains("bash") || command.contains("sh") {
+        if args.is_empty() {
+            cmd.arg("-i"); // Interactive mode
+            println!("[PTY] Added -i flag for interactive shell");
+        } else {
+            cmd.args(&args);
+        }
+    } else {
+        cmd.args(&args);
+    }
 
     if let Some(cwd) = context.cwd {
         cmd.cwd(cwd);
@@ -607,23 +619,45 @@ pub async fn start_pty_session(
 
     println!("[PTY] Session {} stored in manager", session_id);
 
+    // Clone child for monitoring thread
+    let session_id_for_monitor = session_id.clone();
+    let app_handle_for_monitor = app_handle.clone();
+
+    // Spawn thread to monitor child process
+    // This helps us detect if the shell exits unexpectedly
+    thread::spawn(move || {
+        // Note: We can't directly wait on the child here because it's moved into PtySessionData
+        // This is just a placeholder for future monitoring logic
+        println!("[PTY] Monitor thread started for session {}", session_id_for_monitor);
+    });
+
     // Spawn thread to read output
     let session_id_clone = session_id.clone();
     let app_handle_clone = app_handle.clone();
     thread::spawn(move || {
         let mut buffer = [0u8; 8192];
+        let mut consecutive_errors = 0;
+        let mut total_bytes_read = 0;
+
         loop {
             match reader.read(&mut buffer) {
                 Ok(0) => {
-                    // EOF
-                    println!("[PTY] Session {} closed", session_id_clone);
+                    // EOF - shell process has exited
+                    println!("[PTY] Session {} received EOF after reading {} total bytes", session_id_clone, total_bytes_read);
+                    println!("[PTY] Shell process has exited - this may indicate:");
+                    println!("[PTY]   1. Shell startup files (.zshrc, .bashrc) contain 'exit' command");
+                    println!("[PTY]   2. Shell failed to start in interactive mode");
+                    println!("[PTY]   3. Shell encountered an error during initialization");
                     let event_name = format!("pty-session-{}-close", session_id_clone);
                     let _ = app_handle_clone.emit(&event_name, 0);
                     break;
                 }
                 Ok(n) => {
+                    consecutive_errors = 0; // Reset error counter on successful read
+                    total_bytes_read += n;
                     let data = String::from_utf8_lossy(&buffer[..n]).to_string();
-                    println!("[PTY] Session {} received {} bytes: {:?}", session_id_clone, n, &data[..data.len().min(50)]);
+                    println!("[PTY] Session {} received {} bytes (total: {}): {:?}",
+                             session_id_clone, n, total_bytes_read, &data[..data.len().min(50)]);
                     let event_name = format!("pty-session-{}-data", session_id_clone);
                     match app_handle_clone.emit(&event_name, &data) {
                         Ok(_) => println!("[PTY] Event {} emitted successfully", event_name),
@@ -631,11 +665,23 @@ pub async fn start_pty_session(
                     }
                 }
                 Err(e) => {
-                    eprintln!("[PTY] Error reading from PTY: {}", e);
-                    break;
+                    consecutive_errors += 1;
+                    eprintln!("[PTY] Error reading from PTY (attempt {}): {}", consecutive_errors, e);
+
+                    // If we get too many consecutive errors, the PTY is probably dead
+                    if consecutive_errors >= 3 {
+                        eprintln!("[PTY] Too many consecutive errors, closing session {}", session_id_clone);
+                        let event_name = format!("pty-session-{}-close", session_id_clone);
+                        let _ = app_handle_clone.emit(&event_name, 1);
+                        break;
+                    }
+
+                    // Small delay before retrying
+                    thread::sleep(std::time::Duration::from_millis(100));
                 }
             }
         }
+        println!("[PTY] Read thread for session {} terminated", session_id_clone);
     });
 
     Ok(session_id)

@@ -524,18 +524,30 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
         const restartHandler = (data: string) => {
           // Check if Enter key was pressed
           if (data === '\r' || data === '\n') {
+            console.log('[TerminalSession] Restart requested by user');
             term.write('\r\n');
-            // Remove the restart handler and restore normal handler
+            term.writeln('\x1b[1;32m[Restarting shell...]\x1b[0m');
+
+            // Remove the restart handler
             if (dataHandlerRef.current) {
               dataHandlerRef.current.dispose();
+              dataHandlerRef.current = null;
             }
-            // Restart the shell
-            startPtySession(term);
+
+            // Small delay to ensure cleanup is complete
+            setTimeout(() => {
+              console.log('[TerminalSession] Calling startPtySession to restart');
+              startPtySession(term).catch(error => {
+                console.error('[TerminalSession] Failed to restart shell:', error);
+                term.writeln(`\r\n\x1b[1;31m[Failed to restart: ${error}]\x1b[0m`);
+              });
+            }, 100);
           }
         };
 
         // Add the restart handler
         dataHandlerRef.current = term.onData(restartHandler);
+        console.log('[TerminalSession] Restart handler installed');
       });
       unlistenCloseRef.current = unlistenClose;
 
