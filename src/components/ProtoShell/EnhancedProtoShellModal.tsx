@@ -251,24 +251,32 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
 
             {/* Terminal Content and History Panel */}
             <div className="flex-1 overflow-hidden flex">
-              {/* Terminal */}
+              {/* Terminal - Render all sessions but only show active one */}
               <div className={cn(
-                "flex-1 overflow-hidden transition-all",
+                "flex-1 overflow-hidden transition-all relative",
                 showHistoryPanel ? "w-[calc(100%-320px)]" : "w-full"
               )}>
-                {activeSessionId && (
-                  <TerminalSession
-                    key={activeSessionId}
-                    sessionId={activeSessionId}
-                    sessionName={sessions.find(s => s.id === activeSessionId)?.name || 'Terminal'}
-                    selectedCommand={selectedCommand}
-                    onClose={() => {
-                      if (sessions.length > 1) {
-                        handleCloseSession(activeSessionId, {} as React.MouseEvent);
-                      }
-                    }}
-                  />
-                )}
+                {sessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className={cn(
+                      "absolute inset-0",
+                      session.id !== activeSessionId && "hidden"
+                    )}
+                  >
+                    <TerminalSession
+                      sessionId={session.id}
+                      sessionName={session.name}
+                      selectedCommand={session.id === activeSessionId ? selectedCommand : null}
+                      isVisible={isOpen && session.id === activeSessionId}
+                      onClose={() => {
+                        if (sessions.length > 1) {
+                          handleCloseSession(session.id, {} as React.MouseEvent);
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
 
               {/* History Panel */}

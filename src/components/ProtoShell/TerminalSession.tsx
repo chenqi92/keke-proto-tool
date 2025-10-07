@@ -15,6 +15,7 @@ interface TerminalSessionProps {
   sessionId: string;
   sessionName: string;
   selectedCommand?: string | null;
+  isVisible?: boolean;
   onClose?: () => void;
   onTitleChange?: (title: string) => void;
 }
@@ -23,6 +24,7 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
   sessionId,
   sessionName,
   selectedCommand,
+  isVisible = true,
   onClose,
   onTitleChange,
 }) => {
@@ -364,6 +366,23 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
       hideAutoComplete();
     }
   }, [selectedCommand]);
+
+  // Handle visibility changes - refit terminal when becoming visible
+  useEffect(() => {
+    if (isVisible && xtermRef.current && fitAddonRef.current) {
+      // Use setTimeout to ensure DOM has updated
+      const timer = setTimeout(() => {
+        try {
+          console.log('[TerminalSession] Refitting terminal after visibility change');
+          fitAddonRef.current?.fit();
+        } catch (error) {
+          console.error('[TerminalSession] Failed to fit terminal:', error);
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible]);
 
   const updateAutoCompletePosition = (term: Terminal) => {
     if (!terminalRef.current) return;
