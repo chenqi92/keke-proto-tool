@@ -208,7 +208,12 @@ export async function killInteractiveSessionBackend(sessionId: string): Promise<
 export async function isBackendExecutorAvailable(): Promise<boolean> {
   try {
     // Try to execute a simple command
-    const result = await executeSystemCommandBackend('echo', ['test'], {});
+    const result = await executeSystemCommandBackend('echo', ['test'], {
+      cwd: '/',
+      env: {},
+      aliases: {},
+      variables: {},
+    });
     return result.success;
   } catch (error) {
     console.error(`[BackendShellExecutor] Backend executor not available:`, error);

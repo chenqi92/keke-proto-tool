@@ -29,7 +29,7 @@ import { UpdateNotification } from '@/components/UpdateNotification'
 import { MenuUpdateNotification } from '@/components/MenuUpdateNotification'
 import { UpdateModal } from '@/components/UpdateModal'
 import { ProtocolEditorModal } from '@/components/ProtocolEditorModal'
-import { ProtoShellModal } from '@/components/ProtoShell'
+import { EnhancedProtoShellModal } from '@/components/ProtoShell'
 import { ToolboxInterface } from '@/components/Toolbox/ToolboxInterface'
 import { useToast, useConfirmDialog } from '@/components/Common'
 
@@ -344,7 +344,7 @@ function App() {
         )
       case 'proto-shell':
         return (
-          <ProtoShellModal
+          <EnhancedProtoShellModal
             isOpen={true}
             onClose={closeModal}
           />

@@ -28,6 +28,7 @@ tauri-plugin-opener = "2.0.0-rc"
 tauri-plugin-dialog = "2.0.0-rc"
 tauri-plugin-fs = "2.0.0-rc"
 tauri-plugin-shell = "2.0.0-rc"
+tauri-plugin-sql = { version = "2.0.0-rc", features = ["sqlite"] }
 
 # Async runtime and networking
 tokio = { version = "1.0", features = ["net", "rt-multi-thread", "macros", "io-util", "time"] }
@@ -71,7 +72,7 @@ chrono = { version = "0.4", features = ["serde"] }
 tempfile = "3.8"  # Timestamp handling
 
 # Database for logging
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
 csv = "1.3"
 rand = "0.8"  # CSV export support
 

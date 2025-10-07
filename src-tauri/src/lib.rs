@@ -11,9 +11,12 @@ mod types;
 mod utils;
 mod menu;
 mod shell_executor;
+mod shell_history_db;
+mod shell_history_commands;
 
 use commands::*;
 use shell_executor::*;
+use shell_history_commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -96,13 +99,26 @@ pub fn run() {
             write_interactive_session,
             get_interactive_session,
             list_interactive_sessions,
-            kill_interactive_session
+            kill_interactive_session,
+            // Shell history database commands
+            init_shell_history_db,
+            add_shell_history,
+            get_session_history,
+            get_all_shell_history,
+            search_shell_history,
+            clear_all_shell_history,
+            clear_session_shell_history,
+            create_shell_session,
+            get_all_shell_sessions,
+            delete_shell_session,
+            update_shell_session_active
         ])
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_sql::Builder::default().build())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -130,6 +146,11 @@ pub fn run() {
             // Initialize interactive session manager
             let interactive_session_manager = shell_executor::InteractiveSessionManager::new();
             app.manage(interactive_session_manager);
+
+            // Initialize shell history database state
+            let shell_history_db_state: shell_history_commands::ShellHistoryDbState =
+                std::sync::Arc::new(tokio::sync::Mutex::new(None));
+            app.manage(shell_history_db_state);
 
             // Initialize parser system with repository
             let app_data_dir = app.path().app_data_dir()

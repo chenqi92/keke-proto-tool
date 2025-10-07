@@ -89,6 +89,7 @@ export function isLikelySystemCommand(command: string): boolean {
 /**
  * Execute an interactive system command (like ssh)
  * This requires special handling for interactive I/O
+ * NOTE: This function is deprecated - use InteractiveSessionManager instead
  */
 export async function executeInteractiveCommand(
   command: string,
@@ -99,78 +100,11 @@ export async function executeInteractiveCommand(
 ): Promise<ShellExecutionResult> {
   const startTime = Date.now();
 
-  try {
-    console.log(`[InteractiveCommand] Executing: ${command} ${args.join(' ')}`);
+  // This function is deprecated - interactive commands should use InteractiveSessionManager
+  console.warn('[InteractiveCommand] This function is deprecated. Use InteractiveSessionManager instead.');
 
-    // Create command with sidecar for interactive mode
-    const cmd = Command.create(command, args, {
-      cwd: context.cwd || undefined,
-      env: context.env || undefined,
-    });
-
-    // Set up event listeners for streaming output
-    let stdout = '';
-    let stderr = '';
-
-    cmd.on('close', (data) => {
-      console.log(`[InteractiveCommand] Process closed with code: ${data.code}`);
-    });
-
-    cmd.on('error', (error) => {
-      console.error(`[InteractiveCommand] Error:`, error);
-      if (onError) {
-        onError(error);
-      }
-      stderr += error + '\n';
-    });
-
-    cmd.stdout.on('data', (line) => {
-      console.log(`[InteractiveCommand] stdout:`, line);
-      if (onOutput) {
-        onOutput(line);
-      }
-      stdout += line;
-    });
-
-    cmd.stderr.on('data', (line) => {
-      console.log(`[InteractiveCommand] stderr:`, line);
-      if (onError) {
-        onError(line);
-      }
-      stderr += line;
-    });
-
-    // Spawn the process
-    const child = await cmd.spawn();
-    console.log(`[InteractiveCommand] Process spawned with PID: ${child.pid}`);
-
-    // Wait for completion
-    const status = await child.wait();
-    const executionTime = Date.now() - startTime;
-
-    console.log(`[InteractiveCommand] Process exited with code: ${status.code}`);
-
-    return {
-      success: status.code === 0,
-      output: stdout,
-      error: status.code !== 0 ? stderr : undefined,
-      exitCode: status.code,
-      executionTime,
-    };
-  } catch (error) {
-    const executionTime = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    console.error(`[InteractiveCommand] Execution failed:`, errorMessage);
-
-    return {
-      success: false,
-      output: '',
-      error: errorMessage,
-      exitCode: 1,
-      executionTime,
-    };
-  }
+  // Fallback to regular backend execution
+  return executeSystemCommandBackend(command, args, context);
 }
 
 /**

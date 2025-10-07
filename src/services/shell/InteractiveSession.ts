@@ -265,8 +265,8 @@ export class InteractiveSessionManager {
    */
   cleanupSession(sessionId: string): void {
     this.sessions.delete(sessionId);
-    this.processes.delete(sessionId);
     this.handlers.delete(sessionId);
+    this.cleanupListeners(sessionId);
   }
 }
 
