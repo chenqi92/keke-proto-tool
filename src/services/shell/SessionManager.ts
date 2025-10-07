@@ -43,19 +43,26 @@ class SessionManagerService {
 
     try {
       // Initialize the database
+      console.log('[SessionManager] Initializing shell history database...');
       await invoke('init_shell_history_db');
+      console.log('[SessionManager] Database initialized successfully');
 
       // Clear all existing sessions from database to start fresh
       // This ensures we don't have duplicate sessions from previous runs
-      const dbSessions = await invoke<ShellSessionInfo[]>('get_all_shell_sessions');
-      console.log(`[SessionManager] Found ${dbSessions.length} sessions in database, clearing...`);
+      try {
+        const dbSessions = await invoke<ShellSessionInfo[]>('get_all_shell_sessions');
+        console.log(`[SessionManager] Found ${dbSessions.length} sessions in database, clearing...`);
 
-      for (const session of dbSessions) {
-        try {
-          await invoke('delete_shell_session', { sessionId: session.id });
-        } catch (e) {
-          console.error('Failed to delete old session:', e);
+        for (const session of dbSessions) {
+          try {
+            await invoke('delete_shell_session', { sessionId: session.id });
+          } catch (e) {
+            console.error('Failed to delete old session:', e);
+          }
         }
+      } catch (error) {
+        // If we can't get sessions, it's okay - database might be empty
+        console.log('[SessionManager] Could not get existing sessions (database might be empty):', error);
       }
 
       // Create a single default session
@@ -81,14 +88,15 @@ class SessionManagerService {
         });
         console.log('[SessionManager] Saved default session to database');
       } catch (error) {
-        console.error('Failed to save default session to database:', error);
+        console.error('[SessionManager] Failed to save default session to database:', error);
+        // Continue anyway - we have the session in memory
       }
 
       this.initialized = true;
       console.log(`[SessionManager] Initialization complete. Total sessions: ${this.sessions.size}`);
       this.notifyListeners();
     } catch (error) {
-      console.error('Failed to initialize session manager:', error);
+      console.error('[SessionManager] Failed to initialize database:', error);
 
       // Only create a session if we don't have any
       if (this.sessions.size === 0) {

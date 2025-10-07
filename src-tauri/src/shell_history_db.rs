@@ -55,6 +55,15 @@ impl ShellHistoryDb {
             .map_err(|e| format!("Failed to create app data directory: {}", e))?;
 
         let db_path = app_data_dir.join("shell_history.db");
+
+        // Ensure the database file exists by creating it if necessary
+        // This prevents "unable to open database file" errors
+        if !db_path.exists() {
+            log::info!("Database file doesn't exist, creating: {}", db_path.display());
+            std::fs::File::create(&db_path)
+                .map_err(|e| format!("Failed to create database file: {}", e))?;
+        }
+
         let db_url = format!("sqlite:{}", db_path.display());
 
         log::info!("Initializing shell history database at: {}", db_url);
@@ -62,6 +71,8 @@ impl ShellHistoryDb {
         let pool = SqlitePool::connect(&db_url)
             .await
             .map_err(|e| format!("Failed to connect to database: {}", e))?;
+
+        log::info!("Successfully connected to shell history database");
 
         let db = Self { pool };
         db.init_schema().await?;

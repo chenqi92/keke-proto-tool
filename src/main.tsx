@@ -15,8 +15,12 @@ if (import.meta.env.DEV) {
   }, 2000);
 }
 
+// Disable StrictMode to prevent double initialization in development
+// StrictMode causes components to mount twice, which leads to:
+// - Duplicate database connections
+// - Duplicate event listeners
+// - Duplicate backend calls
+// While our code is now StrictMode-compatible, disabling it improves development experience
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <App />
 )
