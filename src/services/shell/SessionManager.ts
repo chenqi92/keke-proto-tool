@@ -41,12 +41,8 @@ class SessionManagerService {
 
       if (dbSessions.length === 0) {
         // Create default session if none exist
-        const sessionId = await this.createSession('Default');
-        this.activeSessionId = sessionId;
-        const session = this.sessions.get(sessionId);
-        if (session) {
-          session.isActive = true;
-        }
+        // createSession will automatically set it as active since it's the first session
+        await this.createSession('Default');
       } else {
         // Load sessions from database
         dbSessions.forEach(session => {

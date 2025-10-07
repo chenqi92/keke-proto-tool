@@ -3,12 +3,13 @@
 
 use serde::{Deserialize, Serialize};
 use std::process::{Command, Stdio, ChildStdin};
-use std::io::{Write, BufRead, BufReader};
+use std::io::{Write, BufRead, BufReader, Read};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::thread;
 use tauri::{State, AppHandle, Emitter};
 use encoding_rs::GBK;
+use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 
 /// Decode command output based on OS encoding
 /// Windows uses GBK encoding, Unix uses UTF-8
@@ -453,5 +454,179 @@ pub async fn kill_interactive_session(
     } else {
         Err(format!("Session {} not found", session_id))
     }
+}
+
+// PTY Session data
+struct PtySessionData {
+    master: Box<dyn portable_pty::MasterPty + Send>,
+    writer: Box<dyn Write + Send>,
+}
+
+// PTY Session Manager for true interactive terminals
+#[derive(Clone)]
+pub struct PtySessionManager {
+    sessions: Arc<Mutex<HashMap<String, Arc<Mutex<PtySessionData>>>>>,
+}
+
+impl PtySessionManager {
+    pub fn new() -> Self {
+        Self {
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub fn add_session(&self, id: String, master: Box<dyn portable_pty::MasterPty + Send>, writer: Box<dyn Write + Send>) {
+        let mut sessions = self.sessions.lock().unwrap();
+        sessions.insert(id, Arc::new(Mutex::new(PtySessionData { master, writer })));
+    }
+
+    pub fn get_session(&self, id: &str) -> Option<Arc<Mutex<PtySessionData>>> {
+        let sessions = self.sessions.lock().unwrap();
+        sessions.get(id).cloned()
+    }
+
+    pub fn remove_session(&self, id: &str) {
+        let mut sessions = self.sessions.lock().unwrap();
+        sessions.remove(id);
+    }
+
+    pub fn list_sessions(&self) -> Vec<String> {
+        let sessions = self.sessions.lock().unwrap();
+        sessions.keys().cloned().collect()
+    }
+}
+
+/// Start a PTY session for interactive commands
+#[tauri::command]
+pub async fn start_pty_session(
+    session_id: String,
+    command: String,
+    args: Vec<String>,
+    context: ShellContext,
+    app_handle: AppHandle,
+    pty_manager: State<'_, PtySessionManager>,
+) -> Result<String, String> {
+    println!("[PTY] Starting PTY session {}: {} {:?}", session_id, command, args);
+
+    let pty_system = native_pty_system();
+
+    // Create PTY with size
+    let pair = pty_system
+        .openpty(PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| format!("Failed to create PTY: {}", e))?;
+
+    // Build command
+    let mut cmd = CommandBuilder::new(&command);
+    cmd.args(&args);
+
+    if let Some(cwd) = context.cwd {
+        cmd.cwd(cwd);
+    }
+
+    if let Some(env) = context.env {
+        for (key, value) in env {
+            cmd.env(key, value);
+        }
+    }
+
+    // Spawn child process
+    let _child = pair.slave.spawn_command(cmd)
+        .map_err(|e| format!("Failed to spawn command: {}", e))?;
+
+    // Get reader and writer
+    let mut reader = pair.master.try_clone_reader()
+        .map_err(|e| format!("Failed to clone reader: {}", e))?;
+
+    let writer = pair.master.take_writer()
+        .map_err(|e| format!("Failed to get writer: {}", e))?;
+
+    // Store the PTY master and writer
+    pty_manager.add_session(session_id.clone(), pair.master, writer);
+
+    // Spawn thread to read output
+    let session_id_clone = session_id.clone();
+    let app_handle_clone = app_handle.clone();
+    thread::spawn(move || {
+        let mut buffer = [0u8; 8192];
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => {
+                    // EOF
+                    println!("[PTY] Session {} closed", session_id_clone);
+                    let event_name = format!("pty-session-{}-close", session_id_clone);
+                    let _ = app_handle_clone.emit(&event_name, 0);
+                    break;
+                }
+                Ok(n) => {
+                    let data = String::from_utf8_lossy(&buffer[..n]).to_string();
+                    let event_name = format!("pty-session-{}-data", session_id_clone);
+                    let _ = app_handle_clone.emit(&event_name, data);
+                }
+                Err(e) => {
+                    eprintln!("[PTY] Error reading from PTY: {}", e);
+                    break;
+                }
+            }
+        }
+    });
+
+    Ok(session_id)
+}
+
+/// Write data to PTY session
+#[tauri::command]
+pub async fn write_pty_session(
+    session_id: String,
+    data: String,
+    pty_manager: State<'_, PtySessionManager>,
+) -> Result<(), String> {
+    if let Some(session_arc) = pty_manager.get_session(&session_id) {
+        let mut session = session_arc.lock().unwrap();
+        session.writer.write_all(data.as_bytes())
+            .map_err(|e| format!("Failed to write to PTY: {}", e))?;
+        session.writer.flush()
+            .map_err(|e| format!("Failed to flush PTY: {}", e))?;
+        Ok(())
+    } else {
+        Err(format!("PTY session {} not found", session_id))
+    }
+}
+
+/// Resize PTY session
+#[tauri::command]
+pub async fn resize_pty_session(
+    session_id: String,
+    rows: u16,
+    cols: u16,
+    pty_manager: State<'_, PtySessionManager>,
+) -> Result<(), String> {
+    if let Some(session_arc) = pty_manager.get_session(&session_id) {
+        let session = session_arc.lock().unwrap();
+        session.master.resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| format!("Failed to resize PTY: {}", e))?;
+        Ok(())
+    } else {
+        Err(format!("PTY session {} not found", session_id))
+    }
+}
+
+/// Close PTY session
+#[tauri::command]
+pub async fn close_pty_session(
+    session_id: String,
+    pty_manager: State<'_, PtySessionManager>,
+) -> Result<(), String> {
+    pty_manager.remove_session(&session_id);
+    Ok(())
 }
 

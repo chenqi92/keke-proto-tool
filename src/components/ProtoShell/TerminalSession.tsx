@@ -27,9 +27,9 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const [currentDir, setCurrentDir] = useState('~');
   const [isReady, setIsReady] = useState(false);
-  const inputBufferRef = useRef<string>('');
-  const commandHistoryRef = useRef<string[]>([]);
-  const historyIndexRef = useRef<number>(-1);
+  const ptySessionIdRef = useRef<string | null>(null);
+  const unlistenDataRef = useRef<(() => void) | null>(null);
+  const unlistenCloseRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -87,21 +87,40 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
 
     // Welcome message
     term.writeln(`\x1b[1;32mProtoShell Terminal - ${sessionName}\x1b[0m`);
-    term.writeln('Type commands and press Enter to execute.');
+    term.writeln('Starting interactive shell...');
     term.writeln('');
-    writePrompt(term);
 
     setIsReady(true);
 
-    // Handle terminal input
+    // Start PTY session
+    startPtySession(term);
+
+    // Handle terminal input - send directly to PTY
     term.onData((data) => {
-      handleTerminalInput(data, term);
+      if (ptySessionIdRef.current) {
+        invoke('write_pty_session', {
+          sessionId: ptySessionIdRef.current,
+          data,
+        }).catch(error => {
+          console.error('Failed to write to PTY:', error);
+        });
+      }
     });
 
     // Handle window resize
     const handleResize = () => {
       try {
         fitAddon.fit();
+        // Also resize PTY
+        if (ptySessionIdRef.current && term.rows && term.cols) {
+          invoke('resize_pty_session', {
+            sessionId: ptySessionIdRef.current,
+            rows: term.rows,
+            cols: term.cols,
+          }).catch(error => {
+            console.error('Failed to resize PTY:', error);
+          });
+        }
       } catch (error) {
         console.error('Failed to fit terminal on resize:', error);
       }
@@ -111,175 +130,67 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
     // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
+
+      // Close PTY session
+      if (ptySessionIdRef.current) {
+        invoke('close_pty_session', {
+          sessionId: ptySessionIdRef.current,
+        }).catch(error => {
+          console.error('Failed to close PTY:', error);
+        });
+      }
+
+      // Unlisten events
+      if (unlistenDataRef.current) {
+        unlistenDataRef.current();
+      }
+      if (unlistenCloseRef.current) {
+        unlistenCloseRef.current();
+      }
+
       term.dispose();
     };
   }, [sessionId, sessionName]);
 
-  const writePrompt = (term: Terminal) => {
-    term.write(`\r\n\x1b[1;36m${currentDir}\x1b[0m \x1b[1;32m❯\x1b[0m `);
-  };
-
-  const handleTerminalInput = (data: string, term: Terminal) => {
-    const code = data.charCodeAt(0);
-
-    // Handle special keys
-    if (code === 13) {
-      // Enter key
-      const command = inputBufferRef.current.trim();
-      term.write('\r\n');
-      
-      if (command) {
-        // Add to history
-        commandHistoryRef.current.push(command);
-        historyIndexRef.current = -1;
-        
-        // Execute command
-        executeCommand(command, term);
-      } else {
-        writePrompt(term);
-      }
-      
-      inputBufferRef.current = '';
-    } else if (code === 127) {
-      // Backspace
-      if (inputBufferRef.current.length > 0) {
-        inputBufferRef.current = inputBufferRef.current.slice(0, -1);
-        term.write('\b \b');
-      }
-    } else if (code === 3) {
-      // Ctrl+C
-      term.write('^C');
-      inputBufferRef.current = '';
-      writePrompt(term);
-    } else if (code === 12) {
-      // Ctrl+L - Clear screen
-      term.clear();
-      writePrompt(term);
-    } else if (code === 27) {
-      // Escape sequences (arrow keys, etc.)
-      if (data === '\x1b[A') {
-        // Up arrow - previous command
-        if (commandHistoryRef.current.length > 0) {
-          if (historyIndexRef.current === -1) {
-            historyIndexRef.current = commandHistoryRef.current.length - 1;
-          } else if (historyIndexRef.current > 0) {
-            historyIndexRef.current--;
-          }
-          
-          // Clear current line
-          term.write('\r\x1b[K');
-          writePrompt(term);
-          
-          // Write history command
-          const cmd = commandHistoryRef.current[historyIndexRef.current];
-          term.write(cmd);
-          inputBufferRef.current = cmd;
-        }
-      } else if (data === '\x1b[B') {
-        // Down arrow - next command
-        if (historyIndexRef.current !== -1) {
-          historyIndexRef.current++;
-          
-          // Clear current line
-          term.write('\r\x1b[K');
-          writePrompt(term);
-          
-          if (historyIndexRef.current < commandHistoryRef.current.length) {
-            const cmd = commandHistoryRef.current[historyIndexRef.current];
-            term.write(cmd);
-            inputBufferRef.current = cmd;
-          } else {
-            historyIndexRef.current = -1;
-            inputBufferRef.current = '';
-          }
-        }
-      }
-    } else if (code >= 32 && code <= 126) {
-      // Printable characters
-      inputBufferRef.current += data;
-      term.write(data);
-    }
-  };
-
-  const executeCommand = async (command: string, term: Terminal) => {
+  const startPtySession = async (term: Terminal) => {
     try {
-      // Handle built-in commands
-      if (command === 'clear') {
-        term.clear();
-        writePrompt(term);
-        return;
-      }
+      // Determine shell command based on OS
+      const shell = navigator.platform.toLowerCase().includes('win') ? 'cmd.exe' : 'bash';
+      const args: string[] = [];
 
-      if (command === 'exit') {
-        term.writeln('\x1b[1;33mClosing session...\x1b[0m');
-        onClose?.();
-        return;
-      }
-
-      // Save to database
-      await saveCommandToHistory(command);
-
-      // Execute command via backend
-      const result = await invoke<{
-        success: boolean;
-        output: string;
-        error?: string;
-        exitCode: number;
-        executionTime: number;
-      }>('execute_system_command', {
+      // Start PTY session
+      const ptyId = await invoke<string>('start_pty_session', {
+        sessionId: sessionId,
+        command: shell,
+        args,
         context: {
           cwd: currentDir === '~' ? null : currentDir,
           env: {},
         },
-        command,
-        args: [],
       });
 
-      // Display output
-      if (result.output) {
-        term.writeln(result.output);
-      }
+      ptySessionIdRef.current = ptyId;
 
-      if (result.error) {
-        term.writeln(`\x1b[1;31m${result.error}\x1b[0m`);
-      }
+      // Listen for PTY data
+      const unlistenData = await listen<string>(`pty-session-${ptyId}-data`, (event) => {
+        term.write(event.payload);
+      });
+      unlistenDataRef.current = unlistenData;
 
-      // Update current directory if cd command
-      if (command.startsWith('cd ')) {
-        const newDir = command.substring(3).trim();
-        if (newDir) {
-          setCurrentDir(newDir);
-        }
-      }
+      // Listen for PTY close
+      const unlistenClose = await listen<number>(`pty-session-${ptyId}-close`, (event) => {
+        term.writeln(`\r\n\x1b[1;33mSession closed with code: ${event.payload}\x1b[0m`);
+        onClose?.();
+      });
+      unlistenCloseRef.current = unlistenClose;
 
-      writePrompt(term);
     } catch (error) {
-      term.writeln(`\x1b[1;31mError: ${error}\x1b[0m`);
-      writePrompt(term);
+      term.writeln(`\x1b[1;31mFailed to start shell: ${error}\x1b[0m`);
+      console.error('Failed to start PTY session:', error);
     }
   };
 
-  const saveCommandToHistory = async (command: string) => {
-    try {
-      const timestamp = Date.now();
-      await invoke('add_shell_history', {
-        item: {
-          id: `${sessionId}-${timestamp}`,
-          session_id: sessionId,
-          command,
-          args: JSON.stringify([]),
-          timestamp,
-          cwd: currentDir,
-          exit_code: 0,
-          execution_time: 0,
-          output: null,
-          error: null,
-        },
-      });
-    } catch (error) {
-      console.error('Failed to save command to history:', error);
-    }
-  };
+
 
   return (
     <div className="w-full h-full bg-[#1e1e1e]">

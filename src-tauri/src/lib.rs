@@ -100,6 +100,11 @@ pub fn run() {
             get_interactive_session,
             list_interactive_sessions,
             kill_interactive_session,
+            // PTY session commands
+            start_pty_session,
+            write_pty_session,
+            resize_pty_session,
+            close_pty_session,
             // Shell history database commands
             init_shell_history_db,
             add_shell_history,
@@ -146,6 +151,10 @@ pub fn run() {
             // Initialize interactive session manager
             let interactive_session_manager = shell_executor::InteractiveSessionManager::new();
             app.manage(interactive_session_manager);
+
+            // Initialize PTY session manager
+            let pty_session_manager = shell_executor::PtySessionManager::new();
+            app.manage(pty_session_manager);
 
             // Initialize shell history database state
             let shell_history_db_state: shell_history_commands::ShellHistoryDbState =
