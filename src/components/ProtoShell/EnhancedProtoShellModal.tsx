@@ -2,7 +2,7 @@
 // Provides a fully-functional terminal shell with multiple sessions
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Terminal as TerminalIcon, History, Settings } from 'lucide-react';
+import { X, Plus, Terminal as TerminalIcon, History, Settings, Minimize2 } from 'lucide-react';
 import { cn } from '@/utils';
 import { TerminalSession } from './TerminalSession';
 import { sessionManager, SessionState } from '@/services/shell/SessionManager';
@@ -12,11 +12,13 @@ import { HistoryPanel } from './HistoryPanel';
 interface EnhancedProtoShellModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onMinimize?: () => void;
 }
 
 export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = ({
   isOpen,
   onClose,
+  onMinimize,
 }) => {
   const [sessions, setSessions] = useState<SessionState[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -175,10 +177,19 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
             >
               <History className="w-4 h-4" />
             </button>
-            {/* Removed duplicate Trash2 button - use "Clear All History" at the bottom instead */}
+            {onMinimize && (
+              <button
+                onClick={onMinimize}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+                title="Minimize to Status Bar"
+              >
+                <Minimize2 className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-2 hover:bg-destructive hover:text-destructive-foreground rounded-lg transition-colors"
+              title="Close Terminal"
             >
               <X className="w-4 h-4" />
             </button>

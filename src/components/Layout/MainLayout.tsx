@@ -11,11 +11,15 @@ import { useAppStore } from '@/stores/AppStore';
 interface MainLayoutProps {
   children: React.ReactNode;
   onOpenModal: (modalType: string) => void;
+  isProtoShellMinimized?: boolean;
+  onRestoreProtoShell?: () => void;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({
   children,
-  onOpenModal
+  onOpenModal,
+  isProtoShellMinimized,
+  onRestoreProtoShell
 }) => {
   const layoutConfig = useLayoutConfig();
   const { setCurrentSession, setSessionId } = useSession();
@@ -224,7 +228,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       </div>
 
       {/* 底部状态栏 */}
-      {showStatusBar && <StatusBar />}
+      {showStatusBar && (
+        <StatusBar
+          isProtoShellMinimized={isProtoShellMinimized}
+          onRestoreProtoShell={onRestoreProtoShell}
+        />
+      )}
     </div>
   );
 };

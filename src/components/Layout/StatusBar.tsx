@@ -11,7 +11,8 @@ import {
   Download,
   Upload,
   Info,
-  RefreshCw
+  RefreshCw,
+  Terminal
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { getVersionDisplayText } from '@/constants/version';
@@ -29,6 +30,8 @@ import {
 
 interface StatusBarProps {
   className?: string;
+  isProtoShellMinimized?: boolean;
+  onRestoreProtoShell?: () => void;
 }
 
 interface StatusInfo {
@@ -57,7 +60,11 @@ interface StatusInfo {
   hasUpdates: boolean;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
+export const StatusBar: React.FC<StatusBarProps> = ({
+  className,
+  isProtoShellMinimized = false,
+  onRestoreProtoShell
+}) => {
   const layoutConfig = useLayoutConfig();
   const [status, setStatus] = useState<StatusInfo>({
     connections: { active: 0, total: 0 },
@@ -175,6 +182,18 @@ export const StatusBar: React.FC<StatusBarProps> = ({ className }) => {
         "flex items-center",
         layoutConfig.isMobile ? "space-x-2" : "space-x-4"
       )}>
+        {/* Minimized ProtoShell Indicator */}
+        {isProtoShellMinimized && onRestoreProtoShell && (
+          <button
+            onClick={onRestoreProtoShell}
+            className="flex items-center space-x-1 px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+            title="Click to restore ProtoShell terminal"
+          >
+            <Terminal className="w-3 h-3" />
+            <span className="font-medium">ProtoShell</span>
+          </button>
+        )}
+
         {/* Connection Status - 始终显示 */}
         <div className="flex items-center space-x-1">
           <ConnectionIcon className={cn("w-3 h-3", connectionStatus.color)} />

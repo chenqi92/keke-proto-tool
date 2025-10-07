@@ -85,6 +85,7 @@ function App() {
   const [isInitialized, setIsInitialized] = useState(false)
   const [showMenuUpdateNotification, setShowMenuUpdateNotification] = useState(false)
   const [logsModalParams, setLogsModalParams] = useState<{ sessionId?: string; sessionName?: string } | null>(null)
+  const [isProtoShellMinimized, setIsProtoShellMinimized] = useState(false)
   const createSession = useAppStore(state => state.createSession)
   const shortcutHelp = useShortcutHelp()
 
@@ -164,6 +165,10 @@ function App() {
   }, [shortcutHelp])
 
   const closeModal = () => {
+    // If closing ProtoShell, reset minimized state
+    if (activeModal === 'proto-shell') {
+      setIsProtoShellMinimized(false)
+    }
     setActiveModal(null)
     setLogsModalParams(null)
   }
@@ -343,12 +348,13 @@ function App() {
           />
         )
       case 'proto-shell':
-        return (
+        return !isProtoShellMinimized ? (
           <EnhancedProtoShellModal
             isOpen={true}
             onClose={closeModal}
+            onMinimize={() => setIsProtoShellMinimized(true)}
           />
-        )
+        ) : null
       case 'toolbox':
         return (
           <Modal
@@ -430,7 +436,11 @@ function App() {
         handleMenuUpdateCheck={handleMenuUpdateCheck}
       />
 
-      <MainLayout onOpenModal={openModal}>
+      <MainLayout
+        onOpenModal={openModal}
+        isProtoShellMinimized={isProtoShellMinimized}
+        onRestoreProtoShell={() => setIsProtoShellMinimized(false)}
+      >
         <MainContent />
       </MainLayout>
 
