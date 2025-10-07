@@ -14,6 +14,7 @@ import { useTerminalAutoComplete } from '@/hooks/useTerminalAutoComplete';
 interface TerminalSessionProps {
   sessionId: string;
   sessionName: string;
+  selectedCommand?: string | null;
   onClose?: () => void;
   onTitleChange?: (title: string) => void;
 }
@@ -21,6 +22,7 @@ interface TerminalSessionProps {
 export const TerminalSession: React.FC<TerminalSessionProps> = ({
   sessionId,
   sessionName,
+  selectedCommand,
   onClose,
   onTitleChange,
 }) => {
@@ -240,6 +242,34 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
     };
   }, [sessionId, sessionName]);
 
+  // Handle selected command from history panel
+  useEffect(() => {
+    if (selectedCommand && xtermRef.current && ptySessionIdRef.current) {
+      const term = xtermRef.current;
+
+      // Clear current input
+      const clearLength = currentInputRef.current.length;
+      for (let i = 0; i < clearLength; i++) {
+        term.write('\b \b');
+      }
+
+      // Write the selected command
+      term.write(selectedCommand);
+      currentInputRef.current = selectedCommand;
+
+      // Send to PTY
+      invoke('write_pty_session', {
+        sessionId: ptySessionIdRef.current,
+        data: selectedCommand,
+      }).catch(error => {
+        console.error('Failed to write selected command to PTY:', error);
+      });
+
+      // Hide autocomplete if visible
+      hideAutoComplete();
+    }
+  }, [selectedCommand]);
+
   const updateAutoCompletePosition = (term: Terminal) => {
     if (!terminalRef.current) return;
 
@@ -285,13 +315,29 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
 
   const startPtySession = async (term: Terminal) => {
     try {
-      // Determine shell command based on OS
-      const shell = navigator.platform.toLowerCase().includes('win') ? 'cmd.exe' : 'bash';
-      const args: string[] = [];
+      // Get default shell from backend
+      const shell = await invoke<string>('get_default_shell');
+
+      // Determine shell arguments based on platform and shell type
+      const isWindows = navigator.platform.toLowerCase().includes('win');
+      let args: string[] = [];
+
+      if (!isWindows) {
+        // For Unix-like systems, use interactive shell flags
+        // -i for interactive, which loads .bashrc/.zshrc
+        // Avoid -l (login shell) as it may cause issues in some environments
+        if (shell.includes('bash')) {
+          args = ['-i'];
+        } else if (shell.includes('zsh')) {
+          args = ['-i'];
+        } else {
+          args = ['-i'];
+        }
+      }
 
       // Start PTY session
       const ptyId = await invoke<string>('start_pty_session', {
-        sessionId: sessionId,
+        sessionId,
         command: shell,
         args,
         context: {
@@ -310,8 +356,32 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
 
       // Listen for PTY close
       const unlistenClose = await listen<number>(`pty-session-${ptyId}-close`, (event) => {
-        term.writeln(`\r\n\x1b[1;33mSession closed with code: ${event.payload}\x1b[0m`);
-        onClose?.();
+        console.log(`[TerminalSession] PTY session ${ptyId} closed with code: ${event.payload}`);
+
+        // Clear the PTY session ID
+        ptySessionIdRef.current = null;
+
+        // Show exit message
+        term.writeln(`\r\n\x1b[1;33m[Process exited with code ${event.payload}]\x1b[0m`);
+        term.writeln(`\x1b[1;36m[Press Enter to restart shell]\x1b[0m`);
+
+        // Set up restart handler
+        let restartDisposable: any = null;
+        const restartHandler = (data: string) => {
+          // Check if Enter key was pressed
+          if (data === '\r' || data === '\n') {
+            term.write('\r\n');
+            // Remove the restart handler
+            if (restartDisposable) {
+              restartDisposable.dispose();
+            }
+            // Restart the shell
+            startPtySession(term);
+          }
+        };
+
+        // Add the restart handler
+        restartDisposable = term.onData(restartHandler);
       });
       unlistenCloseRef.current = unlistenClose;
 

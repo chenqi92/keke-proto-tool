@@ -105,11 +105,13 @@ pub fn run() {
             write_pty_session,
             resize_pty_session,
             close_pty_session,
+            get_default_shell,
             get_system_commands,
             // Shell history database commands
             init_shell_history_db,
             add_shell_history,
             get_session_history,
+            get_command_stats,
             get_all_shell_history,
             search_shell_history,
             clear_all_shell_history,

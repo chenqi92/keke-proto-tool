@@ -180,18 +180,6 @@ class StatusBarService {
     let active = 0;
     const total = sessions.length;
 
-    // Debug logging
-    console.log('[StatusBarService] Calculating connection stats:', {
-      totalSessions: sessions.length,
-      sessionDetails: sessions.map(s => ({
-        id: s.config.id,
-        name: s.config.name,
-        type: s.config.connectionType,
-        status: s.status,
-        clientConnections: s.clientConnections ? Object.keys(s.clientConnections).length : 0
-      }))
-    });
-
     sessions.forEach(session => {
       if (session.status === 'connected') {
         active++;
@@ -202,7 +190,6 @@ class StatusBarService {
       // This was causing the total count to be inflated
     });
 
-    console.log('[StatusBarService] Connection stats result:', { active, total });
     return { active, total };
   }
 

@@ -460,6 +460,8 @@ pub async fn kill_interactive_session(
 struct PtySessionData {
     master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Box<dyn Write + Send>,
+    #[allow(dead_code)]
+    child: Box<dyn portable_pty::Child + Send>,
 }
 
 // PTY Session Manager for true interactive terminals
@@ -475,9 +477,15 @@ impl PtySessionManager {
         }
     }
 
-    pub fn add_session(&self, id: String, master: Box<dyn portable_pty::MasterPty + Send>, writer: Box<dyn Write + Send>) {
+    pub fn add_session(
+        &self,
+        id: String,
+        master: Box<dyn portable_pty::MasterPty + Send>,
+        writer: Box<dyn Write + Send>,
+        child: Box<dyn portable_pty::Child + Send>,
+    ) {
         let mut sessions = self.sessions.lock().unwrap();
-        sessions.insert(id, Arc::new(Mutex::new(PtySessionData { master, writer })));
+        sessions.insert(id, Arc::new(Mutex::new(PtySessionData { master, writer, child })));
     }
 
     pub fn get_session(&self, id: &str) -> Option<Arc<Mutex<PtySessionData>>> {
@@ -535,7 +543,7 @@ pub async fn start_pty_session(
     }
 
     // Spawn child process
-    let _child = pair.slave.spawn_command(cmd)
+    let child = pair.slave.spawn_command(cmd)
         .map_err(|e| format!("Failed to spawn command: {}", e))?;
 
     // Get reader and writer
@@ -545,8 +553,8 @@ pub async fn start_pty_session(
     let writer = pair.master.take_writer()
         .map_err(|e| format!("Failed to get writer: {}", e))?;
 
-    // Store the PTY master and writer
-    pty_manager.add_session(session_id.clone(), pair.master, writer);
+    // Store the PTY master, writer, and child process
+    pty_manager.add_session(session_id.clone(), pair.master, writer, child);
 
     // Spawn thread to read output
     let session_id_clone = session_id.clone();
@@ -628,6 +636,34 @@ pub async fn close_pty_session(
 ) -> Result<(), String> {
     pty_manager.remove_session(&session_id);
     Ok(())
+}
+
+/// Get default shell for the current user
+#[tauri::command]
+pub async fn get_default_shell() -> Result<String, String> {
+    use std::env;
+
+    #[cfg(unix)]
+    {
+        // Try to get SHELL environment variable
+        if let Ok(shell) = env::var("SHELL") {
+            return Ok(shell);
+        }
+
+        // Fallback to common shells
+        for shell in &["/bin/bash", "/bin/zsh", "/bin/sh"] {
+            if std::path::Path::new(shell).exists() {
+                return Ok(shell.to_string());
+            }
+        }
+
+        Ok("/bin/sh".to_string())
+    }
+
+    #[cfg(windows)]
+    {
+        Ok("cmd.exe".to_string())
+    }
 }
 
 /// Get system commands from PATH for autocomplete

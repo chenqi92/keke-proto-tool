@@ -29,6 +29,15 @@ pub struct ShellSession {
     pub command_count: i32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandStats {
+    pub command: String,
+    pub count: i32,
+    pub last_used: i64,
+    pub success_count: i32,
+    pub failure_count: i32,
+}
+
 pub struct ShellHistoryDb {
     pool: SqlitePool,
 }
@@ -196,6 +205,64 @@ impl ShellHistoryDb {
             .collect();
 
         Ok(items)
+    }
+
+    /// Get command statistics grouped by command, ordered by execution count
+    pub async fn get_command_stats(
+        &self,
+        session_id: &str,
+        limit: Option<i32>,
+    ) -> Result<Vec<CommandStats>, String> {
+        let query = if let Some(limit) = limit {
+            format!(
+                r#"
+                SELECT
+                    command,
+                    COUNT(*) as count,
+                    MAX(timestamp) as last_used,
+                    SUM(CASE WHEN exit_code = 0 THEN 1 ELSE 0 END) as success_count,
+                    SUM(CASE WHEN exit_code != 0 THEN 1 ELSE 0 END) as failure_count
+                FROM shell_history
+                WHERE session_id = ?
+                GROUP BY command
+                ORDER BY count DESC, last_used DESC
+                LIMIT {}
+                "#,
+                limit
+            )
+        } else {
+            r#"
+            SELECT
+                command,
+                COUNT(*) as count,
+                MAX(timestamp) as last_used,
+                SUM(CASE WHEN exit_code = 0 THEN 1 ELSE 0 END) as success_count,
+                SUM(CASE WHEN exit_code != 0 THEN 1 ELSE 0 END) as failure_count
+            FROM shell_history
+            WHERE session_id = ?
+            GROUP BY command
+            ORDER BY count DESC, last_used DESC
+            "#.to_string()
+        };
+
+        let rows = sqlx::query(&query)
+            .bind(session_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| format!("Failed to get command stats: {}", e))?;
+
+        let stats = rows
+            .into_iter()
+            .map(|row| CommandStats {
+                command: row.get("command"),
+                count: row.get("count"),
+                last_used: row.get("last_used"),
+                success_count: row.get("success_count"),
+                failure_count: row.get("failure_count"),
+            })
+            .collect();
+
+        Ok(stats)
     }
 
     /// Get all history

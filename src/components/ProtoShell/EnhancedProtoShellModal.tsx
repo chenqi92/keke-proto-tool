@@ -1,12 +1,13 @@
 // Enhanced ProtoShell Modal with Multi-Session Support
 // Provides a fully-functional terminal shell with multiple sessions
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Terminal as TerminalIcon, Trash2, History, Settings } from 'lucide-react';
 import { cn } from '@/utils';
 import { TerminalSession } from './TerminalSession';
 import { sessionManager, SessionState } from '@/services/shell/SessionManager';
 import { ConfirmationModal } from '@/components/Common/ConfirmationModal';
+import { HistoryPanel } from './HistoryPanel';
 
 interface EnhancedProtoShellModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [selectedCommand, setSelectedCommand] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -147,6 +149,12 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
     });
   };
 
+  const handleCommandSelect = (command: string) => {
+    setSelectedCommand(command);
+    // Clear the selected command after a short delay to allow TerminalSession to process it
+    setTimeout(() => setSelectedCommand(null), 100);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -234,19 +242,36 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
               </button>
             </div>
 
-            {/* Terminal Content */}
-            <div className="flex-1 overflow-hidden">
-              {activeSessionId && (
-                <TerminalSession
-                  key={activeSessionId}
-                  sessionId={activeSessionId}
-                  sessionName={sessions.find(s => s.id === activeSessionId)?.name || 'Terminal'}
-                  onClose={() => {
-                    if (sessions.length > 1) {
-                      handleCloseSession(activeSessionId, {} as React.MouseEvent);
-                    }
-                  }}
-                />
+            {/* Terminal Content and History Panel */}
+            <div className="flex-1 overflow-hidden flex">
+              {/* Terminal */}
+              <div className={cn(
+                "flex-1 overflow-hidden transition-all",
+                showHistoryPanel ? "w-[calc(100%-320px)]" : "w-full"
+              )}>
+                {activeSessionId && (
+                  <TerminalSession
+                    key={activeSessionId}
+                    sessionId={activeSessionId}
+                    sessionName={sessions.find(s => s.id === activeSessionId)?.name || 'Terminal'}
+                    selectedCommand={selectedCommand}
+                    onClose={() => {
+                      if (sessions.length > 1) {
+                        handleCloseSession(activeSessionId, {} as React.MouseEvent);
+                      }
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* History Panel */}
+              {showHistoryPanel && activeSessionId && (
+                <div className="w-80 flex-shrink-0">
+                  <HistoryPanel
+                    sessionId={activeSessionId}
+                    onCommandSelect={handleCommandSelect}
+                  />
+                </div>
               )}
             </div>
           </>
@@ -271,24 +296,6 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
           </div>
         </div>
       </div>
-
-      {/* History Panel (if needed) */}
-      {showHistoryPanel && (
-        <div className="fixed right-4 top-20 w-96 h-[70vh] bg-background border border-border rounded-lg shadow-xl p-4 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Command History</h3>
-            <button
-              onClick={() => setShowHistoryPanel(false)}
-              className="p-1 hover:bg-muted rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            History panel - Coming soon
-          </div>
-        </div>
-      )}
 
       {/* Confirmation Modal */}
       <ConfirmationModal

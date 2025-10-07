@@ -1,6 +1,6 @@
 // Shell History Tauri Commands
 
-use crate::shell_history_db::{ShellHistoryDb, ShellHistoryItem, ShellSession};
+use crate::shell_history_db::{ShellHistoryDb, ShellHistoryItem, ShellSession, CommandStats};
 use tauri::State;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -43,6 +43,21 @@ pub async fn get_session_history(
     let state = db_state.lock().await;
     if let Some(db) = state.as_ref() {
         db.get_session_history(&session_id, limit).await
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+/// Get command statistics for a session
+#[tauri::command]
+pub async fn get_command_stats(
+    session_id: String,
+    limit: Option<i32>,
+    db_state: State<'_, ShellHistoryDbState>,
+) -> Result<Vec<CommandStats>, String> {
+    let state = db_state.lock().await;
+    if let Some(db) = state.as_ref() {
+        db.get_command_stats(&session_id, limit).await
     } else {
         Err("Database not initialized".to_string())
     }
