@@ -88,8 +88,10 @@ function App() {
   const [logsModalParams, setLogsModalParams] = useState<{ sessionId?: string; sessionName?: string } | null>(null)
   const [isProtoShellMinimized, setIsProtoShellMinimized] = useState(false)
 
-  // Modal state storage for minimized modals
-  const [modalStates, setModalStates] = useState<Record<string, any>>({})
+  // Track all open modals (including minimized ones)
+  const [openModals, setOpenModals] = useState<Set<string>>(new Set())
+  // Track which modals are minimized
+  const [minimizedModalIds, setMinimizedModalIds] = useState<Set<string>>(new Set())
 
   const createSession = useAppStore(state => state.createSession)
   const shortcutHelp = useShortcutHelp()
@@ -181,8 +183,11 @@ function App() {
         console.log('[App] Modal is minimized, restoring:', mappedModalType)
         handleRestoreModal(mappedModalType)
       } else {
-        console.log('[App] Setting activeModal to:', modalType)
+        console.log('[App] Opening modal:', modalType)
         setActiveModal(modalType)
+        // Add to open modals set (use mapped type for consistency)
+        const modalIdToAdd = mappedModalType || modalType
+        setOpenModals(prev => new Set(prev).add(modalIdToAdd))
       }
     }
   }, [shortcutHelp])
@@ -193,10 +198,11 @@ function App() {
       setIsProtoShellMinimized(false)
     }
 
-    // Clear minimized state and modal state when closing
+    // Clear minimized state when closing
     if (activeModal) {
       const modalTypeMap: Record<string, ModalType> = {
         'protocol-editor': 'protocol-editor',
+        'edit-protocol': 'protocol-editor',
         'toolbox': 'toolbox',
         'plugins': 'plugins',
         'logs': 'logs',
@@ -205,10 +211,25 @@ function App() {
       const modalType = modalTypeMap[activeModal]
       if (modalType) {
         clearMinimized(modalType)
-        setModalStates(prev => {
-          const newStates = { ...prev }
-          delete newStates[modalType]
-          return newStates
+        // Remove from minimized set (use mapped type)
+        setMinimizedModalIds(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(modalType)
+          return newSet
+        })
+
+        // Remove from open modals set (use mapped type)
+        setOpenModals(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(modalType)
+          return newSet
+        })
+      } else {
+        // For modals that don't support minimization, just remove by activeModal
+        setOpenModals(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(activeModal)
+          return newSet
         })
       }
     }
@@ -218,24 +239,23 @@ function App() {
   }
 
   // Handle modal minimize
-  const handleMinimizeModal = (modalType: ModalType, title: string, state?: any) => {
-    console.log('[App] Minimizing modal:', modalType, 'with state:', state)
+  const handleMinimizeModal = (modalType: ModalType, title: string) => {
+    console.log('[App] Minimizing modal:', modalType)
 
-    // Save modal state
-    if (state) {
-      setModalStates(prev => ({ ...prev, [modalType]: state }))
-    }
-
-    // Add to minimized modals
+    // Add to minimized modals store
     minimizeModal({
       id: modalType,
       title,
       icon: modalType,
-      state
+      state: null
     })
 
-    // Hide the modal but don't clear activeModal (keep it in background)
-    setActiveModal(null)
+    // Add to minimized set (keep modal mounted but hidden)
+    const modalTypeString = modalType as string
+    setMinimizedModalIds(prev => new Set(prev).add(modalTypeString))
+
+    // Don't remove from openModals - keep it mounted!
+    // Don't clear activeModal - this keeps the component rendered
   }
 
   // Handle modal restore from status bar
@@ -245,7 +265,15 @@ function App() {
     // Restore from minimized state
     const modal = restoreModal(modalType)
     if (modal) {
-      // Map modal type to activeModal string
+      // Remove from minimized set (show the modal again)
+      const modalTypeString = modalType as string
+      setMinimizedModalIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(modalTypeString)
+        return newSet
+      })
+
+      // Set as active modal
       const modalTypeMap: Record<ModalType, string> = {
         'protocol-editor': 'protocol-editor',
         'toolbox': 'toolbox',
@@ -373,6 +401,107 @@ function App() {
     closeModal()
   }
 
+  // Render all open modals (including minimized ones)
+  const renderAllModals = () => {
+    const modals = [];
+
+    // Render modals that support minimization
+    if (openModals.has('protocol-editor') || openModals.has('edit-protocol')) {
+      const isMinimized = minimizedModalIds.has('protocol-editor') || minimizedModalIds.has('edit-protocol');
+      modals.push(
+        <ProtocolEditorModal
+          key="protocol-editor"
+          isOpen={!isMinimized}
+          onClose={closeModal}
+          onMinimize={() => handleMinimizeModal('protocol-editor', '编辑协议')}
+        />
+      );
+    }
+
+    if (openModals.has('toolbox')) {
+      const isMinimized = minimizedModalIds.has('toolbox');
+      modals.push(
+        <Modal
+          key="toolbox"
+          isOpen={!isMinimized}
+          onClose={closeModal}
+          title="工具箱"
+          size="xl"
+          fixedHeight={true}
+          showMinimizeButton={true}
+          onMinimize={() => handleMinimizeModal('toolbox', '工具箱')}
+        >
+          <ToolboxInterface
+            mode="page"
+            onToolExecute={(toolId, result) => {
+              console.log('Tool executed:', toolId, result);
+            }}
+            className="h-full"
+          />
+        </Modal>
+      );
+    }
+
+    if (openModals.has('logs')) {
+      const isMinimized = minimizedModalIds.has('logs');
+      modals.push(
+        <Modal
+          key="logs"
+          isOpen={!isMinimized}
+          onClose={closeModal}
+          title="日志管理"
+          size="xl"
+          fixedHeight={true}
+          showMinimizeButton={true}
+          onMinimize={() => handleMinimizeModal('logs', '日志管理')}
+        >
+          <LogsPage
+            initialSessionId={logsModalParams?.sessionId}
+            initialSessionName={logsModalParams?.sessionName}
+          />
+        </Modal>
+      );
+    }
+
+    if (openModals.has('plugins')) {
+      const isMinimized = minimizedModalIds.has('plugins');
+      modals.push(
+        <Modal
+          key="plugins"
+          isOpen={!isMinimized}
+          onClose={closeModal}
+          title="协议仓库"
+          size="xl"
+          fixedHeight={true}
+          showMinimizeButton={true}
+          onMinimize={() => handleMinimizeModal('plugins', '协议仓库')}
+        >
+          <PluginsPage />
+        </Modal>
+      );
+    }
+
+    if (openModals.has('storage')) {
+      const isMinimized = minimizedModalIds.has('storage');
+      modals.push(
+        <Modal
+          key="storage"
+          isOpen={!isMinimized}
+          onClose={closeModal}
+          title="储存方式"
+          size="xl"
+          fixedHeight={true}
+          showMinimizeButton={true}
+          onMinimize={() => handleMinimizeModal('storage', '储存方式')}
+        >
+          <StoragePage />
+        </Modal>
+      );
+    }
+
+    return modals;
+  };
+
   const renderModal = () => {
     switch (activeModal) {
       case 'new-session':
@@ -426,13 +555,8 @@ function App() {
         )
       case 'edit-protocol':
       case 'protocol-editor':
-        return (
-          <ProtocolEditorModal
-            isOpen={true}
-            onClose={closeModal}
-            onMinimize={() => handleMinimizeModal('protocol-editor', '编辑协议')}
-          />
-        )
+        // Handled by renderAllModals
+        return null
       case 'proto-shell':
         // Always render the component when activeModal is 'proto-shell'
         // Use isOpen to control visibility (minimized vs shown)
@@ -444,70 +568,11 @@ function App() {
           />
         )
       case 'toolbox':
-        return (
-          <Modal
-            isOpen={true}
-            onClose={closeModal}
-            title="工具箱"
-            size="xl"
-            fixedHeight={true}
-            showMinimizeButton={true}
-            onMinimize={() => handleMinimizeModal('toolbox', '工具箱')}
-          >
-            <ToolboxInterface
-              mode="page"
-              onToolExecute={(toolId, result) => {
-                console.log('Tool executed:', toolId, result);
-              }}
-              className="h-full"
-            />
-          </Modal>
-        )
       case 'logs':
-        return (
-          <Modal
-            isOpen={true}
-            onClose={closeModal}
-            title="日志管理"
-            size="xl"
-            fixedHeight={true}
-            showMinimizeButton={true}
-            onMinimize={() => handleMinimizeModal('logs', '日志管理', { logsModalParams })}
-          >
-            <LogsPage
-              initialSessionId={logsModalParams?.sessionId}
-              initialSessionName={logsModalParams?.sessionName}
-            />
-          </Modal>
-        )
       case 'plugins':
-        return (
-          <Modal
-            isOpen={true}
-            onClose={closeModal}
-            title="协议仓库"
-            size="xl"
-            fixedHeight={true}
-            showMinimizeButton={true}
-            onMinimize={() => handleMinimizeModal('plugins', '协议仓库')}
-          >
-            <PluginsPage />
-          </Modal>
-        )
       case 'storage':
-        return (
-          <Modal
-            isOpen={true}
-            onClose={closeModal}
-            title="储存方式"
-            size="xl"
-            fixedHeight={true}
-            showMinimizeButton={true}
-            onMinimize={() => handleMinimizeModal('storage', '储存方式')}
-          >
-            <StoragePage />
-          </Modal>
-        )
+        // Handled by renderAllModals
+        return null
       default:
         return null
     }
@@ -552,7 +617,11 @@ function App() {
         onClose={shortcutHelp.close}
       />
 
+      {/* Render modals that don't support minimization */}
       {activeModal && renderModal()}
+
+      {/* Render all modals that support minimization (including minimized ones) */}
+      {renderAllModals()}
 
       <UpdateNotification />
 

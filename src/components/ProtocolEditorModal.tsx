@@ -550,10 +550,13 @@ ${content}`;
     e.target.value = '';
   };
 
-  if (!isOpen) return null;
-
+  // Don't return null when closed - just hide it to preserve component state
+  // This is crucial for minimization feature to work properly
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      style={{ display: isOpen ? 'flex' : 'none' }}
+    >
       <div className="bg-background border border-border rounded-lg shadow-lg w-full max-w-7xl h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
