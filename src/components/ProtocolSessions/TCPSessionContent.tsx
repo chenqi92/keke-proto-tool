@@ -6,7 +6,7 @@ import { networkService } from '@/services/NetworkService';
 import { useToast } from '@/components/Common/Toast';
 import { invoke } from '@tauri-apps/api/core';
 
-import {ConnectionStatus, Message} from '@/types';
+import {ConnectionStatus, Message, SessionState} from '@/types';
 import {
   Wifi,
   Send,
@@ -40,15 +40,13 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   // Track previous connection error to avoid duplicate toasts
   const prevConnectionErrorRef = useRef<string | undefined>();
 
-  // 本地UI状态 - 使用sessionId作为key确保状态隔离
-  const [sendFormat, setSendFormat] = useState<DataFormat>('ascii');
-  const [receiveFormat, setReceiveFormat] = useState<DataFormat>('ascii');
-  const [sendData, setSendData] = useState('');
+  // Auto-send timer ref
+  const autoSendTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 本地UI状态 - 仅用于临时UI交互
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
-
-
 
   // 编辑状态
   const [isEditingConnection, setIsEditingConnection] = useState(false);
@@ -62,7 +60,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   // 消息过滤状态
   const [selectedClientForFilter, setSelectedClientForFilter] = useState<string | null>(null);
 
-  // 从会话状态获取数据
+  // 从会话状态获取数据（包括持久化的UI状态）
   const config = session?.config;
   const connectionStatus = session?.status || 'disconnected';
   const messages = session?.messages || [];
@@ -70,6 +68,13 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const connectionError = session?.error;
   const autoReconnectPaused = session?.autoReconnectPaused || false;
   const autoReconnectPausedReason = session?.autoReconnectPausedReason;
+
+  // 持久化的UI状态（从session中读取，切换节点时保持）
+  const sendData = session?.sendData || '';
+  const sendFormat = session?.sendFormat || 'ascii';
+  const receiveFormat = session?.receiveFormat || 'ascii';
+  const autoSendEnabled = session?.autoSendEnabled || false;
+  const autoSendInterval = session?.autoSendInterval || 1000;
 
   // 判断是否为服务端模式（必须在使用前声明）
   const isServerMode = config?.connectionType === 'server';
@@ -322,6 +327,102 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
     }
   };
 
+  // 更新持久化UI状态的辅助函数
+  const updateSessionUIState = (updates: Partial<Pick<SessionState, 'sendData' | 'sendFormat' | 'receiveFormat' | 'autoSendEnabled' | 'autoSendInterval'>>) => {
+    const store = useAppStore.getState();
+    store.updateSession(sessionId, updates);
+  };
+
+  // 处理发送数据变化
+  const handleSendDataChange = (value: string) => {
+    updateSessionUIState({ sendData: value });
+  };
+
+  // 处理发送格式变化
+  const handleSendFormatChange = (format: DataFormat) => {
+    updateSessionUIState({ sendFormat: format });
+  };
+
+  // 处理接收格式变化
+  const handleReceiveFormatChange = (format: DataFormat) => {
+    updateSessionUIState({ receiveFormat: format });
+  };
+
+  // 处理自动发送开关
+  const handleAutoSendToggle = () => {
+    updateSessionUIState({ autoSendEnabled: !autoSendEnabled });
+  };
+
+  // 处理自动发送间隔变化
+  const handleAutoSendIntervalChange = (interval: number) => {
+    updateSessionUIState({ autoSendInterval: Math.max(100, Math.min(60000, interval)) });
+  };
+
+  // 自动发送逻辑
+  useEffect(() => {
+    // 清除之前的定时器
+    if (autoSendTimerRef.current) {
+      clearInterval(autoSendTimerRef.current);
+      autoSendTimerRef.current = null;
+    }
+
+    // 只在启用自动发送、已连接、有数据时启动定时器
+    if (autoSendEnabled && isConnected && sendData.trim()) {
+      console.log(`🔄 TCP Session ${sessionId}: Starting auto-send with interval ${autoSendInterval}ms`);
+
+      // 创建一个内部发送函数，避免依赖handleSendMessage
+      const autoSend = async () => {
+        const currentSession = useAppStore.getState().sessions[sessionId];
+        if (!currentSession || currentSession.status !== 'connected') {
+          return;
+        }
+
+        const currentSendData = currentSession.sendData;
+        const currentSendFormat = currentSession.sendFormat || 'ascii';
+
+        if (!currentSendData || !currentSendData.trim()) {
+          return;
+        }
+
+        if (!validateFormat[currentSendFormat](currentSendData)) {
+          console.warn(`Auto-send: Invalid ${currentSendFormat} format`);
+          return;
+        }
+
+        try {
+          const dataBytes = formatData.from[currentSendFormat](currentSendData);
+          let success = false;
+
+          if (isServerMode) {
+            if (broadcastMode) {
+              success = await networkService.broadcastMessage(sessionId, dataBytes);
+            } else if (selectedClient) {
+              success = await networkService.sendToClient(sessionId, selectedClient, dataBytes);
+            }
+          } else {
+            success = await networkService.sendMessage(sessionId, dataBytes);
+          }
+
+          if (success) {
+            console.log(`📤 TCP Session ${sessionId}: Auto-send successful`);
+          }
+        } catch (error) {
+          console.error(`Auto-send error for session ${sessionId}:`, error);
+        }
+      };
+
+      autoSendTimerRef.current = setInterval(autoSend, autoSendInterval);
+    }
+
+    // 清理函数
+    return () => {
+      if (autoSendTimerRef.current) {
+        clearInterval(autoSendTimerRef.current);
+        autoSendTimerRef.current = null;
+      }
+    };
+  }, [autoSendEnabled, autoSendInterval, isConnected, sendData, sessionId, isServerMode, broadcastMode, selectedClient]);
+
   // 处理发送消息
   const handleSendMessage = async () => {
     if (!config || !isConnected || isSending) return;
@@ -404,10 +505,6 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
       console.error('Send failed:', error);
       throw error;
     }
-  };
-
-  const handleSendDataChange = (value: string) => {
-    setSendData(value);
   };
 
   // 处理连接信息编辑
@@ -715,7 +812,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <span className="text-xs font-medium text-muted-foreground">数据格式:</span>
-                  <DataFormatSelector value={sendFormat} onChange={setSendFormat} size="sm" />
+                  <DataFormatSelector value={sendFormat} onChange={handleSendFormatChange} size="sm" />
                 </div>
 
                 {/* 服务端模式：客户端选择和广播选项 */}
@@ -839,24 +936,41 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
           </div>
           
           <div className="flex flex-col justify-end space-y-2">
-            {/* Auto Send Option - Only for client mode */}
-            {!isServerMode && (
+            {/* Auto Send Controls */}
+            <div className="flex flex-col space-y-1.5 bg-muted/30 rounded-md p-2 border border-border/50">
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   id="autoSendEnabled"
-                  checked={config.autoSendEnabled || false}
-                  onChange={(e) => {
-                    const store = useAppStore.getState();
-                    store.updateSession(sessionId, {
-                      config: { ...config, autoSendEnabled: e.target.checked }
-                    });
-                  }}
+                  checked={autoSendEnabled}
+                  onChange={handleAutoSendToggle}
                   className="rounded border-border"
                 />
-                <label htmlFor="autoSendEnabled" className="text-xs">启用自动发送</label>
+                <label htmlFor="autoSendEnabled" className="text-xs font-medium">自动发送</label>
+                {autoSendEnabled && isConnected && (
+                  <span className="text-xs text-green-600 flex items-center">
+                    <span className="w-1.5 h-1.5 bg-green-600 rounded-full mr-1 animate-pulse"></span>
+                    运行中
+                  </span>
+                )}
               </div>
-            )}
+
+              {autoSendEnabled && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-muted-foreground">间隔:</span>
+                  <input
+                    type="number"
+                    min="100"
+                    max="60000"
+                    step="100"
+                    value={autoSendInterval}
+                    onChange={(e) => handleAutoSendIntervalChange(parseInt(e.target.value) || 1000)}
+                    className="w-16 px-1.5 py-0.5 text-xs border border-border rounded"
+                  />
+                  <span className="text-xs text-muted-foreground">毫秒</span>
+                </div>
+              )}
+            </div>
 
             <button
               onClick={handleSendMessage}
@@ -1072,7 +1186,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                   <span className="text-xs text-muted-foreground">显示格式:</span>
                   <DataFormatSelector
                     value={receiveFormat}
-                    onChange={setReceiveFormat}
+                    onChange={handleReceiveFormatChange}
                     className="h-6 text-xs"
                   />
                   <button
@@ -1160,7 +1274,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                 <span className="text-xs text-muted-foreground">显示格式:</span>
                 <DataFormatSelector
                   value={receiveFormat}
-                  onChange={setReceiveFormat}
+                  onChange={handleReceiveFormatChange}
                   className="h-6 text-xs"
                 />
                 <button

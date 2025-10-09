@@ -426,6 +426,13 @@ export interface SessionState {
   // SSE特有状态
   sseEventFilters?: Record<string, SSEEventFilter>; // SSE事件过滤器列表
   sseLastEventId?: string; // SSE最后事件ID（用于重连）
+  // UI state persistence (to maintain state across node switches)
+  sendData?: string; // Data to send
+  sendFormat?: 'ascii' | 'binary' | 'octal' | 'decimal' | 'hex' | 'base64' | 'json' | 'utf-8'; // Send data format
+  receiveFormat?: 'ascii' | 'binary' | 'octal' | 'decimal' | 'hex' | 'base64' | 'json' | 'utf-8'; // Receive data format
+  // Auto-send feature
+  autoSendEnabled?: boolean; // Whether auto-send is enabled
+  autoSendInterval?: number; // Auto-send interval in milliseconds (default: 1000)
 }
 
 export interface SessionStatistics {

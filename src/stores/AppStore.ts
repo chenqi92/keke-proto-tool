@@ -116,6 +116,12 @@ const createInitialSessionState = (config: SessionConfig): SessionState => ({
   isRecording: false,
   messages: [],
   statistics: createInitialStatistics(),
+  // Initialize UI state persistence
+  sendData: '',
+  sendFormat: 'ascii',
+  receiveFormat: 'ascii',
+  autoSendEnabled: false,
+  autoSendInterval: 1000,
 });
 
 // 持久化配置
