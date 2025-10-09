@@ -190,6 +190,12 @@ const persistConfig = {
           messages: [],
           statistics: session.statistics || createInitialStatistics(),
           mqttSubscriptions,
+          // Ensure UI state persistence fields have default values for backward compatibility
+          sendData: session.sendData ?? '',
+          sendFormat: session.sendFormat ?? 'ascii',
+          receiveFormat: session.receiveFormat ?? 'ascii',
+          autoSendEnabled: session.autoSendEnabled ?? false, // 默认不勾选
+          autoSendInterval: session.autoSendInterval ?? 1000,
         };
         console.log(`AppStore: Reset session ${sessionId} status to disconnected on startup`);
       });
