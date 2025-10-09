@@ -3,10 +3,14 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { autoVerifyInDevelopment } from './utils/verifyFix'
 import { autoTestInDevelopment } from './utils/tcpClientFixTest'
+import { autoSendService } from './services/AutoSendService'
 
 // 在开发环境中自动验证修复效果
 autoVerifyInDevelopment();
 autoTestInDevelopment();
+
+// 初始化自动发送服务
+autoSendService.initialize();
 
 // 在开发环境中自动测试TCP会话状态隔离
 if (import.meta.env.DEV) {

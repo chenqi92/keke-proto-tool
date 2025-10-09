@@ -1,272 +1,226 @@
-import { SessionConfig, ConnectionStatus } from '@/types';
+/**
+ * AutoSendService - 管理所有session的自动发送功能
+ * 
+ * 这个服务在后台运行，不依赖于UI组件的生命周期
+ * 当session的autoSendEnabled状态改变时，自动启动或停止定时器
+ */
 
-export interface AutoSendOptions {
-  sessionId: string;
-  config: SessionConfig;
-  onSendMessage: (data: string, format: string) => Promise<boolean>;
-  onError: (error: string) => void;
-  onStatisticsUpdate: (stats: AutoSendStatistics) => void;
-}
+import { useAppStore } from '@/stores/AppStore';
+import { networkService } from './NetworkService';
+import { formatData, validateFormat } from '@/components/DataFormatSelector';
 
-export interface AutoSendStatistics {
-  totalSent: number;
-  totalErrors: number;
-  isActive: boolean;
-  lastSentTime?: Date;
-  lastError?: string;
-}
-
-export class AutoSendService {
-  private sessionId: string;
-  private config: SessionConfig;
-  private onSendMessage: (data: string, format: string) => Promise<boolean>;
-  private onError: (error: string) => void;
-  private onStatisticsUpdate: (stats: AutoSendStatistics) => void;
-  
-  private sendTimer: NodeJS.Timeout | null = null;
-  private isActive = false;
-  private statistics: AutoSendStatistics = {
-    totalSent: 0,
-    totalErrors: 0,
-    isActive: false
-  };
-
-  constructor(options: AutoSendOptions) {
-    this.sessionId = options.sessionId;
-    this.config = options.config;
-    this.onSendMessage = options.onSendMessage;
-    this.onError = options.onError;
-    this.onStatisticsUpdate = options.onStatisticsUpdate;
-  }
+class AutoSendService {
+  private timers: Map<string, NodeJS.Timeout> = new Map();
+  private isInitialized = false;
 
   /**
-   * Start automatic sending
+   * 初始化服务，开始监听store变化
    */
-  start(): void {
-    if (this.isActive) {
-      console.log(`AutoSendService: Already active for session ${this.sessionId}`);
+  initialize() {
+    if (this.isInitialized) {
+      console.warn('AutoSendService: Already initialized');
       return;
     }
 
-    if (!this.config.autoSendEnabled || this.config.connectionType !== 'client') {
-      console.log(`AutoSendService: Auto send not enabled or not a client session ${this.sessionId}`);
-      return;
-    }
+    console.log('AutoSendService: Initializing...');
+    this.isInitialized = true;
 
-    if (!this.config.autoSendData || this.config.autoSendData.trim() === '') {
-      this.onError('Auto send data is empty');
-      return;
-    }
+    // 订阅store变化
+    useAppStore.subscribe((state, prevState) => {
+      // 检查每个session的autoSendEnabled状态
+      Object.keys(state.sessions).forEach(sessionId => {
+        const session = state.sessions[sessionId];
+        const prevSession = prevState.sessions[sessionId];
 
-    const interval = this.config.autoSendInterval || 1000;
-    if (interval < 100 || interval > 3600000) {
-      this.onError('Auto send interval must be between 100ms and 1 hour');
-      return;
-    }
+        // 如果session不存在了，停止其定时器
+        if (!session && this.timers.has(sessionId)) {
+          this.stopAutoSend(sessionId);
+          return;
+        }
 
-    this.isActive = true;
-    this.statistics.isActive = true;
-    this.updateStatistics();
-    
-    console.log(`AutoSendService: Starting auto send for session ${this.sessionId} with interval ${interval}ms`);
-    this.scheduleNextSend();
+        if (!session) return;
+
+        // 检查autoSendEnabled或autoSendInterval是否改变
+        const enabledChanged = session.autoSendEnabled !== prevSession?.autoSendEnabled;
+        const intervalChanged = session.autoSendInterval !== prevSession?.autoSendInterval;
+        const statusChanged = session.status !== prevSession?.status;
+
+        if (enabledChanged || intervalChanged || statusChanged) {
+          // 如果启用了自动发送且已连接，启动定时器
+          if (session.autoSendEnabled && session.status === 'connected') {
+            this.startAutoSend(sessionId);
+          } else {
+            // 否则停止定时器
+            this.stopAutoSend(sessionId);
+          }
+        }
+      });
+
+      // 清理已删除session的定时器
+      this.timers.forEach((_, sessionId) => {
+        if (!state.sessions[sessionId]) {
+          this.stopAutoSend(sessionId);
+        }
+      });
+    });
+
+    console.log('AutoSendService: Initialized successfully');
   }
 
   /**
-   * Stop automatic sending
+   * 启动指定session的自动发送
    */
-  stop(): void {
-    if (!this.isActive) {
+  private startAutoSend(sessionId: string) {
+    // 先停止现有的定时器
+    this.stopAutoSend(sessionId);
+
+    const session = useAppStore.getState().sessions[sessionId];
+    if (!session) {
+      console.warn(`AutoSendService: Session ${sessionId} not found`);
       return;
     }
 
-    this.isActive = false;
-    this.statistics.isActive = false;
-    
-    if (this.sendTimer) {
-      clearTimeout(this.sendTimer);
-      this.sendTimer = null;
-    }
-    
-    this.updateStatistics();
-    console.log(`AutoSendService: Stopped auto send for session ${this.sessionId}`);
-  }
+    const interval = session.autoSendInterval || 1000;
+    console.log(`AutoSendService: Starting auto-send for session ${sessionId} with interval ${interval}ms`);
 
-  /**
-   * Update configuration
-   */
-  updateConfig(newConfig: SessionConfig): void {
-    const wasActive = this.isActive;
-    
-    if (wasActive) {
-      this.stop();
-    }
-    
-    this.config = { ...this.config, ...newConfig };
-    
-    if (wasActive && newConfig.autoSendEnabled) {
-      this.start();
-    }
-  }
-
-  /**
-   * Get current statistics
-   */
-  getStatistics(): AutoSendStatistics {
-    return { ...this.statistics };
-  }
-
-  /**
-   * Reset statistics
-   */
-  resetStatistics(): void {
-    this.statistics = {
-      totalSent: 0,
-      totalErrors: 0,
-      isActive: this.isActive,
-      lastSentTime: undefined,
-      lastError: undefined
-    };
-    this.updateStatistics();
-  }
-
-  /**
-   * Check if currently active
-   */
-  isCurrentlyActive(): boolean {
-    return this.isActive;
-  }
-
-  private scheduleNextSend(): void {
-    if (!this.isActive) {
-      return;
-    }
-
-    const interval = this.config.autoSendInterval || 1000;
-    
-    this.sendTimer = setTimeout(async () => {
-      if (!this.isActive) {
-        return;
-      }
-
-      try {
-        await this.sendData();
-        this.scheduleNextSend(); // Schedule next send after successful send
-      } catch (error) {
-        this.handleSendError(error);
-        this.scheduleNextSend(); // Continue sending even after errors
-      }
+    const timer = setInterval(() => {
+      this.performAutoSend(sessionId);
     }, interval);
-  }
 
-  private async sendData(): Promise<void> {
-    const data = this.config.autoSendData || '';
-    const format = this.config.autoSendFormat || 'text';
-    
-    if (!data.trim()) {
-      throw new Error('Auto send data is empty');
-    }
-
-    // Process data based on format
-    const processedData = this.processDataByFormat(data, format);
-    
-    const success = await this.onSendMessage(processedData, format);
-    
-    if (success) {
-      this.statistics.totalSent++;
-      this.statistics.lastSentTime = new Date();
-      this.statistics.lastError = undefined;
-    } else {
-      throw new Error('Failed to send message');
-    }
-    
-    this.updateStatistics();
-  }
-
-  private processDataByFormat(data: string, format: string): string {
-    switch (format) {
-      case 'text':
-        return data;
-      
-      case 'hex':
-        // Validate hex format
-        if (!/^[0-9a-fA-F\s]*$/.test(data.replace(/[^0-9a-fA-F\s]/g, ''))) {
-          throw new Error('Invalid hex format');
-        }
-        return data.replace(/\s/g, '').toUpperCase();
-      
-      case 'binary':
-        // Validate binary format
-        if (!/^[01\s]*$/.test(data)) {
-          throw new Error('Invalid binary format');
-        }
-        return data.replace(/\s/g, '');
-      
-      case 'json':
-        try {
-          // Validate JSON format
-          JSON.parse(data);
-          return data;
-        } catch {
-          throw new Error('Invalid JSON format');
-        }
-      
-      default:
-        return data;
-    }
-  }
-
-  private handleSendError(error: unknown): void {
-    this.statistics.totalErrors++;
-    this.statistics.lastError = error instanceof Error ? error.message : 'Unknown error';
-    this.updateStatistics();
-    
-    console.error(`AutoSendService: Send error for session ${this.sessionId}:`, error);
-    this.onError(this.statistics.lastError);
-  }
-
-  private updateStatistics(): void {
-    this.onStatisticsUpdate({ ...this.statistics });
+    this.timers.set(sessionId, timer);
   }
 
   /**
-   * Cleanup resources
+   * 停止指定session的自动发送
    */
-  destroy(): void {
-    this.stop();
+  private stopAutoSend(sessionId: string) {
+    const timer = this.timers.get(sessionId);
+    if (timer) {
+      clearInterval(timer);
+      this.timers.delete(sessionId);
+      console.log(`AutoSendService: Stopped auto-send for session ${sessionId}`);
+    }
   }
-}
 
-// Singleton service to manage all auto send services
-class AutoSendRegistry {
-  private services = new Map<string, AutoSendService>();
-
-  createService(options: AutoSendOptions): AutoSendService {
-    // Clean up existing service if it exists
-    this.destroyService(options.sessionId);
+  /**
+   * 执行自动发送
+   */
+  private async performAutoSend(sessionId: string) {
+    const session = useAppStore.getState().sessions[sessionId];
     
-    const service = new AutoSendService(options);
-    this.services.set(options.sessionId, service);
-    return service;
-  }
+    // 检查session是否存在且已连接
+    if (!session || session.status !== 'connected') {
+      console.log(`AutoSendService: Session ${sessionId} not connected, skipping auto-send`);
+      return;
+    }
 
-  getService(sessionId: string): AutoSendService | undefined {
-    return this.services.get(sessionId);
-  }
+    // 检查是否启用了自动发送
+    if (!session.autoSendEnabled) {
+      console.log(`AutoSendService: Auto-send disabled for session ${sessionId}, stopping timer`);
+      this.stopAutoSend(sessionId);
+      return;
+    }
 
-  destroyService(sessionId: string): void {
-    const service = this.services.get(sessionId);
-    if (service) {
-      service.destroy();
-      this.services.delete(sessionId);
+    // 检查是否有数据要发送
+    const sendData = session.sendData;
+    if (!sendData || !sendData.trim()) {
+      console.log(`AutoSendService: No data to send for session ${sessionId}`);
+      return;
+    }
+
+    const sendFormat = session.sendFormat || 'ascii';
+
+    // 验证数据格式
+    if (!validateFormat[sendFormat](sendData)) {
+      console.warn(`AutoSendService: Invalid ${sendFormat} format for session ${sessionId}`);
+      return;
+    }
+
+    try {
+      // 转换数据格式
+      const dataBytes = formatData.from[sendFormat](sendData);
+
+      // 根据连接类型发送数据
+      const config = session.config;
+      let success = false;
+
+      if (config.connectionType === 'server') {
+        // 服务端模式：需要知道发送目标
+        // 这里我们需要从session中获取广播模式或选中的客户端
+        // 但这些状态是组件本地的，不在session中
+        // 所以服务端模式下暂不支持自动发送，或者需要在session中添加这些字段
+        console.warn(`AutoSendService: Auto-send not supported for server mode yet for session ${sessionId}`);
+        return;
+      } else {
+        // 客户端模式：直接发送
+        success = await networkService.sendMessage(sessionId, dataBytes);
+      }
+
+      if (success) {
+        console.log(`AutoSendService: Successfully auto-sent message for session ${sessionId}`);
+        
+        // 更新统计信息
+        const currentSession = useAppStore.getState().sessions[sessionId];
+        if (currentSession) {
+          const autoSentMessages = (currentSession.statistics.autoSentMessages || 0) + 1;
+          useAppStore.getState().updateStatistics(sessionId, {
+            autoSentMessages
+          });
+        }
+      } else {
+        console.error(`AutoSendService: Failed to auto-send message for session ${sessionId}`);
+        
+        // 更新错误统计
+        const currentSession = useAppStore.getState().sessions[sessionId];
+        if (currentSession) {
+          const autoSendErrors = (currentSession.statistics.autoSendErrors || 0) + 1;
+          useAppStore.getState().updateStatistics(sessionId, {
+            autoSendErrors
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`AutoSendService: Error during auto-send for session ${sessionId}:`, error);
+      
+      // 更新错误统计
+      const currentSession = useAppStore.getState().sessions[sessionId];
+      if (currentSession) {
+        const autoSendErrors = (currentSession.statistics.autoSendErrors || 0) + 1;
+        useAppStore.getState().updateStatistics(sessionId, {
+          autoSendErrors
+        });
+      }
     }
   }
 
-  destroyAll(): void {
-    for (const [sessionId] of this.services) {
-      this.destroyService(sessionId);
-    }
+  /**
+   * 清理所有定时器
+   */
+  cleanup() {
+    console.log('AutoSendService: Cleaning up all timers');
+    this.timers.forEach((timer, sessionId) => {
+      clearInterval(timer);
+      console.log(`AutoSendService: Cleared timer for session ${sessionId}`);
+    });
+    this.timers.clear();
+    this.isInitialized = false;
+  }
+
+  /**
+   * 获取当前运行的自动发送session数量
+   */
+  getActiveCount(): number {
+    return this.timers.size;
+  }
+
+  /**
+   * 检查指定session是否正在自动发送
+   */
+  isAutoSending(sessionId: string): boolean {
+    return this.timers.has(sessionId);
   }
 }
 
-export const autoSendRegistry = new AutoSendRegistry();
+// 导出单例
+export const autoSendService = new AutoSendService();
+

@@ -16,7 +16,7 @@ import {
 import { SessionConfig, ConnectionStatus } from '@/types';
 import { StatusTag } from '@/components/Common';
 import { connectionManagerRegistry } from '@/services/ConnectionManagerService';
-import { autoSendRegistry, AutoSendStatistics } from '@/services/AutoSendService';
+import { autoSendService } from '@/services/AutoSendService';
 
 interface ConnectionManagementPanelProps {
   sessionId: string;
@@ -42,11 +42,7 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
   const [isExpanded, setIsExpanded] = useState(true); // Default to expanded
   const [currentRetryAttempt, setCurrentRetryAttempt] = useState(0);
   const [maxRetryAttempts, setMaxRetryAttempts] = useState(0);
-  const [autoSendStats, setAutoSendStats] = useState<AutoSendStatistics>({
-    totalSent: 0,
-    totalErrors: 0,
-    isActive: false
-  });
+  // AutoSendService现在是全局管理的，不需要在组件中维护状态
 
   // Always call hooks at the top level
   useEffect(() => {
@@ -62,7 +58,7 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
       onStatusChange: (newStatus) => {
         // Status changes are handled by parent component
       },
-      onError: (error) => {
+      onError: (error: string) => {
         console.error('Connection error:', error);
       },
       onRetryAttempt: (attempt, maxAttempts) => {
@@ -71,22 +67,12 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
       }
     });
 
-    // Initialize auto send service
-    const autoSendService = autoSendRegistry.createService({
-      sessionId,
-      config,
-      onSendMessage,
-      onError: (error) => {
-        console.error('Auto send error:', error);
-      },
-      onStatisticsUpdate: (stats) => {
-        setAutoSendStats(stats);
-      }
-    });
+    // AutoSendService现在是全局管理的，在main.tsx中初始化
+    // 不需要在组件中初始化
 
     return () => {
       connectionManagerRegistry.destroyManager(sessionId);
-      autoSendRegistry.destroyService(sessionId);
+      // autoSendService不需要在组件中清理
     };
   }, [sessionId, config, onSendMessage]);
 
@@ -109,19 +95,12 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
 
   const handleAutoSendToggle = (enabled: boolean) => {
     onConfigUpdate({ autoSendEnabled: enabled });
-    
-    const autoSendService = autoSendRegistry.getService(sessionId);
-    if (autoSendService) {
-      if (enabled && status === 'connected') {
-        autoSendService.start();
-      } else {
-        autoSendService.stop();
-      }
-    }
+    // AutoSendService会自动响应配置变化
   };
 
   const handleAutoSendIntervalChange = (interval: number) => {
     onConfigUpdate({ autoSendInterval: interval });
+    // AutoSendService会自动响应配置变化
   };
 
   const handleAutoSendDataChange = (data: string) => {
@@ -133,18 +112,17 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
   };
 
   const startAutoSend = () => {
-    const autoSendService = autoSendRegistry.getService(sessionId);
-    if (autoSendService && status === 'connected') {
-      autoSendService.start();
-    }
+    // AutoSendService会自动管理，只需要启用配置
+    onConfigUpdate({ autoSendEnabled: true });
   };
 
   const stopAutoSend = () => {
-    const autoSendService = autoSendRegistry.getService(sessionId);
-    if (autoSendService) {
-      autoSendService.stop();
-    }
+    // AutoSendService会自动管理，只需要禁用配置
+    onConfigUpdate({ autoSendEnabled: false });
   };
+
+  // 检查是否正在自动发送
+  const isAutoSending = autoSendService.isAutoSending(sessionId);
 
   const isConnected = status === 'connected';
   const isConnecting = status === 'connecting';
@@ -230,7 +208,7 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
                 自动发送
               </h4>
               <div className="flex items-center space-x-2">
-                {autoSendStats.isActive && (
+                {isAutoSending && (
                   <div className="flex items-center space-x-1 text-xs text-green-600">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                     <span>运行中</span>
@@ -238,7 +216,7 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
                 )}
                 {config.autoSendEnabled && isConnected && (
                   <div className="flex items-center space-x-1">
-                    {autoSendStats.isActive ? (
+                    {isAutoSending ? (
                       <button
                         onClick={stopAutoSend}
                         className="p-1 hover:bg-accent rounded text-red-500"
@@ -312,10 +290,9 @@ export const ConnectionManagementPanel: React.FC<ConnectionManagementPanelProps>
                     />
                   </div>
 
-                  {/* Statistics */}
+                  {/* Statistics - 统计信息现在在session.statistics中 */}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>已发送: {autoSendStats.totalSent}</span>
-                    <span>错误: {autoSendStats.totalErrors}</span>
+                    <span>自动发送: {isAutoSending ? '运行中' : '已停止'}</span>
                   </div>
                 </div>
               )}

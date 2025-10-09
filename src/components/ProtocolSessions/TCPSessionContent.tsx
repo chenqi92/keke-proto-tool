@@ -40,8 +40,8 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   // Track previous connection error to avoid duplicate toasts
   const prevConnectionErrorRef = useRef<string | undefined>();
 
-  // Auto-send timer ref
-  const autoSendTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Auto-send timer ref - 已移至AutoSendService管理，不再需要组件内的定时器
+  // const autoSendTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // 本地UI状态 - 仅用于临时UI交互
   const [isConnectingLocal, setIsConnectingLocal] = useState(false);
@@ -358,70 +358,8 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
     updateSessionUIState({ autoSendInterval: Math.max(100, Math.min(60000, interval)) });
   };
 
-  // 自动发送逻辑
-  useEffect(() => {
-    // 清除之前的定时器
-    if (autoSendTimerRef.current) {
-      clearInterval(autoSendTimerRef.current);
-      autoSendTimerRef.current = null;
-    }
-
-    // 只在启用自动发送、已连接、有数据时启动定时器
-    if (autoSendEnabled && isConnected && sendData.trim()) {
-      console.log(`🔄 TCP Session ${sessionId}: Starting auto-send with interval ${autoSendInterval}ms`);
-
-      // 创建一个内部发送函数，避免依赖handleSendMessage
-      const autoSend = async () => {
-        const currentSession = useAppStore.getState().sessions[sessionId];
-        if (!currentSession || currentSession.status !== 'connected') {
-          return;
-        }
-
-        const currentSendData = currentSession.sendData;
-        const currentSendFormat = currentSession.sendFormat || 'ascii';
-
-        if (!currentSendData || !currentSendData.trim()) {
-          return;
-        }
-
-        if (!validateFormat[currentSendFormat](currentSendData)) {
-          console.warn(`Auto-send: Invalid ${currentSendFormat} format`);
-          return;
-        }
-
-        try {
-          const dataBytes = formatData.from[currentSendFormat](currentSendData);
-          let success = false;
-
-          if (isServerMode) {
-            if (broadcastMode) {
-              success = await networkService.broadcastMessage(sessionId, dataBytes);
-            } else if (selectedClient) {
-              success = await networkService.sendToClient(sessionId, selectedClient, dataBytes);
-            }
-          } else {
-            success = await networkService.sendMessage(sessionId, dataBytes);
-          }
-
-          if (success) {
-            console.log(`📤 TCP Session ${sessionId}: Auto-send successful`);
-          }
-        } catch (error) {
-          console.error(`Auto-send error for session ${sessionId}:`, error);
-        }
-      };
-
-      autoSendTimerRef.current = setInterval(autoSend, autoSendInterval);
-    }
-
-    // 清理函数
-    return () => {
-      if (autoSendTimerRef.current) {
-        clearInterval(autoSendTimerRef.current);
-        autoSendTimerRef.current = null;
-      }
-    };
-  }, [autoSendEnabled, autoSendInterval, isConnected, sendData, sessionId, isServerMode, broadcastMode, selectedClient]);
+  // 自动发送逻辑已移至AutoSendService管理，不再需要组件内的定时器
+  // 组件只负责更新session状态，AutoSendService会自动响应状态变化
 
   // 处理发送消息
   const handleSendMessage = async () => {
