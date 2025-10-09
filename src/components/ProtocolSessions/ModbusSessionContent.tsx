@@ -257,6 +257,11 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
   };
 
   const handleConnect = async () => {
+    // Clear previous error when attempting a new connection
+    if (session.status !== 'connected') {
+      const store = useAppStore.getState();
+      store.updateSessionStatus(sessionId, session.status, undefined);
+    }
     await networkService.connect(sessionId);
   };
 
@@ -502,6 +507,13 @@ export const ModbusSessionContent: React.FC<ModbusSessionContentProps> = ({ sess
   const handleDeleteAddressBookEntry = (id: string) => {
     setAddressBook(prev => prev.filter(e => e.id !== id));
   };
+
+  // Initialize prevConnectionErrorRef on mount to avoid showing historical errors
+  useEffect(() => {
+    if (session.error) {
+      prevConnectionErrorRef.current = session.error;
+    }
+  }, []); // Only run on mount
 
   // Show connection error as toast
   useEffect(() => {

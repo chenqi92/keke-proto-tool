@@ -81,6 +81,12 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
   const handleConnect = async () => {
     if (!config) return;
 
+    // Clear previous error when attempting a new connection
+    if (!isConnected) {
+      const store = useAppStore.getState();
+      store.updateSessionStatus(sessionId, connectionStatus, undefined);
+    }
+
     try {
       if (isConnected) {
         setIsConnectingLocal(true);
@@ -101,6 +107,13 @@ export const WebSocketSessionContent: React.FC<WebSocketSessionContentProps> = (
       setIsConnectingLocal(false);
     }
   };
+
+  // Initialize prevConnectionErrorRef on mount to avoid showing historical errors
+  useEffect(() => {
+    if (connectionError) {
+      prevConnectionErrorRef.current = connectionError;
+    }
+  }, []); // Only run on mount
 
   // Show connection error as toast
   useEffect(() => {
