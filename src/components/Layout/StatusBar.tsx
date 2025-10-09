@@ -12,7 +12,12 @@ import {
   Upload,
   Info,
   RefreshCw,
-  Terminal
+  Terminal,
+  Edit,
+  Wrench,
+  Puzzle,
+  FileText,
+  Database
 } from 'lucide-react';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { getVersionDisplayText } from '@/constants/version';
@@ -27,11 +32,13 @@ import {
   formatThroughputWithColor,
   formatParsingRateWithColor
 } from '@/utils/formatUtils';
+import { useMinimizedModalsStore, ModalType } from '@/stores/MinimizedModalsStore';
 
 interface StatusBarProps {
   className?: string;
   isProtoShellMinimized?: boolean;
   onRestoreProtoShell?: () => void;
+  onRestoreModal?: (modalType: ModalType) => void; // 新增：恢复最小化弹框的回调
 }
 
 interface StatusInfo {
@@ -63,9 +70,11 @@ interface StatusInfo {
 export const StatusBar: React.FC<StatusBarProps> = ({
   className,
   isProtoShellMinimized = false,
-  onRestoreProtoShell
+  onRestoreProtoShell,
+  onRestoreModal
 }) => {
   const layoutConfig = useLayoutConfig();
+  const minimizedModals = useMinimizedModalsStore(state => state.getAllMinimized());
   const [status, setStatus] = useState<StatusInfo>({
     connections: { active: 0, total: 0 },
     performance: {
@@ -187,12 +196,36 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           <button
             onClick={onRestoreProtoShell}
             className="flex items-center space-x-1 px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
-            title="Click to restore ProtoShell terminal"
+            title="点击恢复 ProtoShell 终端"
           >
             <Terminal className="w-3 h-3" />
             <span className="font-medium">ProtoShell</span>
           </button>
         )}
+
+        {/* Minimized Modals Indicators */}
+        {minimizedModals.map((modal) => {
+          const iconMap = {
+            'protocol-editor': Edit,
+            'toolbox': Wrench,
+            'plugins': Puzzle,
+            'logs': FileText,
+            'storage': Database
+          };
+          const Icon = iconMap[modal.id] || Edit;
+
+          return (
+            <button
+              key={modal.id}
+              onClick={() => onRestoreModal?.(modal.id)}
+              className="flex items-center space-x-1 px-2 py-0.5 rounded bg-accent hover:bg-accent/80 transition-colors"
+              title={`点击恢复 ${modal.title}`}
+            >
+              <Icon className="w-3 h-3" />
+              <span className="font-medium">{modal.title}</span>
+            </button>
+          );
+        })}
 
         {/* Connection Status - 始终显示 */}
         <div className="flex items-center space-x-1">

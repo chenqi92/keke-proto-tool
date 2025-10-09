@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { cn } from '@/utils';
-import { X } from 'lucide-react';
+import { X, Minus } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,6 +10,8 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   className?: string;
   fixedHeight?: boolean;
+  onMinimize?: () => void; // 新增：最小化回调
+  showMinimizeButton?: boolean; // 新增：是否显示最小化按钮
 }
 
 const sizeClasses = {
@@ -27,7 +29,9 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   size = 'lg',
   className,
-  fixedHeight = false
+  fixedHeight = false,
+  onMinimize,
+  showMinimizeButton = false
 }) => {
   // Handle ESC key
   useEffect(() => {
@@ -72,13 +76,27 @@ export const Modal: React.FC<ModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-accent rounded-md transition-colors"
-            aria-label="关闭"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-1">
+            {/* Minimize Button */}
+            {showMinimizeButton && onMinimize && (
+              <button
+                onClick={onMinimize}
+                className="p-1 hover:bg-accent rounded-md transition-colors"
+                aria-label="最小化"
+                title="最小化到状态栏"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+            )}
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-accent rounded-md transition-colors"
+              aria-label="关闭"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         
         {/* Content */}

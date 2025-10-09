@@ -7,19 +7,22 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession, getDefaultSessionConfig, SelectedNode } from '@/contexts/SessionContext';
 import { useAppStore } from '@/stores/AppStore';
+import { ModalType } from '@/stores/MinimizedModalsStore';
 
 interface MainLayoutProps {
   children: React.ReactNode;
   onOpenModal: (modalType: string) => void;
   isProtoShellMinimized?: boolean;
   onRestoreProtoShell?: () => void;
+  onRestoreModal?: (modalType: ModalType) => void;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({
   children,
   onOpenModal,
   isProtoShellMinimized,
-  onRestoreProtoShell
+  onRestoreProtoShell,
+  onRestoreModal
 }) => {
   const layoutConfig = useLayoutConfig();
   const { setCurrentSession, setSessionId } = useSession();
@@ -232,6 +235,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         <StatusBar
           isProtoShellMinimized={isProtoShellMinimized}
           onRestoreProtoShell={onRestoreProtoShell}
+          onRestoreModal={onRestoreModal}
         />
       )}
     </div>

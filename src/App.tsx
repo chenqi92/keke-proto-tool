@@ -36,6 +36,7 @@ import { useToast, useConfirmDialog } from '@/components/Common'
 // Context
 import { SessionProvider } from '@/contexts/SessionContext'
 import { useAppStore } from '@/stores/AppStore'
+import { useMinimizedModalsStore, ModalType } from '@/stores/MinimizedModalsStore'
 
 // Services
 import { statusBarService } from '@/services/StatusBarService'
@@ -86,8 +87,13 @@ function App() {
   const [showMenuUpdateNotification, setShowMenuUpdateNotification] = useState(false)
   const [logsModalParams, setLogsModalParams] = useState<{ sessionId?: string; sessionName?: string } | null>(null)
   const [isProtoShellMinimized, setIsProtoShellMinimized] = useState(false)
+
+  // Modal state storage for minimized modals
+  const [modalStates, setModalStates] = useState<Record<string, any>>({})
+
   const createSession = useAppStore(state => state.createSession)
   const shortcutHelp = useShortcutHelp()
+  const { minimizeModal, restoreModal, clearMinimized } = useMinimizedModalsStore()
 
   // Initialize update check hook
   const updateCheck = useUpdateCheck()
@@ -159,8 +165,25 @@ function App() {
       console.log('[App] Opening keyboard shortcuts via shortcutHelp.open()')
       shortcutHelp.open()
     } else {
-      console.log('[App] Setting activeModal to:', modalType)
-      setActiveModal(modalType)
+      // Check if this modal is currently minimized
+      const modalTypeMap: Record<string, ModalType> = {
+        'protocol-editor': 'protocol-editor',
+        'edit-protocol': 'protocol-editor',
+        'toolbox': 'toolbox',
+        'plugins': 'plugins',
+        'logs': 'logs',
+        'storage': 'storage'
+      }
+      const mappedModalType = modalTypeMap[modalType]
+
+      // If the modal is minimized, restore it instead of opening fresh
+      if (mappedModalType && useMinimizedModalsStore.getState().isMinimized(mappedModalType)) {
+        console.log('[App] Modal is minimized, restoring:', mappedModalType)
+        handleRestoreModal(mappedModalType)
+      } else {
+        console.log('[App] Setting activeModal to:', modalType)
+        setActiveModal(modalType)
+      }
     }
   }, [shortcutHelp])
 
@@ -169,8 +192,69 @@ function App() {
     if (activeModal === 'proto-shell') {
       setIsProtoShellMinimized(false)
     }
+
+    // Clear minimized state and modal state when closing
+    if (activeModal) {
+      const modalTypeMap: Record<string, ModalType> = {
+        'protocol-editor': 'protocol-editor',
+        'toolbox': 'toolbox',
+        'plugins': 'plugins',
+        'logs': 'logs',
+        'storage': 'storage'
+      }
+      const modalType = modalTypeMap[activeModal]
+      if (modalType) {
+        clearMinimized(modalType)
+        setModalStates(prev => {
+          const newStates = { ...prev }
+          delete newStates[modalType]
+          return newStates
+        })
+      }
+    }
+
     setActiveModal(null)
     setLogsModalParams(null)
+  }
+
+  // Handle modal minimize
+  const handleMinimizeModal = (modalType: ModalType, title: string, state?: any) => {
+    console.log('[App] Minimizing modal:', modalType, 'with state:', state)
+
+    // Save modal state
+    if (state) {
+      setModalStates(prev => ({ ...prev, [modalType]: state }))
+    }
+
+    // Add to minimized modals
+    minimizeModal({
+      id: modalType,
+      title,
+      icon: modalType,
+      state
+    })
+
+    // Hide the modal but don't clear activeModal (keep it in background)
+    setActiveModal(null)
+  }
+
+  // Handle modal restore from status bar
+  const handleRestoreModal = (modalType: ModalType) => {
+    console.log('[App] Restoring modal:', modalType)
+
+    // Restore from minimized state
+    const modal = restoreModal(modalType)
+    if (modal) {
+      // Map modal type to activeModal string
+      const modalTypeMap: Record<ModalType, string> = {
+        'protocol-editor': 'protocol-editor',
+        'toolbox': 'toolbox',
+        'plugins': 'plugins',
+        'logs': 'logs',
+        'storage': 'storage'
+      }
+      setActiveModal(modalTypeMap[modalType])
+    }
   }
 
   // Handle menu-triggered update check
@@ -341,10 +425,12 @@ function App() {
           />
         )
       case 'edit-protocol':
+      case 'protocol-editor':
         return (
           <ProtocolEditorModal
             isOpen={true}
             onClose={closeModal}
+            onMinimize={() => handleMinimizeModal('protocol-editor', '编辑协议')}
           />
         )
       case 'proto-shell':
@@ -365,6 +451,8 @@ function App() {
             title="工具箱"
             size="xl"
             fixedHeight={true}
+            showMinimizeButton={true}
+            onMinimize={() => handleMinimizeModal('toolbox', '工具箱')}
           >
             <ToolboxInterface
               mode="page"
@@ -383,6 +471,8 @@ function App() {
             title="日志管理"
             size="xl"
             fixedHeight={true}
+            showMinimizeButton={true}
+            onMinimize={() => handleMinimizeModal('logs', '日志管理', { logsModalParams })}
           >
             <LogsPage
               initialSessionId={logsModalParams?.sessionId}
@@ -398,6 +488,8 @@ function App() {
             title="协议仓库"
             size="xl"
             fixedHeight={true}
+            showMinimizeButton={true}
+            onMinimize={() => handleMinimizeModal('plugins', '协议仓库')}
           >
             <PluginsPage />
           </Modal>
@@ -410,6 +502,8 @@ function App() {
             title="储存方式"
             size="xl"
             fixedHeight={true}
+            showMinimizeButton={true}
+            onMinimize={() => handleMinimizeModal('storage', '储存方式')}
           >
             <StoragePage />
           </Modal>
@@ -442,6 +536,7 @@ function App() {
         onOpenModal={openModal}
         isProtoShellMinimized={isProtoShellMinimized}
         onRestoreProtoShell={() => setIsProtoShellMinimized(false)}
+        onRestoreModal={handleRestoreModal}
       >
         <MainContent />
       </MainLayout>

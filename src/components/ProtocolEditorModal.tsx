@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, Download, Upload, Info, HelpCircle, AlertTriangle, Edit3, RotateCcw, Search, Replace, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Save, Download, Upload, Info, HelpCircle, AlertTriangle, Edit3, RotateCcw, Search, Replace, ChevronDown, ChevronUp, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/utils';
 import { MessageModal } from '@/components/Common/MessageModal';
@@ -9,6 +9,7 @@ import { notificationService } from '@/services/NotificationService';
 interface ProtocolEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onMinimize?: () => void;
 }
 
 interface ProtocolMeta {
@@ -216,7 +217,8 @@ catalog "factors" inline {
 
 export const ProtocolEditorModal: React.FC<ProtocolEditorModalProps> = ({
   isOpen,
-  onClose
+  onClose,
+  onMinimize
 }) => {
   const [content, setContent] = useState(DEFAULT_PROTOCOL_TEMPLATE);
   const [meta, setMeta] = useState<ProtocolMeta>(DEFAULT_META);
@@ -599,6 +601,16 @@ ${content}`;
             >
               <HelpCircle className="w-4 h-4" />
             </Button>
+            {onMinimize && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onMinimize}
+                title="最小化到状态栏"
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={handleClose}>
               <X className="w-4 h-4" />
             </Button>
