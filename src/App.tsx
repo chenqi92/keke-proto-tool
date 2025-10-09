@@ -430,6 +430,7 @@ function App() {
           fixedHeight={true}
           showMinimizeButton={true}
           onMinimize={() => handleMinimizeModal('toolbox', '工具箱')}
+          fullscreen={true}
         >
           <ToolboxInterface
             mode="page"
@@ -454,6 +455,7 @@ function App() {
           fixedHeight={true}
           showMinimizeButton={true}
           onMinimize={() => handleMinimizeModal('logs', '日志管理')}
+          fullscreen={true}
         >
           <LogsPage
             initialSessionId={logsModalParams?.sessionId}
@@ -475,6 +477,7 @@ function App() {
           fixedHeight={true}
           showMinimizeButton={true}
           onMinimize={() => handleMinimizeModal('plugins', '协议仓库')}
+          fullscreen={true}
         >
           <PluginsPage />
         </Modal>
@@ -493,6 +496,7 @@ function App() {
           fixedHeight={true}
           showMinimizeButton={true}
           onMinimize={() => handleMinimizeModal('storage', '储存方式')}
+          fullscreen={true}
         >
           <StoragePage />
         </Modal>
@@ -519,6 +523,7 @@ function App() {
             onClose={closeModal}
             title="会话回放"
             size="xl"
+            fullscreen={true}
           >
             <PlaybackPage />
           </Modal>
@@ -531,6 +536,7 @@ function App() {
             title="设置"
             size="lg"
             fixedHeight={true}
+            fullscreen={true}
           >
             <SettingsPage />
           </Modal>

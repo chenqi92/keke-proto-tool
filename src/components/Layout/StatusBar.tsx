@@ -183,6 +183,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   return (
     <div className={cn(
       "h-5 bg-card border-t border-border flex items-center justify-between text-xs text-muted-foreground shrink-0",
+      "relative z-[60]", // 确保StatusBar始终在全屏Modal上方
       layoutConfig.isMobile ? "px-2" : "px-4",
       className
     )}>

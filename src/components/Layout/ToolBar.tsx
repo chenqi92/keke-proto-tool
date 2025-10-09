@@ -49,6 +49,13 @@ const createLeftToolBarItems = (
     action: () => onOpenModal('new-session')
   },
   {
+    id: 'command-palette',
+    label: '快捷指令',
+    icon: Command,
+    shortcut: 'Ctrl+K',
+    action: onOpenCommandPalette
+  },
+  {
     id: 'edit-protocol',
     label: '编辑协议',
     icon: Edit3,
@@ -67,13 +74,6 @@ const createLeftToolBarItems = (
     label: 'ProtoShell',
     icon: Terminal,
     action: onOpenProtoShell
-  },
-  {
-    id: 'command-palette',
-    label: '快捷命令',
-    icon: Command,
-    shortcut: 'Ctrl+K',
-    action: onOpenCommandPalette
   },
   // 管理区
   {
@@ -197,7 +197,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({ className, onOpenModal }) => {
     } else if (layoutConfig.toolbar.showEssentialButtons) {
       // 平板：显示核心功能
       return leftItems.filter(item =>
-        item.id && ['new-session', 'edit-protocol', 'command-palette', 'proto-shell', 'toolbox', 'logs'].includes(item.id)
+        item.id && ['new-session', 'command-palette', 'edit-protocol', 'proto-shell', 'toolbox', 'logs'].includes(item.id)
       );
     } else {
       // 移动端：只显示最重要的功能

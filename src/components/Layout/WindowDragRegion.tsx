@@ -30,8 +30,8 @@ export const WindowDragRegion: React.FC<WindowDragRegionProps> = ({
       className={cn(
         // Position at the very top of the window
         "fixed top-0 left-0 right-0",
-        // High z-index to be above all content but below modals
-        "z-40",
+        // High z-index to be above modals for dragging functionality
+        "z-[70]",
         // Minimal height - similar to native macOS apps
         "h-3", // 12px height
         // Enable pointer events for dragging

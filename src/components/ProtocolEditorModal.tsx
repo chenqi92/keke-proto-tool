@@ -554,10 +554,14 @@ ${content}`;
   // This is crucial for minimization feature to work properly
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      style={{ display: isOpen ? 'flex' : 'none' }}
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{
+        display: isOpen ? 'flex' : 'none',
+        top: 0, // 从顶部开始
+        bottom: 0 // 延伸到底部，StatusBar会通过更高的z-index显示在上面
+      }}
     >
-      <div className="bg-background border border-border rounded-lg shadow-lg w-full max-w-7xl h-[90vh] flex flex-col">
+      <div className="bg-background w-full h-full flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center space-x-2">

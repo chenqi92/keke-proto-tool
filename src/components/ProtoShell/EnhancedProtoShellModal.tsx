@@ -169,11 +169,17 @@ export const EnhancedProtoShellModal: React.FC<EnhancedProtoShellModalProps> = (
 
   // Don't unmount when minimized, just hide
   return (
-    <div className={cn(
-      "fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm",
-      !isOpen && "hidden"
-    )}>
-      <div className="w-[95vw] h-[90vh] bg-background border border-border rounded-lg shadow-2xl flex flex-col overflow-hidden">
+    <div
+      className={cn(
+        "fixed inset-0 z-50 flex flex-col",
+        !isOpen && "hidden"
+      )}
+      style={{
+        top: 0, // 从顶部开始
+        bottom: 0 // 延伸到底部，StatusBar会通过更高的z-index显示在上面
+      }}
+    >
+      <div className="w-full h-full bg-background flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
           <div className="flex items-center space-x-3">
