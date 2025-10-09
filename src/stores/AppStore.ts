@@ -122,6 +122,9 @@ const createInitialSessionState = (config: SessionConfig): SessionState => ({
   receiveFormat: 'ascii',
   autoSendEnabled: false,
   autoSendInterval: 1000,
+  // Server mode auto-send settings
+  broadcastMode: false,
+  selectedClientId: null,
 });
 
 // 持久化配置
@@ -196,6 +199,9 @@ const persistConfig = {
           receiveFormat: session.receiveFormat ?? 'ascii',
           autoSendEnabled: session.autoSendEnabled ?? false, // 默认不勾选
           autoSendInterval: session.autoSendInterval ?? 1000,
+          // Server mode auto-send settings
+          broadcastMode: session.broadcastMode ?? false,
+          selectedClientId: session.selectedClientId ?? null,
         };
         console.log(`AppStore: Reset session ${sessionId} status to disconnected on startup`);
       });

@@ -53,9 +53,9 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const [editHost, setEditHost] = useState('');
   const [editPort, setEditPort] = useState('');
 
-  // 服务端特定状态
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [broadcastMode, setBroadcastMode] = useState(false);
+  // 服务端特定状态 - 已移至session状态以支持自动发送
+  // const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  // const [broadcastMode, setBroadcastMode] = useState(false);
 
   // 消息过滤状态
   const [selectedClientForFilter, setSelectedClientForFilter] = useState<string | null>(null);
@@ -75,6 +75,9 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   const receiveFormat = session?.receiveFormat || 'ascii';
   const autoSendEnabled = session?.autoSendEnabled || false;
   const autoSendInterval = session?.autoSendInterval || 1000;
+  // 服务端模式的自动发送设置
+  const broadcastMode = session?.broadcastMode || false;
+  const selectedClient = session?.selectedClientId || null;
 
   // 判断是否为服务端模式（必须在使用前声明）
   const isServerMode = config?.connectionType === 'server';
@@ -328,7 +331,7 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   };
 
   // 更新持久化UI状态的辅助函数
-  const updateSessionUIState = (updates: Partial<Pick<SessionState, 'sendData' | 'sendFormat' | 'receiveFormat' | 'autoSendEnabled' | 'autoSendInterval'>>) => {
+  const updateSessionUIState = (updates: Partial<Pick<SessionState, 'sendData' | 'sendFormat' | 'receiveFormat' | 'autoSendEnabled' | 'autoSendInterval' | 'broadcastMode' | 'selectedClientId'>>) => {
     const store = useAppStore.getState();
     store.updateSession(sessionId, updates);
   };
@@ -356,6 +359,16 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
   // 处理自动发送间隔变化
   const handleAutoSendIntervalChange = (interval: number) => {
     updateSessionUIState({ autoSendInterval: Math.max(100, Math.min(60000, interval)) });
+  };
+
+  // 处理广播模式切换
+  const handleBroadcastModeChange = (broadcast: boolean) => {
+    updateSessionUIState({ broadcastMode: broadcast, selectedClientId: broadcast ? null : selectedClient });
+  };
+
+  // 处理选中客户端变化
+  const handleSelectedClientChange = (clientId: string | null) => {
+    updateSessionUIState({ selectedClientId: clientId, broadcastMode: false });
   };
 
   // 自动发送逻辑已移至AutoSendService管理，不再需要组件内的定时器
@@ -762,11 +775,9 @@ export const TCPSessionContent: React.FC<TCPSessionContentProps> = ({ sessionId 
                         value={broadcastMode ? 'broadcast' : selectedClient || ''}
                         onChange={(e) => {
                           if (e.target.value === 'broadcast') {
-                            setBroadcastMode(true);
-                            setSelectedClient(null);
+                            handleBroadcastModeChange(true);
                           } else {
-                            setBroadcastMode(false);
-                            setSelectedClient(e.target.value || null);
+                            handleSelectedClientChange(e.target.value || null);
                           }
                         }}
                         className="px-2 py-1 text-xs bg-background border border-border rounded"

@@ -145,12 +145,23 @@ class AutoSendService {
       let success = false;
 
       if (config.connectionType === 'server') {
-        // 服务端模式：需要知道发送目标
-        // 这里我们需要从session中获取广播模式或选中的客户端
-        // 但这些状态是组件本地的，不在session中
-        // 所以服务端模式下暂不支持自动发送，或者需要在session中添加这些字段
-        console.warn(`AutoSendService: Auto-send not supported for server mode yet for session ${sessionId}`);
-        return;
+        // 服务端模式：根据broadcastMode和selectedClientId决定发送目标
+        const broadcastMode = session.broadcastMode || false;
+        const selectedClientId = session.selectedClientId;
+
+        if (broadcastMode) {
+          // 广播到所有客户端
+          console.log(`AutoSendService: Broadcasting message for session ${sessionId}`);
+          success = await networkService.broadcastMessage(sessionId, dataBytes);
+        } else if (selectedClientId) {
+          // 发送到指定客户端
+          console.log(`AutoSendService: Sending message to client ${selectedClientId} for session ${sessionId}`);
+          success = await networkService.sendToClient(sessionId, selectedClientId, dataBytes);
+        } else {
+          // 没有选择目标，跳过发送
+          console.log(`AutoSendService: No target selected for server session ${sessionId}, skipping auto-send`);
+          return;
+        }
       } else {
         // 客户端模式：直接发送
         success = await networkService.sendMessage(sessionId, dataBytes);

@@ -433,6 +433,9 @@ export interface SessionState {
   // Auto-send feature
   autoSendEnabled?: boolean; // Whether auto-send is enabled
   autoSendInterval?: number; // Auto-send interval in milliseconds (default: 1000)
+  // Server mode auto-send settings
+  broadcastMode?: boolean; // Whether to broadcast to all clients (server mode only)
+  selectedClientId?: string | null; // Selected client ID for sending (server mode only)
 }
 
 export interface SessionStatistics {
