@@ -536,9 +536,37 @@ pub async fn start_pty_session(
     // Build command
     let mut cmd = CommandBuilder::new(&command);
 
-    // For shells, add -i flag to force interactive mode
+    // For shells, add appropriate flags to force interactive mode
     // This prevents the shell from exiting immediately
-    if command.contains("zsh") || command.contains("bash") || command.contains("sh") {
+    // IMPORTANT: Check PowerShell FIRST before checking "sh" because "powershell" contains "sh"!
+    if command.contains("powershell") || command.contains("pwsh") {
+        // PowerShell: use -NoExit to keep shell open
+        // Note: We don't use -NoLogo as it can cause issues with some PowerShell versions
+        // The PTY environment itself provides the interactive context
+        if args.is_empty() {
+            // For PowerShell, we need to be careful with parameters
+            // -NoExit keeps the shell open after executing commands
+            cmd.arg("-NoExit");
+            // Set input format to Text to avoid parameter errors
+            cmd.arg("-InputFormat");
+            cmd.arg("Text");
+            // Set output format to Text for better compatibility
+            cmd.arg("-OutputFormat");
+            cmd.arg("Text");
+            println!("[PTY] Added PowerShell interactive flags: -NoExit -InputFormat Text -OutputFormat Text");
+        } else {
+            cmd.args(&args);
+        }
+    } else if command.contains("cmd") {
+        // cmd.exe: use /K to keep the command processor running after executing startup commands
+        if args.is_empty() {
+            cmd.arg("/K");
+            println!("[PTY] Added /K flag for cmd.exe");
+        } else {
+            cmd.args(&args);
+        }
+    } else if command.contains("zsh") || command.contains("bash") || command.contains("sh") {
+        // Unix shells: use -i for interactive mode
         if args.is_empty() {
             cmd.arg("-i"); // Interactive mode
             println!("[PTY] Added -i flag for interactive shell");
@@ -591,11 +619,30 @@ pub async fn start_pty_session(
     #[cfg(windows)]
     {
         use std::env;
+
+        // Essential Windows environment variables
         if let Ok(userprofile) = env::var("USERPROFILE") {
             cmd.env("USERPROFILE", userprofile);
         }
         if let Ok(path) = env::var("PATH") {
             cmd.env("PATH", path);
+        }
+        if let Ok(systemroot) = env::var("SystemRoot") {
+            cmd.env("SystemRoot", systemroot);
+        }
+        if let Ok(windir) = env::var("WINDIR") {
+            cmd.env("WINDIR", windir);
+        }
+        if let Ok(comspec) = env::var("COMSPEC") {
+            cmd.env("COMSPEC", comspec);
+        }
+
+        // Set console code page to UTF-8 for better character support
+        cmd.env("PYTHONIOENCODING", "utf-8");
+
+        // For PowerShell, set execution policy and other preferences
+        if command.contains("powershell") || command.contains("pwsh") {
+            cmd.env("PSExecutionPolicyPreference", "RemoteSigned");
         }
     }
 
@@ -661,8 +708,21 @@ pub async fn start_pty_session(
                     consecutive_errors = 0; // Reset error counter on successful read
                     total_bytes_read += n;
                     let data = String::from_utf8_lossy(&buffer[..n]).to_string();
+
+                    // Safely truncate string for logging, respecting UTF-8 character boundaries
+                    let preview = if data.len() <= 50 {
+                        data.as_str()
+                    } else {
+                        // Find the last valid character boundary before position 50
+                        let mut end = 50;
+                        while end > 0 && !data.is_char_boundary(end) {
+                            end -= 1;
+                        }
+                        &data[..end]
+                    };
+
                     println!("[PTY] Session {} received {} bytes (total: {}): {:?}",
-                             session_id_clone, n, total_bytes_read, &data[..data.len().min(50)]);
+                             session_id_clone, n, total_bytes_read, preview);
                     let event_name = format!("pty-session-{}-data", session_id_clone);
                     match app_handle_clone.emit(&event_name, &data) {
                         Ok(_) => println!("[PTY] Event {} emitted successfully", event_name),
@@ -768,6 +828,37 @@ pub async fn get_default_shell() -> Result<String, String> {
 
     #[cfg(windows)]
     {
+        use std::path::Path;
+
+        // Try PowerShell Core first (best PTY support)
+        if let Ok(output) = std::process::Command::new("where")
+            .arg("pwsh.exe")
+            .output()
+        {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout);
+                let path = path.trim();
+                if !path.is_empty() && Path::new(path.lines().next().unwrap_or("")).exists() {
+                    return Ok("pwsh.exe".to_string());
+                }
+            }
+        }
+
+        // Fall back to Windows PowerShell (better than cmd.exe)
+        if let Ok(output) = std::process::Command::new("where")
+            .arg("powershell.exe")
+            .output()
+        {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout);
+                let path = path.trim();
+                if !path.is_empty() && Path::new(path.lines().next().unwrap_or("")).exists() {
+                    return Ok("powershell.exe".to_string());
+                }
+            }
+        }
+
+        // Last resort: cmd.exe
         Ok("cmd.exe".to_string())
     }
 }
