@@ -5,11 +5,15 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+// import remarkMath from 'remark-math';
 import rehypeHighlight from 'rehype-highlight';
+// import rehypeKatex from 'rehype-katex';
 import { cn } from '@/utils';
 import { AIMessage } from '@/types/ai';
 import { User, Bot, Copy, Check } from 'lucide-react';
 import { format } from 'date-fns';
+// import { MermaidRenderer } from './MermaidRenderer';
+// import 'katex/dist/katex.min.css';
 
 interface MessageBubbleProps {
   message: AIMessage;
@@ -80,6 +84,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   code: ({ node, className, children, ...props }: any) => {
                     const match = /language-(\w+)/.exec(className || '');
                     const inline = !match;
+
                     return !inline ? (
                       <div className="relative group">
                         <pre className={cn("rounded p-2 overflow-x-auto text-xs", className)}>
