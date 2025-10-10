@@ -8,6 +8,8 @@ import { useLayoutConfig } from '@/hooks/useResponsive';
 import { useSession, getDefaultSessionConfig, SelectedNode } from '@/contexts/SessionContext';
 import { useAppStore } from '@/stores/AppStore';
 import { ModalType } from '@/stores/MinimizedModalsStore';
+import { AIAssistant } from '@/components/AIAssistant';
+import { AIContext } from '@/types/ai';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -31,7 +33,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const showStatusBar = useAppStore(state => state.showStatusBar);
   const toggleSidebar = useAppStore(state => state.toggleSidebar);
   const toggleInspector = useAppStore(state => state.toggleInspector);
+  const selectedNodeId = useAppStore(state => state.selectedNodeId);
+  const selectedNodeType = useAppStore(state => state.selectedNodeType);
+  const selectedNodeData = useAppStore(state => state.selectedNodeData);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // 构建 AI 上下文
+  const aiContext: AIContext | undefined = selectedNodeId && selectedNodeData ? {
+    sessionId: selectedNodeType === 'session' ? selectedNodeId : undefined,
+    sessionName: selectedNodeData.label,
+    protocol: selectedNodeData.protocol,
+    customData: selectedNodeData
+  } : undefined;
 
   // 响应式处理：在移动端自动折叠侧边栏
   useEffect(() => {
@@ -139,39 +152,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                     <>
                       <PanelResizeHandle className="w-1 bg-border hover:bg-accent transition-colors" />
                       <Panel
-                        defaultSize={25}
-                        minSize={20}
-                        maxSize={35}
+                        defaultSize={30}
+                        minSize={25}
+                        maxSize={40}
                         className="bg-card border-l border-border"
                       >
-                        <div className="h-full p-4">
-                          <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold text-sm">检视器</h3>
-                            <button
-                              onClick={toggleInspector}
-                              className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-                              title="折叠检视器"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                              </svg>
-                            </button>
-                          </div>
-                          <div className="space-y-4">
-                            <div className="p-3 border rounded-lg">
-                              <h4 className="font-medium text-sm mb-2">消息详情</h4>
-                              <p className="text-xs text-muted-foreground">选择消息查看详细信息</p>
-                            </div>
-                            <div className="p-3 border rounded-lg">
-                              <h4 className="font-medium text-sm mb-2">协议绑定</h4>
-                              <p className="text-xs text-muted-foreground">自动检测协议类型</p>
-                            </div>
-                            <div className="p-3 border rounded-lg">
-                              <h4 className="font-medium text-sm mb-2">AI 建议</h4>
-                              <p className="text-xs text-muted-foreground">智能分析和建议</p>
-                            </div>
-                          </div>
-                        </div>
+                        <AIAssistant
+                          context={aiContext}
+                          onClose={toggleInspector}
+                        />
                       </Panel>
                     </>
                   )}

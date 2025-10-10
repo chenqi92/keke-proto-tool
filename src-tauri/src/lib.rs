@@ -13,10 +13,13 @@ mod menu;
 mod shell_executor;
 mod shell_history_db;
 mod shell_history_commands;
+mod ai_assistant_db;
+mod ai_assistant_commands;
 
 use commands::*;
 use shell_executor::*;
 use shell_history_commands::*;
+use ai_assistant_commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -119,7 +122,23 @@ pub fn run() {
             create_shell_session,
             get_all_shell_sessions,
             delete_shell_session,
-            update_shell_session_active
+            update_shell_session_active,
+            // AI assistant commands
+            ai_save_config,
+            ai_get_config,
+            ai_get_all_configs,
+            ai_update_config,
+            ai_delete_config,
+            ai_clear_default_configs,
+            ai_save_conversation,
+            ai_get_conversation,
+            ai_get_all_conversations,
+            ai_update_conversation,
+            ai_delete_conversation,
+            ai_save_message,
+            ai_get_messages_by_conversation,
+            ai_delete_message,
+            ai_delete_messages_by_conversation
         ])
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
@@ -163,6 +182,20 @@ pub fn run() {
             let shell_history_db_state: shell_history_commands::ShellHistoryDbState =
                 std::sync::Arc::new(tokio::sync::Mutex::new(None));
             app.manage(shell_history_db_state);
+
+            // Initialize AI assistant database
+            let app_handle_ai = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                match ai_assistant_db::AIAssistantDb::new(&app_handle_ai).await {
+                    Ok(db) => {
+                        app_handle_ai.manage(db);
+                        log::info!("AI assistant database initialized successfully");
+                    }
+                    Err(e) => {
+                        log::error!("Failed to initialize AI assistant database: {}", e);
+                    }
+                }
+            });
 
             // Initialize parser system with repository
             let app_data_dir = app.path().app_data_dir()
