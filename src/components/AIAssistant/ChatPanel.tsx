@@ -131,7 +131,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
       {/* Input */}
       <div className="border-t p-2">
-        <div className="flex items-end space-x-1.5">
+        <div className="flex items-start space-x-1.5">
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}
@@ -155,7 +155,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             className={cn(
               "p-1.5 rounded transition-colors flex-shrink-0",
               "bg-primary text-primary-foreground",
-              "hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              "hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed",
+              "h-[32px] w-[32px] flex items-center justify-center"
             )}
             title="发送 (Enter)"
           >
