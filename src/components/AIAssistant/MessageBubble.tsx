@@ -5,15 +5,15 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-// import remarkMath from 'remark-math';
+import remarkMath from 'remark-math';
 import rehypeHighlight from 'rehype-highlight';
-// import rehypeKatex from 'rehype-katex';
+import rehypeKatex from 'rehype-katex';
 import { cn } from '@/utils';
 import { AIMessage } from '@/types/ai';
 import { User, Bot, Copy, Check } from 'lucide-react';
 import { format } from 'date-fns';
-// import { MermaidRenderer } from './MermaidRenderer';
-// import 'katex/dist/katex.min.css';
+import { MermaidRenderer } from './MermaidRenderer';
+import 'katex/dist/katex.min.css';
 
 interface MessageBubbleProps {
   message: AIMessage;
@@ -77,13 +77,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {isAssistant ? (
             <div className="prose prose-xs dark:prose-invert max-w-none text-xs">
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeHighlight, rehypeKatex]}
                 components={{
                   // 自定义代码块样式
                   code: ({ node, className, children, ...props }: any) => {
                     const match = /language-(\w+)/.exec(className || '');
+                    const language = match ? match[1] : '';
                     const inline = !match;
+
+                    // 检查是否是 Mermaid 图表
+                    if (language === 'mermaid' && !inline) {
+                      const code = String(children).replace(/\n$/, '');
+                      return <MermaidRenderer chart={code} className="my-2" />;
+                    }
 
                     return !inline ? (
                       <div className="relative group">
