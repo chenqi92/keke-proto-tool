@@ -4,6 +4,7 @@ import ProtocolParserTool from './ProtocolParserTool';
 import DataConverterTool from './DataConverterTool';
 import CRCCalculatorTool from './CRCCalculatorTool';
 import TimestampConverterTool from './TimestampConverterTool';
+import SignatureGeneratorTool from './SignatureGeneratorTool';
 
 // Registry import
 import { toolRegistry } from '@/services/ToolRegistry';
@@ -14,6 +15,7 @@ export const protocolParserTool = new ProtocolParserTool();
 export const dataConverterTool = new DataConverterTool();
 export const crcCalculatorTool = new CRCCalculatorTool();
 export const timestampConverterTool = new TimestampConverterTool();
+export const signatureGeneratorTool = new SignatureGeneratorTool();
 
 // All tools array for easy access
 export const allTools = [
@@ -21,7 +23,8 @@ export const allTools = [
   protocolParserTool,
   dataConverterTool,
   crcCalculatorTool,
-  timestampConverterTool
+  timestampConverterTool,
+  signatureGeneratorTool
 ];
 
 /**
@@ -153,7 +156,8 @@ export {
   ProtocolParserTool,
   DataConverterTool,
   CRCCalculatorTool,
-  TimestampConverterTool
+  TimestampConverterTool,
+  SignatureGeneratorTool
 };
 
 // Export types

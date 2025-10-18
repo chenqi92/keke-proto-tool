@@ -18,7 +18,8 @@ import {
   DataConverterInterface,
   ProtocolParserInterface,
   CRCCalculatorInterface,
-  TimestampConverterInterface
+  TimestampConverterInterface,
+  SignatureGeneratorInterface
 } from './ToolInterfaces';
 
 interface ToolPanelProps {
@@ -191,6 +192,8 @@ export const ToolPanel: React.FC<ToolPanelProps> = ({
         return <CRCCalculatorInterface {...commonProps} />;
       case 'timestamp-converter':
         return <TimestampConverterInterface {...commonProps} />;
+      case 'signature-generator':
+        return <SignatureGeneratorInterface {...commonProps} />;
       default:
         // Fallback generic interface
         return (
